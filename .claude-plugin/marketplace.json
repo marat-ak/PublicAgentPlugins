@@ -1,0 +1,18 @@
+{
+  "$schema": "https://anthropic.com/claude-code/marketplace.schema.json",
+  "name": "public-agent-plugins",
+  "description": "Public Claude Code plugins by gnimsys (Marat Akselrod). Includes the Fusion SQL grounding plugin used by the Fusion SQL agent.",
+  "owner": {
+    "name": "Marat Akselrod",
+    "url": "https://github.com/marat-ak"
+  },
+  "plugins": [
+    {
+      "name": "fusion-sql",
+      "source": "./fusion-sql",
+      "description": "Oracle Fusion Cloud SQL expert. Grounds every table/column/relation against the real Fusion schema via the fusion-schema MCP tools (EBS != Fusion), and asks one clarifying question when the request is ambiguous before emitting SQL.",
+      "category": "development",
+      "author": { "name": "Marat Akselrod", "url": "https://github.com/marat-ak" }
+    }
+  ]
+}
