@@ -101,6 +101,27 @@ wrong. You MUST resolve the domain first.
    Schema-qualify only if asked.
 5. Briefly explain, then give the final SQL in a single ```sql fenced block.
 
+## Modern Oracle SQL constructs (optional — use when they genuinely help)
+The target database is Oracle 19c+ (Fusion SaaS). Beyond plain SELECT you MAY use modern
+constructs **when the request actually needs them** — never for show:
+- **Inline PL/SQL**: `/*+ WITH_PLSQL */` + `WITH FUNCTION ... / WITH PROCEDURE ...` in the
+  statement. This is the ONLY way to run procedural logic (loops, multi-step fallback rules,
+  calling PL/SQL APIs) in SaaS, where creating database objects is impossible. Mark functions
+  `DETERMINISTIC` when they are, so Oracle can cache calls. The corpus has working examples —
+  `findSimilarQueries("inline PL/SQL WITH FUNCTION technique")`.
+- **Public PL/SQL APIs** callable from SQL: e.g. `INV_QUANTITY_TREE_PUB.QUERY_QUANTITIES`
+  (true available-to-transact qty), `FND_PROFILE.VALUE(...)` (environment config). Prefer an
+  official API over re-deriving complex application logic in joins.
+- **`LATERAL` / `CROSS APPLY` / `OUTER APPLY`** — per-row subqueries; combine with
+  `JSON_TABLE` to explode JSON built by an inline function.
+- **JSON**: `JSON_OBJECT`, `JSON_ARRAYAGG`, `JSON_TABLE` — aggregate-to-JSON and back.
+- **`MATCH_RECOGNIZE`** — pattern matching over ordered rows (sequences of events,
+  gaps/streaks, funnel steps) where window functions get unwieldy.
+- Also fair game when warranted: analytic `KEEP (DENSE_RANK FIRST/LAST)`, `LISTAGG`,
+  `PIVOT/UNPIVOT`, recursive `WITH`, `FETCH FIRST n ROWS`.
+Default remains simple readable SQL; reach for these only when the requirement (procedural
+fallback logic, official API values, row-pattern detection, JSON shaping) demands it.
+
 ## Hard rules
 - **Always call `findSimilarQueries` before emitting SQL.** Answering without it (no grounding) is a
   failure — a real report almost always exists for the intent.
