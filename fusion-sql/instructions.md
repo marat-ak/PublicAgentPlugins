@@ -33,24 +33,35 @@ one *this* request means. Guessing from memory produces confident, valid-looking
 domain. Each match carries clean SQL. Proceed: adopt its tables/joins/filters.
 
 **2. `{ambiguous:true, domainBreakdown, guidance, candidates}`** — the closest real reports
-**split across ≥2 near-tied business domains** (e.g. `department` → **HCM** `HR_ALL_ORGANIZATION_UNITS_F`
-/ `PER_*` vs **Financials** `GL_SEG_VAL_HIER_CF` / `XCC_*` / `FND_VS_*`). **No SQL is returned** —
-the `candidates` have titles and tables but no `cleanSql`, on purpose, so you cannot copy a guess.
-You have **zero grounded SQL** in this state. **Emitting SQL from memory here is a hard failure** —
-your EBS-era memory is exactly what the domain split is warning you is wrong. You MUST resolve the
-domain first.
+**split across ≥2 near-tied business domains**. The split can be:
+- **cross-domain**: `department` → **HCM** `HR_ALL_ORGANIZATION_UNITS_F` / `PER_*` vs **Financials**
+  `GL_SEG_VAL_HIER_CF` / `XCC_*` / `FND_VS_*`; `receipt` → SCM receiving vs AR cash receipt;
+  `order` → purchase vs sales vs work order; `payment` → AP disbursement vs Payroll payment.
+- **sub-ledger within Financials** (breakdown shows keys like `Financials/AP` vs `Financials/AR`):
+  `invoice` → AP supplier invoice (`AP_INVOICES_ALL`) vs AR customer invoice (`RA_CUSTOMER_TRX_ALL`);
+  same trap for **credit memo, aging, payment, balance** (GL account vs AP/AR open), **journal**
+  (GL vs subledger XLA).
+
+**No SQL is returned** — the `candidates` have titles and tables but no `cleanSql`, on purpose, so
+you cannot copy a guess. You have **zero grounded SQL** in this state. **Emitting SQL from memory
+here is a hard failure** — your EBS-era memory is exactly what the domain split is warning you is
+wrong. You MUST resolve the domain first.
 
   - **FIRST check: did the USER already name the domain?** `ambiguous:true` only means the *retrieval*
     overlapped — it does NOT override an explicit user cue. If the user's own words pin the domain,
     treat it as resolved: call `findSimilarQueries(intent, {domain:"<that domain>"})` and **do NOT
-    ask.** Cue → domain:
+    ask.** The `domain` param accepts a top level (`"Financials"`, `"HCM"`), a sub-domain (`"AP"`,
+    `"AR"`), or a full key (`"Financials/AP"`). Cue → domain:
     - "chart of accounts", "COA", "segment", "cost-center **segment**", "value set", "account
-      hierarchy/tree", "GL", "budget/budgetary", "ledger" → **Financials**
+      hierarchy/tree", "GL", "budget/budgetary", "ledger" → **Financials** (or **Budgetary** / **GL**)
     - "org unit", "organization unit", "HR department", "worker", "employee", "headcount",
       "assignment", "position", "manager" → **HCM**
+    - "supplier/vendor invoice", "payables", "we owe", "invoices we received" → **AP**;
+      "customer invoice", "receivables", "owed to us", "invoices we issued/billed" → **AR**;
+      "supplier payment/disbursement" → **AP**; "customer receipt/collection" → **AR**
     - similar unambiguous cues → **Procurement / SCM / Payroll / Projects / CRM-Service**
     Only when the request is the **bare term with no domain cue** (e.g. just "by department",
-    "spend by department") is it truly ambiguous — then:
+    "unpaid invoices", "aging report") is it truly ambiguous — then:
 
   - **Same term, two readings, no cue → ASK, emit no SQL this turn.** One short question
     naming the domains from `domainBreakdown`. Do NOT pick the "more likely" one — a confident wrong
