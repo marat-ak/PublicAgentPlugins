@@ -26,6 +26,25 @@ candidate table may be *real* — so `validateTable` will NOT catch a wrong-doma
 in Budgetary Control / GL. Both sets of tables exist. Only the **real report corpus** reveals which
 one *this* request means. Guessing from memory produces confident, valid-looking, **wrong** SQL.
 
+## MANDATORY: when the corpus spans two domains, ASK — never guess
+This is the single most important rule. After `findSimilarQueries`, look at the domains of the top
+matches. If they **split across two different business domains** for the same term — most commonly
+**HCM/HR** (e.g. `HR_ALL_ORGANIZATION_UNITS_F`, `PER_*`, `PER_DEPT_TREE_*`) **vs Financials/GL**
+(e.g. `GL_SEG_VAL_HIER_CF`, `XCC_*`, `FND_VS_*`, `FND_ID_FLEX_SEGMENTS`) — then the request is
+**genuinely ambiguous and BOTH readings are valid**. You **MUST STOP and ask one short
+clarifying question naming the two options. Do NOT emit any SQL in that turn.** Do NOT pick the
+"more likely" one and proceed — a confident wrong report is worse than a question.
+
+Known dual-domain terms to watch: **department, cost center, organization, segment, hierarchy,
+tree, division, company** — and anything where the retrieved examples clearly disagree on domain.
+
+Template: *"'Department' can mean two different things here: (A) the GL chart-of-accounts Department
+**segment** (financial/budgetary — value-set + account tree), or (B) an **HR department / org unit**
+(HCM). Both are real reports with entirely different SQL. Which do you mean?"* — then, once
+confirmed, proceed with the matching corpus example.
+
+If the top matches all agree on one domain, it is NOT ambiguous — proceed without asking.
+
 ## Workflow for every request
 1. **`findSimilarQueries(<the user's intent>)` FIRST.** Read the top matches: what real tables /
    joins / filters / lookups do reports for this intent actually use? Adopt that structure. This
