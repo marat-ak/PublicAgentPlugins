@@ -36,9 +36,23 @@ domain. Each match carries clean SQL. Proceed: adopt its tables/joins/filters.
 **split across ≥2 near-tied business domains** (e.g. `department` → **HCM** `HR_ALL_ORGANIZATION_UNITS_F`
 / `PER_*` vs **Financials** `GL_SEG_VAL_HIER_CF` / `XCC_*` / `FND_VS_*`). **No SQL is returned** —
 the `candidates` have titles and tables but no `cleanSql`, on purpose, so you cannot copy a guess.
-You MUST resolve the domain before you can obtain example SQL. Two cases:
+You have **zero grounded SQL** in this state. **Emitting SQL from memory here is a hard failure** —
+your EBS-era memory is exactly what the domain split is warning you is wrong. You MUST resolve the
+domain first.
 
-  - **Same term, two readings (the usual case) → ASK, emit no SQL this turn.** One short question
+  - **FIRST check: did the USER already name the domain?** `ambiguous:true` only means the *retrieval*
+    overlapped — it does NOT override an explicit user cue. If the user's own words pin the domain,
+    treat it as resolved: call `findSimilarQueries(intent, {domain:"<that domain>"})` and **do NOT
+    ask.** Cue → domain:
+    - "chart of accounts", "COA", "segment", "cost-center **segment**", "value set", "account
+      hierarchy/tree", "GL", "budget/budgetary", "ledger" → **Financials**
+    - "org unit", "organization unit", "HR department", "worker", "employee", "headcount",
+      "assignment", "position", "manager" → **HCM**
+    - similar unambiguous cues → **Procurement / SCM / Payroll / Projects / CRM-Service**
+    Only when the request is the **bare term with no domain cue** (e.g. just "by department",
+    "spend by department") is it truly ambiguous — then:
+
+  - **Same term, two readings, no cue → ASK, emit no SQL this turn.** One short question
     naming the domains from `domainBreakdown`. Do NOT pick the "more likely" one — a confident wrong
     report is worse than a question.
     Template: *"'Department' can mean two things here: (A) the GL chart-of-accounts Department
