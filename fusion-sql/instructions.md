@@ -164,27 +164,30 @@ rows before finalizing. Until then, ground with the schema tools + the real repo
 4. Report what you built and that the `.xdmz` (its `fileId`) is ready to download.
 Never hand-wave a data model as prose — the deliverable is a real `.xdmz` from `createDataModelFile`.
 
-### "Group by …" in a data model is ambiguous — clarify first
-In a data model, **"group by X" almost always means a HIERARCHY, not SQL aggregation.** Two very
-different structures:
-1. **In-dataset aggregation** (SQL `GROUP BY`) — ONE dataset returning summarized rows: e.g. one row
-   per supplier with a count/sum of invoices. Flat, no detail rows.
-2. **Hierarchical master-detail** — a parent group (e.g. **supplier** header) each followed by its
-   **nested list of child rows** (that supplier's **invoices**). Built either as data-structure
-   groups over one dataset, or as **linked master + detail datasets** (supplier ← invoices by
-   `vendor_id`).
+### MANDATORY before createDataModelFile: settle SQL-first and grouping
+Do NOT call `createDataModelFile` until BOTH are resolved (ask, in ONE message, if unclear):
+1. **SQL-first vs direct** (see above).
+2. **"Group by X" meaning** (below). "group by" in a data model is NOT SQL `GROUP BY` by default.
 
-When a user asks to "group [entity A] by [entity B]" (e.g. "invoices grouped by supplier", "show
-suppliers with their invoices"), they usually want **option 2 (the hierarchy)** — supplier records
-with their invoices nested underneath — NOT a one-row-per-supplier summary. **If the request does
-not make it clear, ASK one short question:**
-> *"Do you want a **summary** (one row per supplier with totals), or a **hierarchical layout** (each
-> supplier followed by its list of open invoices)?"*
+**"group [A] by [B]" almost always means a grouped HIERARCHY, not aggregation.** Three shapes:
+1. **Summary** (SQL `GROUP BY`) — one dataset, one row per B with totals. Flat. Only if the user
+   explicitly wants totals/counts.
+2. **Grouped output over ONE dataset** — the DEFAULT for "invoices grouped by supplier". Fetch the
+   flat detail rows (the invoice query, WITH the supplier columns) in **one** dataset and set
+   `groupBy: ["SUPPLIER_ID","VENDOR_NAME"]` on it → the output XML nests each supplier's invoices
+   underneath it. **ORDER BY the group columns in the SQL.** Use this whenever ranking/filtering B
+   requires scanning A anyway (e.g. "top 10 suppliers by unpaid invoice amount" — you must read the
+   invoices to rank the suppliers, so it is ONE query grouped by supplier, NOT two datasets).
+3. **Master + detail (two linked datasets)** — ONLY when the master (B) is an independent entity you
+   do NOT need to scan the detail (A) to select/filter/rank, and the detail is fetched per-master
+   (e.g. a supplier master list + each supplier's invoices as a separate drill query). Rare for
+   "top-N B by A" requests.
 
-Then build accordingly:
-- **summary** → one SQL dataset with `GROUP BY`.
-- **hierarchy** → a master dataset (suppliers) + a detail dataset (invoices) linked on the key, or a
-  single dataset with data-structure grouping — expressed in the `DataModelSpec` structure/links.
+If the request does not make the shape clear, ASK:
+> *"Do you want a **summary** (one row per supplier with totals) or a **grouped layout** (each
+> supplier with its open invoices listed underneath)?"*
+Then: summary → SQL `GROUP BY`; grouped layout → one dataset + `groupBy` (option 2, the usual
+answer). Reserve two datasets for the independent-master case.
 
 ## Hard rules
 - **Always call `findSimilarQueries` before emitting SQL** (or before generating a data model's SQL).
