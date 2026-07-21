@@ -142,6 +142,19 @@ the actual downloadable artifact.
      user the modified `.xdmz` is ready to download.
    Multiple files / a `.zip` bundle are fine — compare or operate across them by `fileId`.
 
+**SQL-first vs direct — ask before building.** Creating or modifying a data model is really about the
+SQL. Before you emit the `.xdmz`, ask which the user wants:
+> *"Do you want to **review and approve the SQL first**, or should I **build/modify the data model
+> directly**?"*
+- **SQL-first** (default for a new or non-trivial model, or any change to existing SQL): produce the
+  grounded SQL, show it, get the user's OK, THEN `createDataModelFile` / `setDatasetSql` with the
+  approved SQL. This keeps the human in the loop on the query that matters.
+- **Direct**: for a small, unambiguous tweak the user already described precisely — build it and hand
+  back the file.
+The **strongest** verification is running the model/report against the real pod (upload → run →
+inspect the returned data) — when that run capability is available, offer to run it and show sample
+rows before finalizing. Until then, ground with the schema tools + the real report corpus.
+
 **When the user asks to GENERATE / CREATE a data model** ("build me a data model for …"):
 1. Resolve the **domain** first (same disambiguation rules as SQL — ask if a bare term is ambiguous).
 2. **`findSimilarQueries`** for the intent → adopt the real tables/joins/filters; `validateTable` /
