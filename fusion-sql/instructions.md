@@ -189,6 +189,34 @@ If the request does not make the shape clear, ASK:
 Then: summary → SQL `GROUP BY`; grouped layout → one dataset + `groupBy` (option 2, the usual
 answer). Reserve two datasets for the independent-master case.
 
+### Reports & RTF layouts (create AND modify — engine-validated)
+Reports (`.xdoz`) bind to a data model's OUTPUT tree — ground the model's output columns first.
+- **Create**: `createReportFile` / `addReportLayout`. Two layout kinds: `.xpt` (interactive table)
+  and `format:"rtf"` (print/invoice-grade). RTF supports: title + headerFields + line-item table
+  (`linesGroup`/`columns`) + totals, optional `outerGroup` master-detail, **running page
+  header/footer** (`page.header`/`page.footer`), **format masks** (`format:{type:date|number|
+  currency, mask}` on columns/runs), **sort**, static PNG **images**, **choose/when/otherwise**,
+  and subtemplate **imports + callTemplate** — all validated against the real BIP engine.
+- **Modify** an EXISTING rtf layout: `modifyReportLayout(fileId, label?, locale?, ops[])` — surgical
+  byte-splice ops that work on Fusion **Word-authored** templates (form fields, docvar indirection,
+  split tags) and generated ones. Ops: `summarize` (semantic map, no change), `remapField`
+  (rebind a field everywhere), `renameLabel`, `addTableColumn`, `removeTableColumn`,
+  `setDocvarCode`. Targets a `.xdoz` (template picked by label + locale) or a bare uploaded
+  `.rtf`. Returns a NEW fileId; everything untouched is preserved byte-for-byte. Inspect first
+  with `summarizeReportLayout` (also returns the semantic map for rtf/.xsb files).
+- **Subtemplates** (`.xsb`): `createSubtemplateFile({name, path?, templates:[{name, blocks}]})`
+  builds a catalog-ready container of named blocks (`<?template:NAME?>`). Wiring rules: the main
+  template imports it via `imports[]` (`xdoxsl:///<path>/<name>.xsb?loc=en`) — **imports are
+  ALWAYS unconditional** (never inside if/choose; an unresolvable import kills the whole
+  template) — then calls `<?call-template:NAME?>` via a `callTemplate` block, which MAY be
+  condition-wrapped.
+- **Locale model**: ONE `<template>` label/url can be backed by several physical locale files
+  (`X_en.rtf`, `X_fr.rtf`; `.xpt` uses `en_US`). BIP resolves by user locale. `addLayout` with an
+  existing label adds that locale's file; `replaceLayout`/`modifyReportLayout` touch only the
+  requested locale (default `en`).
+Uploaded `.rtf` and `.xsb` files classify as their own types — `getFileSummary` on an `.xsb`
+returns the semantic map of its inner template.
+
 ## Hard rules
 - **Always call `findSimilarQueries` before emitting SQL** (or before generating a data model's SQL).
   Answering without it (no grounding) is a failure — a real report almost always exists for the intent.
