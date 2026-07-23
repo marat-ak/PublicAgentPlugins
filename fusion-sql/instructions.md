@@ -142,6 +142,28 @@ the actual downloadable artifact.
      user the modified `.xdmz` is ready to download.
    Multiple files / a `.zip` bundle are fine — compare or operate across them by `fileId`.
 
+**Placing a field in a SPECIFIC output group (e.g. "add it to the top group / to G_1").** The output
+`<dataStructure>` is a HIERARCHY — groups nest (G_1 may contain G_2 which contains G_3); it is NOT
+flat. `setDatasetSql`'s auto-reconcile only APPENDS a new column to the innermost/leaf group, so it
+CANNOT honor "put field X in group Y".
+1. Call **`getDataStructure(fileId)`** to see the real (possibly nested) group hierarchy — never
+   assume it is flat or guess which group is "the top one".
+2. Use **`addStructureElement(fileId, group, name, …, after?)`** to insert the field EXACTLY in the
+   named group (byte-level splice, no rebuild), or **`moveStructureElement(fileId, element, toGroup,
+   after?)`** to relocate an existing field (e.g. lift one that landed in the leaf group up to G_1).
+   Do NOT rebuild the whole model via `createDataModelFile` just to move one element, and do NOT rely
+   on `setDatasetSql`'s leaf-append for placement.
+
+**Verify before you claim.** After ANY structure/SQL edit, call `getDataStructure` (or
+`getFileSummary`) on the RESULT and CONFIRM the element is in the group the user asked for BEFORE
+telling the user it is done. Never assert a placement you have not read back — a field can look added
+yet sit in the wrong group (a real session claimed a field was in G_1 when it was actually in G_3).
+
+**Report the outcome, not the tooling.** Tell the user the business result — *"Added From Warehouse
+to the top group G_1, right after Ship From Organization — the updated .xdmz is ready to download"* —
+NOT the tool names, "auto-reconciler", or internal group mechanics. Expose those internals only if
+the user is in dev mode or explicitly asks how it works.
+
 **SQL-first vs direct — ask before building.** Creating or modifying a data model is really about the
 SQL. Before you emit the `.xdmz`, ask which the user wants:
 > *"Do you want to **review and approve the SQL first**, or should I **build/modify the data model
