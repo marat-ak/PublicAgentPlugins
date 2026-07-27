@@ -78,6 +78,10 @@ When the user asks to build one ("build me a data model for …"):
 3. Build a **`DataModelSpec`** (datasets with the grounded SQL; parameters; output structure; event
    triggers and bursting if the request needs them) and call **`createDataModelFile(spec)`**.
 4. Report what you built and that the `.xdmz` (its `fileId`) is ready to download.
+5. **Then offer to TEST it against the pod** (only when the `fusion-pod` MCP is available): ask *"Want
+   me to test this data model against the pod?"* → on yes, run the datamodel test flow
+   (`prepareDataModelTest` → upload both → `runReport` as XML → show dataset XML). See the
+   **rendering-and-running** skill for the exact steps, parameter prompting, and the mutate-confirm gate.
 Never hand-wave a data model as prose — the deliverable is a real `.xdmz`.
 
 ### MANDATORY before `createDataModelFile`: settle SQL-first AND grouping (ask both in ONE message if unclear)

@@ -53,6 +53,32 @@ Pod caveats: requests are **WAF-throttled** (Akamai) — do not parallelize or b
 gates and backs off for you, but keep calls sequential. A `403 text/html "Access Denied"` is a rate
 ban (wait it out), not a permission error.
 
+## Test a DATA MODEL against the pod (no-layout report → XML)
+A data model (`.xdmz`) has no layout, and the pod has **no run-datamodel op** — so to test one on the
+live pod you upload the model **plus a no-layout report bound to it**, then run that report as **XML**
+and show the returned dataset XML. The `prepareDataModelTest` authoring tool builds that report for you.
+
+**Offer this only when the `fusion-pod` MCP (`uploadCatalogObject` + `runReport`) is available** — it is
+the strongest verification that the model's SQL actually returns data on the real pod.
+
+Flow (after you've authored a data model and offered its download):
+1. **ASK** the user: *"Want me to test this data model against the pod?"* (uploads mutate the real pod).
+2. If yes → **`prepareDataModelTest({ fileId: <the .xdmz> })`** → returns
+   `{ reportFileId, reportName, dataModelPodPath, reportPodPath, params }`. It builds a no-layout
+   report `.xdoz` whose `dataModelUrl` already equals `dataModelPodPath` (both under the shared test
+   folder, env `POD_TEST_FOLDER`, default `/Custom/XXXGNIMSYS/Agent`), so the binding resolves once both
+   are uploaded. Pass `base` to override the folder.
+3. If `params` is non-empty → **ASK the user a value for EACH parameter**, showing its `name` and
+   `defaultValue`. Skip this step when there are no params.
+4. **CONFIRM, then upload BOTH** (this MUTATES the pod) via `uploadCatalogObject`:
+   - the data model `.xdmz` bytes → `dataModelPodPath`
+   - the no-layout report `.xdoz` (`reportFileId`) → `reportPodPath`
+5. **`runReport(reportPodPath, format="xml", parameters)`** — `parameters` as `[{name, values:[…]}]`
+   from the user's answers — and **show the returned dataset XML** (the model's output).
+
+Notes: keep uploads sequential (WAF). Uploads never leave the test folder. v1 is datamodel→XML only —
+no layout/output-format testing, no cleanup (test objects stay in the folder).
+
 ## The author -> render -> show -> (optional) upload + run-verify loop
 The recommended pattern when authoring against a live pod:
 1. **Author / modify** the object with the datamodel-authoring or report-authoring tools (grounded SQL,
