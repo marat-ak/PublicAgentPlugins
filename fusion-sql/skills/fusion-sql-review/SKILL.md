@@ -82,7 +82,28 @@ UNION as the request needs). If you cannot tell whether it is one term or two pa
 - [ ] **Status/date semantics**: is the intended status flag and date type (creation vs transaction vs
       accounting) the one the user meant? (If it was ambiguous, you should already have asked.)
 
-### 4. Output
+### 4. Datatype consistency (prevents ORA-00932 "inconsistent datatypes")
+- [ ] **NEVER do arithmetic on a DATE bind: `:date_param ± n` is banned.** Oracle types `:P + 1` as a
+      NUMBER (a Date bind is not implicitly a DATE inside `bind ± n`), so `trx_date < :P_DATE_HIGH + 1`
+      becomes `DATE < NUMBER` and throws **ORA-00932: expected DATE got NUMBER** at run time. This is the
+      #1 cause of generated-SQL run failures and a static schema-type check MISSES it (it reads
+      `DATE + 1` as DATE). For an inclusive "up to end-of-day" upper bound use one of:
+      - `AND (:P_DATE_HIGH IS NULL OR trx_date < :P_DATE_HIGH + INTERVAL '1' DAY)`  ← preferred
+      - `AND (:P_DATE_HIGH IS NULL OR trx_date < CAST(:P_DATE_HIGH AS DATE) + 1)`   ← explicit cast
+      - `AND (:P_DATE_HIGH IS NULL OR TRUNC(trx_date) <= :P_DATE_HIGH)`             ← column-side
+      Move any `+ n` to the **column** side or wrap the bind in `INTERVAL`/`CAST` — never leave it as
+      bare `:bind + n`.
+- [ ] No mixed types in a single expression: every `DECODE`/`CASE`/`NVL`/`COALESCE` branch returns the
+      SAME base type (don't `NVL(some_date, 0)` — use `NVL(some_date, DATE '0001-01-01')` or restructure);
+      every `UNION`/`UNION ALL` arm has the same type in each column position.
+- [ ] Compare DATE columns to DATE binds/`TO_DATE(...)`, and NUMBER columns to numbers — never a DATE
+      column to a numeric literal.
+
+> The authoring engine also runs a deterministic lint on `createDataModelFile` / `setDatasetSql` and
+> returns `sqlWarnings` for the `:date_param + n` hazard — if you see them, FIX the flagged dataset and
+> re-create before offering to run the model.
+
+### 5. Output
 - [ ] Oracle dialect (`FETCH FIRST n ROWS ONLY`, not `LIMIT`).
 - [ ] SQL in a single ```sql block, with a one-line note on any assumption made.
 
