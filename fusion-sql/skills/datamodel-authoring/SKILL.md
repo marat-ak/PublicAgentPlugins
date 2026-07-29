@@ -77,6 +77,13 @@ When the user asks to build one ("build me a data model for …"):
    `getColumns` / `getRelatedTables` to ground every table, column, and join key.
 3. Build a **`DataModelSpec`** (datasets with the grounded SQL; parameters; output structure; event
    triggers and bursting if the request needs them) and call **`createDataModelFile(spec)`**.
+   - **`defaultDataSource` — classify the DOMAIN into ONE of three pod-level sources.** The JDBC data
+     source is chosen per POD, NOT per subledger: **Financials / Procurement / SCM** (AP, AR, GL,
+     invoices, POs, inventory) → **`ApplicationDB_FSCM`**; **HCM** (workers, payroll, absence,
+     positions) → **`ApplicationDB_HCM`**; **CRM / Sales / Service** → **`ApplicationDB_CRM`**. AP/AR/GL
+     ALL use `ApplicationDB_FSCM` — there is **no** `ApplicationDB_AR`/`ApplicationDB_AP`. Never invent a
+     per-subject name and never use a placeholder or ask the user for it. If you truly can't classify,
+     OMIT it → defaults to `ApplicationDB_FSCM`. (Unknown names are coerced to the pod default anyway.)
 4. Report what you built and that the `.xdmz` (its `fileId`) is ready to download.
 5. **Then offer to TEST it against the pod** (only when the `fusion-pod` MCP is available): ask *"Want
    me to test this data model against the pod?"* → on yes, run the datamodel test flow
