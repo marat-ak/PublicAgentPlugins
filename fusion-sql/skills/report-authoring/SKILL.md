@@ -12,10 +12,20 @@ see it — invoke the **rendering-and-running** skill.
 
 ## Create
 `createReportFile` / `addReportLayout`. Two layout kinds:
-- **`.xpt` (interactive table)** — fully generatable. Binds `/<root>/<group>/<COL>` (e.g.
-  `/DATA_DS/G_1/PLAN_NAME`) to the datamodel output tags; flat `<DataTable>` (reliable) or `grouped`
-  master/detail `<repeatSection>` (best-effort). Because XPT mirrors the model tree, you can generate a
-  model and a matching XPT from one request.
+- **`.xpt` (interactive table / DASHBOARD)** — fully generatable. Binds `/<root>/<group>/<COL>` (e.g.
+  `/DATA_DS/G_1/PLAN_NAME`) to the datamodel output tags. A SINGLE `.xpt` layout is a whole dashboard —
+  it stacks, top→bottom:
+  - **`kpis`** — a row of KPI CARDS (caption over a big value), each `{label, field, group}`. Use for
+    headline single-value metrics (totals/counts). Do **NOT** render headline numbers as a table.
+  - **`charts`** — interactive charts; each may bind its own `group`.
+  - **`tables`** — one or MORE `<DataTable>`s, each `{title?, group, fields[]}` bound to its own output
+    group. This is how several detail sections (e.g. line-level detail AND a live cross-check) sit on
+    ONE page.
+  Legacy `fields` = a single DataTable; `grouped` master/detail `<repeatSection>` is best-effort.
+  **For "a dashboard that shows X, Y, Z" build ONE layout with kpis + charts + tables — do NOT split
+  each section into a separate template/tab** (multiple templates = alternative views the user switches
+  between, not one dashboard). Because XPT mirrors the model tree, you can generate a model and a
+  matching dashboard from one request.
 - **`format:"rtf"` (print / invoice-grade)** — supports title + `headerFields` + line-item table
   (`linesGroup` / `columns`) + totals, optional `outerGroup` master-detail, running page
   **header/footer** (`page.header` / `page.footer`), **format masks** (`format:{type:date|number|
