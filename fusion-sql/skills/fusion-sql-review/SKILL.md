@@ -98,6 +98,16 @@ UNION as the request needs). If you cannot tell whether it is one term or two pa
       every `UNION`/`UNION ALL` arm has the same type in each column position.
 - [ ] Compare DATE columns to DATE binds/`TO_DATE(...)`, and NUMBER columns to numbers — never a DATE
       column to a numeric literal.
+- [ ] **TIMESTAMP subtraction yields an INTERVAL, not a NUMBER.** `ts_end - ts_start` on TIMESTAMP
+      columns (many Fusion audit/scheduler columns like ESS `processstart`/`processend`,
+      `creation_date`, `*_timestamp` are TIMESTAMP) is an `INTERVAL DAY TO SECOND`. Using it in numeric
+      arithmetic/aggregation (`* 1440`, `AVG(...)`, `ROUND(...)`, a numeric `TO_CHAR` mask) throws
+      **ORA-00932: expected NUMBER got INTERVAL DAY TO SECOND**. To get elapsed minutes/seconds as a
+      NUMBER, cast to DATE first or EXTRACT the parts:
+      - `(CAST(ts_end AS DATE) - CAST(ts_start AS DATE)) * 1440`  ← elapsed MINUTES (preferred)
+      - `EXTRACT(DAY FROM d)*1440 + EXTRACT(HOUR FROM d)*60 + EXTRACT(MINUTE FROM d) + EXTRACT(SECOND FROM d)/60`
+      To DISPLAY as HH:MI:SS, keep the interval (don't coerce it to NUMBER) or build it via `NUMTODSINTERVAL`.
+      Never feed a raw `ts_end - ts_start` into number arithmetic or `AVG`/`SUM`.
 
 > The authoring engine also runs a deterministic lint on `createDataModelFile` / `setDatasetSql` and
 > returns `sqlWarnings` for the `:date_param + n` hazard — if you see them, FIX the flagged dataset and
