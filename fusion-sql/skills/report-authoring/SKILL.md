@@ -18,9 +18,13 @@ see it — invoke the **rendering-and-running** skill.
   - **`kpis`** — a row of KPI CARDS (caption over a big value), each `{label, field, group}`. Use for
     headline single-value metrics (totals/counts). Do **NOT** render headline numbers as a table.
   - **`charts`** — interactive charts; each may bind its own `group`.
-  - **`tables`** — one or MORE `<DataTable>`s, each `{title?, group, fields[]}` bound to its own output
-    group. This is how several detail sections (e.g. line-level detail AND a live cross-check) sit on
-    ONE page.
+  - **`tables`** — one or MORE `<DataTable>`s, each `{title?, group, filter?, fields[]}` bound to its own
+    output group. This is how several detail sections (e.g. line-level detail AND a live cross-check) sit
+    on ONE page. **`filter`** is an XPath predicate on the group (e.g. `"DAYS <= 1"`,
+    `"REQUEST_STATE = 'ERROR'"`, `"EXECUTION_TIME >= 30"`) — it filters which rows the table shows, so
+    **ONE dataset/group can feed several tables** (24h / 7d / errors-only / long-running) instead of a
+    separate dataset per view. PREFER this: a lean data model (one broad detail query) + filtered tables
+    beats many near-duplicate datasets scanning the same table.
   Legacy `fields` = a single DataTable; `grouped` master/detail `<repeatSection>` is best-effort.
   **For "a dashboard that shows X, Y, Z" build ONE layout with kpis + charts + tables — do NOT split
   each section into a separate template/tab** (multiple templates = alternative views the user switches
