@@ -17,19 +17,38 @@ see it — invoke the **rendering-and-running** skill.
   it stacks, top→bottom:
   - **`kpis`** — a row of KPI CARDS (caption over a big value), each `{label, field, group}`. Use for
     headline single-value metrics (totals/counts). Do **NOT** render headline numbers as a table.
-  - **`charts`** — interactive charts; each may bind its own `group`.
-  - **`tables`** — one or MORE `<DataTable>`s, each `{title?, group, filter?, fields[]}` bound to its own
-    output group. This is how several detail sections (e.g. line-level detail AND a live cross-check) sit
-    on ONE page. **`filter`** is an XPath predicate on the group (e.g. `"DAYS <= 1"`,
-    `"REQUEST_STATE = 'ERROR'"`, `"EXECUTION_TIME >= 30"`) — it filters which rows the table shows, so
-    **ONE dataset/group can feed several tables** (24h / 7d / errors-only / long-running) instead of a
-    separate dataset per view. PREFER this: a lean data model (one broad detail query) + filtered tables
-    beats many near-duplicate datasets scanning the same table.
+  - **`charts`** — interactive charts; each may bind its own `group`. **Each chart binds EXACTLY ONE
+    measure** (`measures:[one]`). Multi-series comes from a series DIMENSION FIELD (`seriesField` →
+    ColLabels), NOT extra measure columns — e.g. a stacked bar of runs-per-day-by-status is
+    `dimensionField:"PROCESS_START_DAY", seriesField:"REQUEST_STATE", measures:[{name:"REQUESTID",
+    agg:"count"}]`. Putting 2+ measures on an `.xpt` chart renders when it's alone but FAULTS
+    ("XMLElement.getChildNodes() param is null") the moment a second chart shares the page — the builder
+    now rejects it. (Wide pre-aggregated columns like NUMBER_OF_SUCCEEDED / _ERROR are the wrong shape for
+    an interactive chart; feed it long/detail rows + count instead.)
+  - **`tables`** — one or MORE `<DataTable>`s, each `{title?, group, filter?/filters?, fields[]}` bound to
+    its own output group. This is how several detail sections (24h detail AND a 7-day view) sit on ONE
+    page from ONE group. **FILTER MECHANISM — for `.xpt`, use `filters` (the real BIP filter), NOT the
+    XPath `filter` predicate.** An XPath predicate baked into a `DataTableField` (`/G[DAYS<=1]/COL`) yields
+    **0 rows** in the interactive DataTable (the processor can't derive the repeating context). Instead give
+    `filters:[{field:"DAYS", operator:"less_or_equal", value:1}]` → emits a `<filters><filter
+    operator><values>` block (exactly what Oracle's own ESS dashboard uses). Operators: `equal`,
+    `not_equal`, `greater`, `less`, `greater_or_equal`, `less_or_equal`, `top_n`, `is_null`, `not_null`.
+    So **ONE dataset/group feeds several tables** (24h / 7d / errors-only) — a lean model + filtered tables
+    beats many near-duplicate datasets. (The `filter` XPath predicate still works for RTF `for-each` and for
+    `.xpt` CHART aggregation, but for an `.xpt` DataTable/Crosstab you MUST use `filters`.)
+  - **`grid` (side-by-side)** — the `LayoutGrid`: `{columns:[w1,w2,…], rows:[{cells:[{…}]}]}` places a
+    chart and a repeating detail table (or chart|chart, chart|crosstab) BESIDE each other in one row —
+    the real "monitoring dashboard" look. **`columns` are in PIXELS** (NOT twips — that's the RTF grid);
+    sum ≈ page width − margins (~1554 for a 1650px page). A monitoring dashboard is typically
+    `columns:[560, 1044]`, `pageWidth: 1650`. Values like `[4200, 7800]` are twips and push cells
+    OFF-PAGE → blank render. A `header:{title, bgColor, logo, banner}` becomes the top full-width band;
+    logo/banner are placeholders unless the user gives images. Each cell holds ONE of
+    text|chart|table|crosstab|image|kpis, with optional `colspan`/`rowspan`/`bg`/`valign`.
   Legacy `fields` = a single DataTable; `grouped` master/detail `<repeatSection>` is best-effort.
-  **For "a dashboard that shows X, Y, Z" build ONE layout with kpis + charts + tables — do NOT split
-  each section into a separate template/tab** (multiple templates = alternative views the user switches
-  between, not one dashboard). Because XPT mirrors the model tree, you can generate a model and a
-  matching dashboard from one request.
+  **For "a dashboard that shows X, Y, Z" build ONE layout (grid for side-by-side, or kpis+charts+tables
+  stacked) — do NOT split each section into a separate template/tab** (multiple templates = alternative
+  views the user switches between, not one dashboard). Because XPT mirrors the model tree, you can
+  generate a model and a matching dashboard from one request.
 - **`format:"rtf"` (print / PDF / DASHBOARD)** — the FIXED-layout path. Title + `headerFields` + line-item
   table (`linesGroup` / `columns`) + totals, optional `outerGroup` master-detail, running page
   **header/footer** (`page.header` / `page.footer`), **format masks** (`format:{type:date|number|
@@ -72,24 +91,27 @@ Titles: use ASCII (an em-dash/curly quote can render as `?`).
 Both bind to the SAME data-model output tree (`/<root>/<group>/<field>`), so a dashboard can be built in
 EITHER. The choice is the delivery channel, not the data.
 
-- **`.xpt` — interactive ONLINE.** Strengths: live drill / click-to-filter / sort in the BIP viewer;
-  `LayoutGrid` grid, `Crosstab` pivots, live charts, group XPath filters. Weakness: designed for the
-  online viewer — **exporting to PDF/print LINEARIZES it** (panels stack, tables paginate poorly; even
-  Oracle's own `.xpt` degrades in PDF). Use for a dashboard the user OPENS and clicks around online.
-- **RTF — fixed PRINT / PDF / Word.** Strengths: pixel-precise fixed layout, real vector charts, clean
-  paginated tables, page headers/footers, format masks, sub-templates, bursting; renders reliably (local
-  bip-render + pod); side-by-side via the `grid` block. Weakness: static (no online interactivity; charts
-  are images). Use for anything PRINTED, EMAILED, SCHEDULED, or delivered as a PDF/Word doc — including
-  "a PDF of the dashboard".
+- **`.xpt` — interactive grid, ALSO a good PDF.** Strengths: `LayoutGrid` puts a chart and a REPEATING
+  detail table SIDE-BY-SIDE in one row; `Crosstab` pivots; live charts; `filters`. Online it drills /
+  click-filters / sorts. **It also exports to a clean PDF** — teal header, donut | full bordered detail
+  table, bar | top-20, both charts embedded as PNGs — PROVIDED charts are 1-measure (above) and tables
+  fit their cell (the builder distributes column widths; a table that overflows its cell collapses to
+  headers-only). A long detail table simply paginates (normal). Earlier "PDF linearizes" lore was wrong —
+  it was caused by a faulting multi-measure chart + column overflow, both now handled.
+- **RTF — fixed PRINT / PDF / Word.** Strengths: pixel-precise fixed layout, real vector charts, page
+  headers/footers, format masks, sub-templates, bursting. Weakness that decides format choice: **RTF has
+  NO in-cell repeating table** — a `grid` cell can hold a chart/text/image and only a COMPACT non-repeating
+  panel, and a nested `<?for-each?>` table inside a cell is BROKEN in BIP (collapses to one garbage row).
+  So RTF cannot do "chart on the left, repeating detail table on the right" in one row — that pattern is
+  `.xpt` only. RTF does side-by-side chart|chart or chart|KPIs, plus full-width stacked tables.
 
 **Decision rule:**
-1. Viewed live online with drill/filter → **`.xpt`**.
-2. Printed / emailed / downloadable PDF or Word / scheduled / bursted → **RTF** (much better-looking PDF).
-3. "Dashboard" alone is ambiguous. If the channel isn't stated, ASK: *"Will this be viewed live online
-   (interactive), or printed/emailed as a PDF? — online → interactive `.xpt`; PDF/print → fixed RTF."*
-4. **Suggest proactively:** user says "dashboard" + mentions PDF/email/schedule → propose RTF ("for a
-   clean PDF I'll build it as a fixed print layout"); user wants a PDF but wants to click/drill → tell
-   them that needs the interactive online format.
+1. Dashboard with side-by-side chart + repeating detail table (the common "monitoring dashboard" look),
+   viewed online OR as a PDF → **`.xpt`** (it does both; RTF physically can't do that layout).
+2. Print/Word document, invoice/statement, bursting, page header/footer, or side-by-side that is only
+   chart|chart / chart|KPIs → **RTF**.
+3. If unsure which layout the user pictures, ASK what it should look like (one row chart+table? stacked
+   sections?) rather than assuming — the answer picks the format.
 
 **Converting between them:** same field bindings, different components — `.xpt` `DataTable`↔RTF `table`,
 `.xpt` `Chart`↔RTF `chart` block, `.xpt` `Crosstab`↔RTF grouped table, `.xpt` grid cells↔RTF `grid` cells.
