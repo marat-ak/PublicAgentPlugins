@@ -48,6 +48,26 @@ createReportFile({ name:"Supplier Invoices", dataModelUrl:"…", layout:{ format
 addReportLayout(fileId, { label:"Invoice", format:"rtf", … })   // add another template/locale
 ```
 
+## Building a dashboard from a natural-language brief, then ITERATING on corrections
+The user describes what they want to SEE in plain language; you build a first draft (it's fine if the
+style/colors differ from what they pictured), then they CORRECT it and you re-apply. Map their words to
+these controls (RTF `grid` + `table`; the same ideas exist on the `.xpt` grid):
+
+- **"two columns / a grid / side-by-side"** → an RTF `grid` block: `columns:[w1,w2] (twips, sum ≈ printable
+  width)`, `rows:[{cells:[…]}]`. **"row 1: chart X on the left, table Y on the right; row 2: … left … right"**
+  → one `rows[]` entry per row, two `cells` each, left cell first. A cell hosts a `chart`, a `table` (compact
+  panel in-cell), text, or an image.
+- **"show borders / gridlines"** → `border:true` on the `table` (and/or on a grid `cell`).
+- **"shade/background the header row"** → `headerBg:"#cfe0f1"` on the table. **"give the header a dark bar"**
+  → a dark `headerBg` (white header text follows). **"background/mark the <X> column"** → that column's
+  `bg:"#eef3fb"` (body) and/or `headerBg`. **"shade this panel/cell"** → grid cell `bg:"#f4f8fd"`.
+- **"landscape / wider"** → `page.widthTwips > heightTwips` (e.g. 15840×12240).
+- **"bigger/bold title", fonts, colors** → paragraph `style:{size,bold,align,font}`; column widths via
+  `width` (twips); chart `colors:[…]`, `size`.
+Keep everything else the user didn't mention unchanged. Re-run `createReportFile`/`addReportLayout` (XPT is
+regenerate-only; RTF you can also `modifyReportLayout`). Offer to render so they can see the correction.
+Titles: use ASCII (an em-dash/curly quote can render as `?`).
+
 ## Choosing the format: `.xpt` vs RTF (decide by DELIVERY channel, then offer)
 Both bind to the SAME data-model output tree (`/<root>/<group>/<field>`), so a dashboard can be built in
 EITHER. The choice is the delivery channel, not the data.
