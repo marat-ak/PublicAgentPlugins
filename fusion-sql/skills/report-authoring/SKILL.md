@@ -30,11 +30,16 @@ see it — invoke the **rendering-and-running** skill.
   each section into a separate template/tab** (multiple templates = alternative views the user switches
   between, not one dashboard). Because XPT mirrors the model tree, you can generate a model and a
   matching dashboard from one request.
-- **`format:"rtf"` (print / invoice-grade)** — supports title + `headerFields` + line-item table
-  (`linesGroup` / `columns`) + totals, optional `outerGroup` master-detail, running page
+- **`format:"rtf"` (print / PDF / DASHBOARD)** — the FIXED-layout path. Title + `headerFields` + line-item
+  table (`linesGroup` / `columns`) + totals, optional `outerGroup` master-detail, running page
   **header/footer** (`page.header` / `page.footer`), **format masks** (`format:{type:date|number|
-  currency, mask}` on columns/runs), **sort**, static PNG **images**, **choose/when/otherwise**, and
-  subtemplate **imports + callTemplate**.
+  currency, mask}`), **sort**, static PNG **images**, **choose/when/otherwise**, subtemplate
+  **imports + callTemplate**, and (in `blocks[]`) `chart` blocks. **RTF DASHBOARDS** use the **`grid`**
+  block — a borderless table that places components SIDE-BY-SIDE: `{kind:"grid", columns:[w1,w2] (twips),
+  rows:[{cells:[{align?, colspan?, blocks:[…]}]}]}`. Each cell hosts child blocks — a `chart` (real vector
+  graphic), a `table` (rendered as a compact header+rows panel that fits a cell), `heading`/`paragraph`
+  text, or an `image`. This is how you get the dense 2-column dashboard (chart | chart, chart | table) in
+  a clean one-page PDF. Set a wide page (`page.widthTwips > heightTwips`, e.g. 15840×12240) for landscape.
 
 Example:
 ```
@@ -42,6 +47,34 @@ createReportFile({ name:"Supplier Invoices", dataModelUrl:"…", layout:{ format
   title:"Open Invoices", linesGroup:"/DATA_DS/G_1", columns:[…], page:{ header:…, footer:… } } })
 addReportLayout(fileId, { label:"Invoice", format:"rtf", … })   // add another template/locale
 ```
+
+## Choosing the format: `.xpt` vs RTF (decide by DELIVERY channel, then offer)
+Both bind to the SAME data-model output tree (`/<root>/<group>/<field>`), so a dashboard can be built in
+EITHER. The choice is the delivery channel, not the data.
+
+- **`.xpt` — interactive ONLINE.** Strengths: live drill / click-to-filter / sort in the BIP viewer;
+  `LayoutGrid` grid, `Crosstab` pivots, live charts, group XPath filters. Weakness: designed for the
+  online viewer — **exporting to PDF/print LINEARIZES it** (panels stack, tables paginate poorly; even
+  Oracle's own `.xpt` degrades in PDF). Use for a dashboard the user OPENS and clicks around online.
+- **RTF — fixed PRINT / PDF / Word.** Strengths: pixel-precise fixed layout, real vector charts, clean
+  paginated tables, page headers/footers, format masks, sub-templates, bursting; renders reliably (local
+  bip-render + pod); side-by-side via the `grid` block. Weakness: static (no online interactivity; charts
+  are images). Use for anything PRINTED, EMAILED, SCHEDULED, or delivered as a PDF/Word doc — including
+  "a PDF of the dashboard".
+
+**Decision rule:**
+1. Viewed live online with drill/filter → **`.xpt`**.
+2. Printed / emailed / downloadable PDF or Word / scheduled / bursted → **RTF** (much better-looking PDF).
+3. "Dashboard" alone is ambiguous. If the channel isn't stated, ASK: *"Will this be viewed live online
+   (interactive), or printed/emailed as a PDF? — online → interactive `.xpt`; PDF/print → fixed RTF."*
+4. **Suggest proactively:** user says "dashboard" + mentions PDF/email/schedule → propose RTF ("for a
+   clean PDF I'll build it as a fixed print layout"); user wants a PDF but wants to click/drill → tell
+   them that needs the interactive online format.
+
+**Converting between them:** same field bindings, different components — `.xpt` `DataTable`↔RTF `table`,
+`.xpt` `Chart`↔RTF `chart` block, `.xpt` `Crosstab`↔RTF grouped table, `.xpt` grid cells↔RTF `grid` cells.
+Rebuild the layout in the target format from the same output-field list (the data model is unchanged).
+Offer conversion when the channel changes ("you want to email this now → I'll convert it to a print RTF").
 
 ## Modify an existing layout
 - **RTF — surgical.** `modifyReportLayout(fileId, label?, locale?, ops[])` byte-splices Fusion
