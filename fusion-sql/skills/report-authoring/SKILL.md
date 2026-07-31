@@ -67,6 +67,14 @@ createReportFile({ name:"Supplier Invoices", dataModelUrl:"…", layout:{ format
 addReportLayout(fileId, { label:"Invoice", format:"rtf", … })   // add another template/locale
 ```
 
+## Clarify the layout first
+When a requested dashboard has MORE THAN ONE plausible block arrangement (which sections, how many,
+side-by-side vs stacked, what goes top vs bottom), ASK the user which blocks and where BEFORE building
+— a wrong first guess costs a full rebuild-and-recheck round trip, while the question costs one turn.
+This applies whether you're building from scratch or from a template — if a ready-made layout fits the
+request, check the **using-templates** skill first (`listTemplates`); its slot model turns most of this
+same clarification into naming a handful of slots instead of designing a grid from nothing.
+
 ## Building a dashboard from a natural-language brief, then ITERATING on corrections
 The user describes what they want to SEE in plain language; you build a first draft (it's fine if the
 style/colors differ from what they pictured), then they CORRECT it and you re-apply. Map their words to
