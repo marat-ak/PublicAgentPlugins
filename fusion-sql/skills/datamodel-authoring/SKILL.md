@@ -50,6 +50,12 @@ editStructure(fileId, { action:"addGroupLink", parent:"G_HEADER", child:"G_LINES
 getDataModel(newFileId, "parameters")         // read back — confirm it landed
 ```
 
+**Every edit returns a NEW fileId — ALWAYS chain the next edit on the fileId the PREVIOUS edit
+returned.** Re-using an older id forks the lineage (your later edits silently miss the earlier ones).
+If a reply carries `staleWarning`/`latestFileId`, you targeted an old version — switch to
+`latestFileId`. When the chain is done, share ONE download link — the FINAL file's — and state its
+fileId as the final version; never post links for intermediate files.
+
 ## Placing a field in a SPECIFIC output group
 The output `<dataStructure>` is a **hierarchy** — groups nest (G_1 may contain G_2 which contains G_3);
 it is NOT flat. `setDatasetSql`'s auto-reconcile only APPENDS a new column to the **innermost/leaf**
@@ -77,6 +83,10 @@ When the user asks to build one ("build me a data model for …"):
    `getColumns` / `getRelatedTables` to ground every table, column, and join key.
 3. Build a **`DataModelSpec`** (datasets with the grounded SQL; parameters; output structure; event
    triggers and bursting if the request needs them) and call **`createDataModelFile(spec)`**.
+   - **LOVs at CREATE time:** declare dropdowns directly in the spec — `spec.valueSets:[{id, sql | 
+     values}]` plus `parameter.valueSet: "<id>"` on the parameter that uses it (and `parameter.format`
+     for date masks). Do NOT create the model bare and then chain editValueSets/editParameters — the
+     create-time path is one file, no edit chain.
    - **`defaultDataSource` — classify the DOMAIN into ONE of three pod-level sources.** The JDBC data
      source is chosen per POD, NOT per subledger: **Financials / Procurement / SCM** (AP, AR, GL,
      invoices, POs, inventory) → **`ApplicationDB_FSCM`**; **HCM** (workers, payroll, absence,

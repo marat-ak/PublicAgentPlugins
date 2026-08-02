@@ -164,3 +164,7 @@ file; `replaceLayout` / `modifyReportLayout` touch only the requested locale (de
 
 Report the business outcome, not the tooling, and verify (`summarizeReportLayout` on the result) before
 claiming a change landed. To let the user actually see the output, hand off to **rendering-and-running**.
+
+Every create/edit returns a NEW fileId — chain further edits on the fileId the previous call RETURNED
+(heed `staleWarning`/`latestFileId` in replies), and when the work is done share ONE download link:
+the FINAL file's. Never post links for intermediate versions — state the final fileId explicitly.

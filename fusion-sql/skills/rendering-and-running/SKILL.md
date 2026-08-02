@@ -36,7 +36,7 @@ renderTemplate({ fileId:"<the .xdoz>", label:"Invoice", format:"pdf",
 
 ## 2. The live Fusion pod — `fusion-pod` MCP (SOAP: download / browse / run / upload)
 These talk to a **real Oracle Fusion pod** over BI Publisher SOAP. Use them to inspect real catalog
-objects and to verify an authored object actually runs there. Payloads are inline base64.
+objects and to verify an authored object actually runs there.
 
 - **`listCatalogFolder(path)`** — browse a catalog folder → `{count, items}`. Safe (read-only).
 - **`downloadCatalogObject(path)`** — fetch a REAL report/data-model (`.xdoz`/`.xdmz`) from the live
@@ -45,9 +45,13 @@ objects and to verify an authored object actually runs there. Payloads are inlin
   (`format?`: pdf default / html / xml / csv / excel; `parameters?`: `[{name, values[]}]`). Non-mutating
   and the **STRONGEST verification** — it proves the object renders with real data. Show sample rows /
   the rendered PDF before finalizing.
-- **`uploadCatalogObject(path, base64, type?)`** — create/replace a catalog object. **This MUTATES the
-  live pod.** CONFIRM the exact path + payload with the user before calling it. Never upload on your own
-  initiative.
+- **`uploadCatalogObject(path, fileId? | base64?, type?)`** — create/replace a catalog object. **This
+  MUTATES the live pod.** CONFIRM the exact path + payload with the user before calling it. Never upload
+  on your own initiative. **For a session-authored artifact (anything with a fileId from
+  createDataModelFile / createReportFile / edit* / updateReportFile) pass its `fileId`** — the bytes are
+  fetched server-side from the file store. `base64` is ONLY for bytes you actually hold. **NEVER put a
+  fileId into the `base64` field** — the pod would receive garbage and fail with "Invalid object
+  definition".
 
 Pod caveats: requests are **WAF-throttled** (Akamai) — do not parallelize or burst; the client rate-
 gates and backs off for you, but keep calls sequential. A `403 text/html "Access Denied"` is a rate
@@ -70,14 +74,25 @@ Flow (after you've authored a data model and offered its download):
    are uploaded. Pass `base` to override the folder.
 3. If `params` is non-empty → **ASK the user a value for EACH parameter**, showing its `name` and
    `defaultValue`. Skip this step when there are no params.
-4. **CONFIRM, then upload BOTH** (this MUTATES the pod) via `uploadCatalogObject`:
-   - the data model `.xdmz` bytes → `dataModelPodPath`
-   - the no-layout report `.xdoz` (`reportFileId`) → `reportPodPath`
+4. **CONFIRM, then upload BOTH** (this MUTATES the pod) via `uploadCatalogObject` — by FILE ID:
+   - `uploadCatalogObject({ path: dataModelPodPath, fileId: <the .xdmz's fileId>, type: "xdmz" })`
+   - `uploadCatalogObject({ path: reportPodPath, fileId: reportFileId, type: "xdoz" })`
 5. **`runReport(reportPodPath, format="xml", parameters)`** — `parameters` as `[{name, values:[…]}]`
    from the user's answers — and **show the returned dataset XML** (the model's output).
 
 Notes: keep uploads sequential (WAF). Uploads never leave the test folder. v1 is datamodel→XML only —
 no layout/output-format testing, no cleanup (test objects stay in the folder).
+
+## Blocked ≠ improvise
+If a blocker prevents the output the user actually asked for (e.g. live-data render impossible):
+**STOP, report the blocker plainly, and ASK before any workaround.** Specifically:
+- Do NOT render with made-up sample data unless the user opts in — and if they do, put it in the file
+  name (`…SAMPLE-DATA.pdf`) as well as the message.
+- Do NOT modify the artifact as a workaround (e.g. adding an RTF print layout to render something)
+  without asking first — that changes the deliverable.
+- `.xpt` (interactive) layouts render ONLY via the pod (`uploadCatalogObject` + `runReport`) — the
+  local `renderTemplate` engine is RTF-only. If the user wants to SEE an `.xpt` dashboard, the pod
+  path is the only path; say so rather than silently substituting an RTF approximation.
 
 ## The author -> render -> show -> (optional) upload + run-verify loop
 The recommended pattern when authoring against a live pod:
