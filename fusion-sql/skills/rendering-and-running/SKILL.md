@@ -48,10 +48,10 @@ objects and to verify an authored object actually runs there.
 - **`uploadCatalogObject(path, fileId? | base64?, type?)`** — create/replace a catalog object. **This
   MUTATES the live pod.** CONFIRM the exact path + payload with the user before calling it. Never upload
   on your own initiative. **For a session-authored artifact (anything with a fileId from
-  createDataModelFile / createReportFile / edit* / updateReportFile) pass its `fileId`** — the bytes are
-  fetched server-side from the file store. `base64` is ONLY for bytes you actually hold. **NEVER put a
-  fileId into the `base64` field** — the pod would receive garbage and fail with "Invalid object
-  definition".
+  createDataModelFile / createReportFile / edit* / updateReportFile) pass its `fileId`** — the file's
+  content is attached automatically on OUR side (the file-bridge wrapper), so this works no matter
+  where the pod MCP runs. `base64` is ONLY for bytes you actually hold. **NEVER put a fileId into the
+  `base64` field** — that ships garbage and fails with "Invalid object definition".
 
 Pod caveats: requests are **WAF-throttled** (Akamai) — do not parallelize or burst; the client rate-
 gates and backs off for you, but keep calls sequential. A `403 text/html "Access Denied"` is a rate
