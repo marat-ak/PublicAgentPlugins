@@ -96,6 +96,9 @@ When the user asks to build one ("build me a data model for …"):
    `getCustomObjects`/`getFlexfields` with the user's own words (the search de-camelizes API names:
    "ticket contact" finds TicketContact_c). **Found nothing → askUser** which object/field they
    mean or its API name — never assume it's a standard column and never invent a custom one.
+   **Found SEVERAL candidates → askUser with the candidate API names as options** (e.g.
+   TicketContact_c vs TicketToContact_c vs Ticket_c) — only a single unambiguous hit proceeds
+   without confirmation.
 3. Build a **`DataModelSpec`** (datasets with the grounded SQL; parameters; output structure; event
    triggers and bursting if the request needs them) and call **`createDataModelFile(spec)`**.
    - **LOVs at CREATE time:** declare dropdowns directly in the spec — `spec.valueSets:[{id, sql | 
