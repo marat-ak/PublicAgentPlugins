@@ -87,6 +87,32 @@ forEach** = each customer starts a fresh page (emits `<?split-by-page-break:?>`)
 knob; there is no `pageBreakAfter`. Never reach "up" with `../` from a flat group — restructure the data
 model instead (datamodel-authoring: nested groups).
 
+## Charts in RTF — engine-proven shape (works locally AND on the pod)
+RTF charts render fine (BI Beans vector graphics) when the block uses EXACTLY this shape — the keys
+are NOT the `.xpt` chart vocabulary:
+
+```json
+{ "kind":"chart", "graphType":"PIE",                        // PIE | BAR_VERT_CLUST | BAR_HORIZ_CLUST | BAR_VERT_STACK | LINE_VERT_ABS
+  "title":"Unpaid by Customer",
+  "group": { "select":"/DATA_DS/G_CUSTOMER", "by":"CUSTOMER_NAME" },   // select = repeating group XPath, by = category/slice field
+  "measures":[ { "label":"Unpaid", "field":"TOTAL_UNPAID_AMOUNT", "agg":"sum" } ],  // agg: sum|count|avg (default sum)
+  "dataLabels":true, "size":{ "widthPx":500, "heightPx":375 } }
+```
+- **NOT** `type`/`dimensionField`/string `group`/`measures[].name`/`agg:"summation"` — that's `.xpt`
+  chart vocabulary (the builder auto-translates the obvious cases and REJECTS the rest with a fix
+  message; read the error, don't conclude "RTF can't do charts").
+- **Top-level block only.** A chart inside a `forEach` is re-emitted EVERY iteration (N copies down
+  the page). "Chart on the first page" = chart block before the forEach blocks.
+- `binding:"raw"` = one bar per ROW (no grouping); default grouped mode aggregates per `by` value.
+- **The one silent failure:** a `select` matching 0 nodes in the data XML renders a normal-looking
+  chart frame containing the literal text "No data to display" — HTTP 200, NO warning, and a page
+  with other content defeats the empty-page heuristic. So (1) check `group.select` against the real
+  data XML tree BEFORE rendering, (2) after rendering LOOK at the chart AREA in the Read pages, not
+  just "the page has content".
+- **Text probes cannot see charts**: the chart lives in a shape's alt-text (`wzDescription`), NOT in
+  `<?…?>` tags — `summarizeReportLayout` tagCount 0 / extractText showing no chart markup on a
+  chart-only template is NORMAL, not evidence the chart is missing. Only a visual Read proves it.
+
 ## Clarify the layout first
 When a requested dashboard has MORE THAN ONE plausible block arrangement (which sections, how many,
 side-by-side vs stacked, what goes top vs bottom), ASK the user which blocks and where BEFORE building
