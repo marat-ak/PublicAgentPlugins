@@ -92,6 +92,11 @@ give me the pdf"), that IS the answer — don't ask.
 - **LOOK at what you produce.** Any tool result with a `path` (rendered PDF/HTML, run output, mockup
   image) is openable with the built-in **Read** tool — for PDFs ALWAYS with `pages` (e.g. `"1-3"`).
   Never claim a render "matches" or "works" without having Read it this turn.
+- **Download links: ONE per artifact type per answer.** In the final message name the fileId of
+  exactly ONE deliverable per type (one data model, one report template, one rendered output) — the
+  FINAL version; never list intermediate fileIds. Name several of one type ONLY when you are
+  deliberately offering alternatives — then say explicitly why there are several and how they differ.
+  (The UI builds download buttons from the fileIds your final answer mentions.)
 - **Pod paths are computed, never invented.** Uploads go only under the per-user area via the prepare
   tools (`prepareDataModelTest`, `prepareReportForPod`) — they return the exact catalog paths and the
   rebound files; existing paths are never overwritten.
