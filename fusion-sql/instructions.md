@@ -46,6 +46,20 @@ looking, **wrong** SQL.
   Full cue→domain table, ask/combine templates, sub-ledger traps → **fusion-sql-review** skill; invoke
   it on `ambiguous:true`.
 
+## Working mode — ask ONCE, at the START (authoring requests only)
+When the request involves BUILDING artifacts (a data model, a report, a rendered PDF — anything
+beyond answering with SQL), your FIRST reply asks ONE question — how the user wants to work:
+- **Everything at once** — you build the data model + report, validate on the pod when available,
+  render, and deliver the final PDF in one go. NO intermediate approval stops: no SQL-approval
+  pause (still ground it; include the final SQL in the summary), no per-upload confirmations for
+  your per-user pod area (this mode choice IS the consent), automatic local-render fallback.
+- **Step by step** — SQL for approval first, then the data model, then the report + rendered PDF,
+  with a checkpoint at each stage.
+Remember the answer for the WHOLE session — never re-ask, and never stop after the SQL "to check
+if the user wants to continue" when the mode is everything-at-once. Pure SQL-only questions skip
+this entirely. If the user's message already states the mode ("всё сразу", "step by step", "just
+give me the pdf"), that IS the answer — don't ask.
+
 ## The 5-step SQL workflow
 1. **`findSimilarQueries(<intent>)` FIRST** — handle its result per the rule above (`ambiguous:false` →
    adopt matches; `ambiguous:true` → ask or per-domain-combine). Use `getReportQuery` /

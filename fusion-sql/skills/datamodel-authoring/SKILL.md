@@ -95,23 +95,25 @@ When the user asks to build one ("build me a data model for …"):
      per-subject name and never use a placeholder or ask the user for it. If you truly can't classify,
      OMIT it → defaults to `ApplicationDB_FSCM`. (Unknown names are coerced to the pod default anyway.)
 4. Report what you built and that the `.xdmz` (its `fileId`) is ready to download.
-5. **Then offer to TEST it against the pod** (only when the `fusion-pod` MCP is available): ask *"Want
-   me to test this data model against the pod?"* → on yes, run the datamodel test flow
-   (`prepareDataModelTest` → upload both → `runReport` as XML → show dataset XML). See the
-   **rendering-and-running** skill for the exact steps, parameter prompting, and the mutate-confirm gate.
+5. **Then pod-TEST it** (when the `fusion-pod` MCP is available): everything-at-once mode → run the
+   datamodel test flow directly (`prepareDataModelTest` → upload both → `runReport` as XML → verify
+   the data) as part of the same turn; step-by-step mode → offer it first. See the
+   **rendering-and-running** skill for the exact steps and parameter prompting.
 Never hand-wave a data model as prose — the deliverable is a real `.xdmz`.
 
-### MANDATORY before `createDataModelFile`: settle SQL-first AND grouping (ask both in ONE message if unclear)
+### Before `createDataModelFile`: honor the session WORKING MODE, and settle grouping
 
-**1. SQL-first vs direct.** Creating/modifying a model is really about the SQL. Ask:
-> *"Do you want to **review and approve the SQL first**, or should I **build/modify the data model
-> directly**?"*
-- **SQL-first** (default for a new/non-trivial model, or any change to existing SQL): produce the
-  grounded SQL, show it, get the OK, THEN `createDataModelFile` / `setDatasetSql` with the approved SQL.
-- **Direct**: only for a small, unambiguous tweak the user already described precisely.
-The **strongest** verification is running the model/report against the real pod (upload → run →
-inspect) — when that is available, offer it and show sample rows before finalizing (see the
-**rendering-and-running** skill). Until then, ground with the schema tools + real corpus.
+**1. SQL approval is governed by the working mode** (asked once at session start — core instructions):
+- **Everything-at-once mode**: do NOT stop to show SQL — ground it, build the model, and carry on
+  through report + render; the final summary includes the SQL. Never pause "to check if the user
+  wants to continue".
+- **Step-by-step mode**: produce the grounded SQL, show it, get the OK, THEN
+  `createDataModelFile` / `setDatasetSql`; each later stage (model → report → render) is a checkpoint.
+- Mode unknown (it wasn't asked — e.g. the session started as a pure SQL question) → ask the mode
+  question NOW, once.
+The **strongest** verification is running the model against the real pod (upload → run → inspect);
+in everything-at-once mode just do it as part of the flow, in step-by-step offer it (see the
+**rendering-and-running** skill).
 
 **2. "Group by X" meaning.** "group by" in a data model is NOT SQL `GROUP BY` by default — it almost
 always means a grouped **hierarchy**. Three shapes:
