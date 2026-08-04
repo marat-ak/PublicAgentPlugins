@@ -87,12 +87,15 @@ When the user asks to build one ("build me a data model for …"):
    context_code and never ship a placeholder when the registry answers; registry empty → ASK, and
    ALWAYS filter EFF tables by the resolved `context_code` (+ dedup/pre-aggregate multirow EFF
    before joining).
-   **Custom OBJECTS and custom fields with a `_c` suffix (Ticket_c, NetPrice_c, "our custom
-   object X"): resolve via `getCustomObjects`** — a custom object lives in a GENERIC table
-   (e.g. HZ_REF_ENTITIES) with a mandatory row filter (`context column = 'Object_c'`) and
-   EXTN_ATTRIBUTE_* column mappings; a custom field on a built-in object lives in that object's
-   dedicated extension table. Never query a generic store without its row filter, and never guess
-   an EXTN column.
+   **Custom OBJECTS and custom fields: resolve via `getCustomObjects`** — a custom object lives in
+   a GENERIC table (e.g. HZ_REF_ENTITIES) with a mandatory row filter (`context column =
+   'Object_c'`) and EXTN_ATTRIBUTE_* column mappings; a custom field on a built-in object lives in
+   that object's dedicated extension table. Never query a generic store without its row filter, and
+   never guess an EXTN column. **Users say DISPLAY names, not `_c` API names** — when a mentioned
+   object/field is not a standard Fusion object (or getColumns doesn't show it), search
+   `getCustomObjects`/`getFlexfields` with the user's own words (the search de-camelizes API names:
+   "ticket contact" finds TicketContact_c). **Found nothing → askUser** which object/field they
+   mean or its API name — never assume it's a standard column and never invent a custom one.
 3. Build a **`DataModelSpec`** (datasets with the grounded SQL; parameters; output structure; event
    triggers and bursting if the request needs them) and call **`createDataModelFile(spec)`**.
    - **LOVs at CREATE time:** declare dropdowns directly in the spec — `spec.valueSets:[{id, sql | 
