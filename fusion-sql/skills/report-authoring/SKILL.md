@@ -74,16 +74,17 @@ or `preceding-sibling` guards — that renders broken tables. Model the hierarch
 groups G_CUSTOMER > G_INVOICE > G_LINE), then mirror it with **`blocks[]`**:
 
 ```
-blocks:[ { kind:"forEach", group:"/DS/G_CUSTOMER", pageBreakAfter:true, blocks:[
-  { kind:"heading", text:"{CUSTOMER_NAME}", level:1 },          // fields inline via {FIELD}
-  { kind:"paragraph", text:"Balance: {TOTAL_DUE}" },
+blocks:[ { kind:"forEach", group:"/DS/G_CUSTOMER", splitByPage:true, blocks:[
+  { kind:"heading", level:1, runs:[{field:"CUSTOMER_NAME"}] },   // text = runs[]: "literal" | {field,format?} | {expr}
+  { kind:"paragraph", runs:["Balance: ", {field:"TOTAL_DUE", format:{type:"currency", mask:"#,##0.00"}}] },
   { kind:"forEach", group:"G_INVOICE", blocks:[                  // RELATIVE path = nested in parent
-      { kind:"heading", text:"Invoice {INVOICE_NUM} — {INVOICE_DATE}", level:2 },
-      { kind:"table", group:"G_LINE", columns:[…] } ] } ] } ]
+      { kind:"heading", level:2, runs:["Invoice ", {field:"INVOICE_NUM"}, " — ", {field:"INVOICE_DATE", format:{type:"date", mask:"dd-MMM-yyyy"}}] },
+      { kind:"table", forEach:"G_LINE", columns:[…] } ] } ] } ]  // table's group key is `forEach`
 ```
 Rules: inner `forEach`/`table` groups are **RELATIVE** (no leading `/`) so they nest; an ABSOLUTE inner
-group under an outer forEach is a bug (the builder rejects it). `pageBreakAfter` on the outer forEach =
-each customer starts a fresh page. Never reach "up" with `../` from a flat group — restructure the data
+group under an outer forEach is a bug (the builder rejects it). **`splitByPage:true` on the outer
+forEach** = each customer starts a fresh page (emits `<?split-by-page-break:?>`) — this is the page-break
+knob; there is no `pageBreakAfter`. Never reach "up" with `../` from a flat group — restructure the data
 model instead (datamodel-authoring: nested groups).
 
 ## Clarify the layout first
@@ -111,11 +112,12 @@ these controls (RTF `grid` + `table`; the same ideas exist on the `.xpt` grid):
 - **"bigger/bold title", fonts, colors** → paragraph `style:{size,bold,align,font}`; column widths via
   `width` (twips); chart `colors:[…]`, `size`.
 - **"totals row"** → RTF table `totals:[{label?, field|expr, format?, span?}]` (+`totalsBg` shade);
-  `span` merges leading label cells. `.xpt` `tables`: `totals:{label, aggs:{FIELD:"sum"|"count"|"average"}}`
+  `span` merges leading label cells. `.xpt` `tables`: `totals:{label, aggs:{FIELD:"sum"|"count"|"avg"}}`
   emits the native totalRow.
 - **"format the dates/amounts"** → `format:{type:"date"|"number"|"currency", mask}` — works on plain
   `field` columns AND on computed `expr` columns.
-- **"each group on its own page"** → forEach `pageBreakAfter:true`; long single table: `splitByPage:true`.
+- **"each group on its own page"** → `splitByPage:true` on that `forEach` block (or on the top-level
+  layout for the invoice shape); on a `table` block it means one page per ROW.
 Keep everything else the user didn't mention unchanged. Re-run `createReportFile`/`addReportLayout` (XPT is
 regenerate-only; RTF you can also `modifyReportLayout`). Offer to render so they can see the correction.
 Titles: use ASCII (an em-dash/curly quote can render as `?`).
