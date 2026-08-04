@@ -81,6 +81,12 @@ When the user asks to build one ("build me a data model for …"):
    see the **fusion-sql-review** skill).
 2. **`findSimilarQueries`** for the intent → adopt real tables/joins/filters; `validateTable` /
    `getColumns` / `getRelatedTables` to ground every table, column, and join key.
+   **DFF/EFF fields (`*_EFF_B`, `ATTRIBUTE_CHARn`, `GLOBAL_ATTRIBUTEn`, "additional/custom
+   attribute X"): resolve via `getFlexfields`** (fusion-schema) — it maps business names to the real
+   context_code + attribute column + value set from the customer's registry. Never guess a
+   context_code and never ship a placeholder when the registry answers; registry empty → ASK, and
+   ALWAYS filter EFF tables by the resolved `context_code` (+ dedup/pre-aggregate multirow EFF
+   before joining).
 3. Build a **`DataModelSpec`** (datasets with the grounded SQL; parameters; output structure; event
    triggers and bursting if the request needs them) and call **`createDataModelFile(spec)`**.
    - **LOVs at CREATE time:** declare dropdowns directly in the spec — `spec.valueSets:[{id, sql | 
