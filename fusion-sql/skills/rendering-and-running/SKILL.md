@@ -1,108 +1,85 @@
 ---
 name: rendering-and-running
-description: Use to render an authored/uploaded template + data to a real PDF/HTML/RTF/XLSX file, or to download, browse, run, or upload a catalog object on the live Fusion pod. Covers renderTemplate (bip-render engine) and the fusion-pod MCP tools (downloadCatalogObject / listCatalogFolder / runReport / uploadCatalogObject), and the author -> render -> show -> (optional) upload+run-verify loop.
+description: Use to render an authored/uploaded template + data to a real PDF/HTML/RTF/XLSX file, to LOOK at any produced output (Read paths, PDF pages), or to download, browse, run, or upload a catalog object on the live Fusion pod. Covers renderTemplate, the visual verify loop, prepareDataModelTest / prepareReportForPod pod flows, and the fusion-pod MCP tools (downloadCatalogObject / listCatalogFolder / runReport / uploadCatalogObject).
 ---
 
-# Rendering & running
+# Rendering, seeing, and running
 
-Two capabilities that turn an authored artifact into something the user can SEE, and let you verify
-against the live pod. Both are **gated/optional** — only available when the render service and/or pod
-MCP are configured; each tool errors clearly if not. In every case the raw bytes go to the file store,
-NOT into your context — you get a `fileId` and hand the user a download link.
+Turn an authored artifact into something the user can SEE, verify it WITH YOUR OWN EYES, and prove it
+runs on the live pod. Render/pod tools are gated — each errors clearly when its service isn't
+configured.
 
-## 1. Render a template to a real file — `renderTemplate` (bip-render engine, BYO Oracle jars)
-Renders an RTF template + XML data to **pdf / html / rtf / xlsx / xml / csv** through the real Oracle
-BI Publisher engine.
+## 0. SEEING files — the `path` + Read loop (MANDATORY verification)
+Tool results that produce a viewable file (rendered PDF/HTML/XML, extracted entries, uploads, pod
+outputs) include a **`path`** field. Open it with the built-in **Read** tool — PDFs render as PAGES
+(images), pictures as pixels, XML/text as text.
 
-`renderTemplate({ fileId, label?, locale?, xml?, dataFileId?, format?, subtemplateFileIds? })`
-- `fileId` — the template: a report (`.xdoz`) or a bare uploaded `.rtf`.
-- `label` / `locale` — `.xdoz` only: which template + locale RTF to render (default: the report's
-  default rtf, locale `en`).
-- `xml` **or** `dataFileId` — the data: inline XML string, or the `fileId` of an uploaded XML/text data
-  file (mutually exclusive; one is required).
-- `format` — output format, default `pdf`.
-- `subtemplateFileIds` — `fileId`s of `.xsb`/`.rtf` subtemplates the template imports; each is compiled
-  and its `<?import:…?>` is resolved offline.
+- **After EVERY render you MUST Read the output and LOOK at it before claiming success**: borders,
+  fills, alignment, wrapping, page breaks, formatted dates/amounts — compared against what the user
+  asked (and their mockup image, which also carries a `path`).
+- **PDFs: ALWAYS pass `pages` (start `pages:"1-3"`)** — never read a PDF whole; a large unpaged PDF
+  overflows the conversation (the gate will refuse it).
+- Read accepts ONLY `path` values returned by this session's tools; anything else is denied.
+- A render result may carry `warning: "output looks EMPTY…"` — the template's for-each matched 0
+  nodes; re-check group paths (`summarizeReportLayout`) against the data XML before re-rendering.
+- Fix → re-render → Read again. Iterate until it matches; only then report success.
 
-Returns `{ fileId, name, contentType, downloadHint }` — the bytes are not shown to you. **After you
-create or modify any layout, OFFER to render it** and give the user the downloadable output.
+## 1. Local render — `renderTemplate` (bip-render engine, RTF only)
+`renderTemplate({ fileId, label?, locale?, xml? | dataFileId, format?, subtemplateFileIds? })` renders
+an RTF template (from a `.xdoz` by label/locale, or a bare `.rtf`) + XML data to
+**pdf / html / rtf / xlsx / xml / csv**. Returns `{ fileId, path, warning?, downloadHint }` → Read the
+`path` (rule 0), then share ONE download link for the final version.
+`.xpt` (interactive) layouts do NOT render locally — pod only (below). Say so; never silently
+substitute an RTF approximation.
 
-Example:
-```
-renderTemplate({ fileId:"<the .xdoz>", label:"Invoice", format:"pdf",
-                 dataFileId:"<uploaded sample.xml>", subtemplateFileIds:["<the .xsb>"] })
-// → { fileId, name:"output.pdf", contentType:"application/pdf", downloadHint } → share the link
-```
+## 2. The live Fusion pod — `fusion-pod` MCP
+- **`listCatalogFolder(path)`** — browse. Read-only.
+- **`downloadCatalogObject(path)`** — fetch a real `.xdoz`/`.xdmz`. The bytes go to the session store;
+  you get `{fileId, summary}` (entries/templates manifest) — NOT raw bytes. Inspect via
+  `summarizeReportLayout` / `getFileSummary`, pull one entry with `extractEntry`, or render it by
+  fileId. Read-only.
+- **`runReport(path, format?, parameters?)`** — execute on the real pod. Output lands in the store →
+  `{fileId, path, contentType}`; **Read the `path`** to see the data XML / rendered PDF. Non-mutating;
+  the STRONGEST verification.
+- **`uploadCatalogObject(path, fileId?, type?)`** — create a catalog object. **MUTATES the pod —
+  CONFIRM path + payload with the user first.** Pass the session artifact's `fileId` (bytes attach on
+  our side); `base64` only for bytes you actually hold; NEVER a fileId inside `base64`.
+  **Uploads do NOT overwrite an existing path** ("already exists") — never re-upload to the same path
+  after a fix; use a FRESH per-run subfolder (the prepare tools hand you fresh paths).
 
-## 2. The live Fusion pod — `fusion-pod` MCP (SOAP: download / browse / run / upload)
-These talk to a **real Oracle Fusion pod** over BI Publisher SOAP. Use them to inspect real catalog
-objects and to verify an authored object actually runs there.
+Pod caveats: WAF-throttled — keep calls sequential; a `403 text/html "Access Denied"` is a rate ban,
+not permissions.
 
-- **`listCatalogFolder(path)`** — browse a catalog folder → `{count, items}`. Safe (read-only).
-- **`downloadCatalogObject(path)`** — fetch a REAL report/data-model (`.xdoz`/`.xdmz`) from the live
-  catalog → its bytes, so you can inspect or modify it with the authoring tools. Safe (read-only).
-- **`runReport(path, format?, parameters?)`** — execute a report on the real pod and return its output
-  (`format?`: pdf default / html / xml / csv / excel; `parameters?`: `[{name, values[]}]`). Non-mutating
-  and the **STRONGEST verification** — it proves the object renders with real data. Show sample rows /
-  the rendered PDF before finalizing.
-- **`uploadCatalogObject(path, fileId? | base64?, type?)`** — create/replace a catalog object. **This
-  MUTATES the live pod.** CONFIRM the exact path + payload with the user before calling it. Never upload
-  on your own initiative. **For a session-authored artifact (anything with a fileId from
-  createDataModelFile / createReportFile / edit* / updateReportFile) pass its `fileId`** — the file's
-  content is attached automatically on OUR side (the file-bridge wrapper), so this works no matter
-  where the pod MCP runs. `base64` is ONLY for bytes you actually hold. **NEVER put a fileId into the
-  `base64` field** — that ships garbage and fails with "Invalid object definition".
+## 3. Pod paths — NEVER hand-pick
+You may only write under your per-user area `/Custom/XXXGNIMSYS/Agent/<user>/…` — and you never type
+it yourself: **the prepare tools compute every path**. Any absolute catalog path you invent (e.g.
+`/Custom/AI/…`) is wrong and will be rejected.
 
-Pod caveats: requests are **WAF-throttled** (Akamai) — do not parallelize or burst; the client rate-
-gates and backs off for you, but keep calls sequential. A `403 text/html "Access Denied"` is a rate
-ban (wait it out), not a permission error.
+## 4. Test a DATA MODEL on the pod — `prepareDataModelTest` (ALWAYS before building the report)
+The pod has no run-datamodel op, so the tool builds a no-layout report bound to the model.
+1. `prepareDataModelTest({fileId})` → `{reportFileId, dataModelPodPath, reportPodPath, params}` —
+   aligned per-user paths; the test report's dataModelUrl already equals `dataModelPodPath`.
+2. `params` non-empty → ASK the user a value per param. CONFIRM (mutation), then upload BOTH by fileId
+   to the returned paths.
+3. `runReport(reportPodPath, format="xml", parameters)` → **Read the returned XML** — real rows prove
+   the SQL runs. Errors here mean FIX THE MODEL before any layout work.
 
-## Test a DATA MODEL against the pod (no-layout report → XML)
-A data model (`.xdmz`) has no layout, and the pod has **no run-datamodel op** — so to test one on the
-live pod you upload the model **plus a no-layout report bound to it**, then run that report as **XML**
-and show the returned dataset XML. The `prepareDataModelTest` authoring tool builds that report for you.
+## 5. Run a REAL report (with layouts) on the pod — `prepareReportForPod`
+Never set a report's dataModelUrl by hand and never upload a report+DM pair without this:
+1. `prepareReportForPod({reportFileId, dataModelFileId})` → rebinds the report's `<dataModel url>` to
+   the DM's actual pod path; returns `{reportFileId (rebound), dataModelPodPath, reportPodPath,
+   rebound, params}`.
+2. CONFIRM, upload BOTH by fileId to those exact paths (skip the DM upload if this very fileId was
+   already uploaded to that exact path in this session).
+3. `runReport(reportPodPath, format:"pdf", parameters)` → **Read the render (pages!) and verify** per
+   rule 0.
 
-**Offer this only when the `fusion-pod` MCP (`uploadCatalogObject` + `runReport`) is available** — it is
-the strongest verification that the model's SQL actually returns data on the real pod.
+## 6. Blocked ≠ improvise
+If the asked-for output is impossible (e.g. live-data render unavailable): STOP, report the blocker,
+ASK before any workaround. No made-up sample data without opt-in (and then mark `…SAMPLE-DATA.pdf`);
+no silently changing the deliverable.
 
-Flow (after you've authored a data model and offered its download):
-1. **ASK** the user: *"Want me to test this data model against the pod?"* (uploads mutate the real pod).
-2. If yes → **`prepareDataModelTest({ fileId: <the .xdmz> })`** → returns
-   `{ reportFileId, reportName, dataModelPodPath, reportPodPath, params }`. It builds a no-layout
-   report `.xdoz` whose `dataModelUrl` already equals `dataModelPodPath` (both under the shared test
-   folder, env `POD_TEST_FOLDER`, default `/Custom/XXXGNIMSYS/Agent`), so the binding resolves once both
-   are uploaded. Pass `base` to override the folder.
-3. If `params` is non-empty → **ASK the user a value for EACH parameter**, showing its `name` and
-   `defaultValue`. Skip this step when there are no params.
-4. **CONFIRM, then upload BOTH** (this MUTATES the pod) via `uploadCatalogObject` — by FILE ID:
-   - `uploadCatalogObject({ path: dataModelPodPath, fileId: <the .xdmz's fileId>, type: "xdmz" })`
-   - `uploadCatalogObject({ path: reportPodPath, fileId: reportFileId, type: "xdoz" })`
-5. **`runReport(reportPodPath, format="xml", parameters)`** — `parameters` as `[{name, values:[…]}]`
-   from the user's answers — and **show the returned dataset XML** (the model's output).
-
-Notes: keep uploads sequential (WAF). Uploads never leave the test folder. v1 is datamodel→XML only —
-no layout/output-format testing, no cleanup (test objects stay in the folder).
-
-## Blocked ≠ improvise
-If a blocker prevents the output the user actually asked for (e.g. live-data render impossible):
-**STOP, report the blocker plainly, and ASK before any workaround.** Specifically:
-- Do NOT render with made-up sample data unless the user opts in — and if they do, put it in the file
-  name (`…SAMPLE-DATA.pdf`) as well as the message.
-- Do NOT modify the artifact as a workaround (e.g. adding an RTF print layout to render something)
-  without asking first — that changes the deliverable.
-- `.xpt` (interactive) layouts render ONLY via the pod (`uploadCatalogObject` + `runReport`) — the
-  local `renderTemplate` engine is RTF-only. If the user wants to SEE an `.xpt` dashboard, the pod
-  path is the only path; say so rather than silently substituting an RTF approximation.
-
-## The author -> render -> show -> (optional) upload + run-verify loop
-The recommended pattern when authoring against a live pod:
-1. **Author / modify** the object with the datamodel-authoring or report-authoring tools (grounded SQL,
-   verified structure).
-2. **Render** it locally with `renderTemplate` and give the user the PDF/HTML/XLSX to review — no pod
-   mutation, fast feedback.
-3. If the user wants it live: **`uploadCatalogObject`** (after explicit confirmation of path + payload).
-4. **`runReport`** on the uploaded path — the strongest verification — and show the returned output.
-   Use `downloadCatalogObject` / `listCatalogFolder` for read-back grounding.
-
-Prefer render + `runReport` for verification before you ever tell the user a report "works"; report the
-business outcome and the download link, not the tool names.
+## The loop
+Author (grounded) → render locally → **Read + verify visually** → fix/iterate → user wants it live →
+prepare* → confirm → upload → runReport → **Read + verify again** → report the business outcome + ONE
+final download link. Never claim "works"/"matches" without having LOOKED at the output this turn.

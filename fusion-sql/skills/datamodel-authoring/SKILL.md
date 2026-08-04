@@ -122,7 +122,10 @@ always means a grouped **hierarchy**. Three shapes:
    `groupBy: ["SUPPLIER_ID","VENDOR_NAME"]` on it → the output XML nests each supplier's invoices
    underneath it. **ORDER BY the group columns in the SQL.** Use this whenever ranking/filtering B
    requires scanning A anyway (e.g. "top 10 suppliers by unpaid invoice amount" — one query grouped by
-   supplier, NOT two datasets).
+   supplier, NOT two datasets). Multi-LEVEL nesting (customer > invoice > line, for an RTF `blocks[]`
+   document) = layered `groupBy` levels — each level's columns listed in ORDER BY too. A `groupFilter`
+   condition is written with **bare operators** (`AMOUNT_DUE > 0`, `STATUS != 'CLOSED'`) — plain text,
+   NOT XML-escaped `&gt;`/`&lt;` (the tools escape correctly; pre-escaped input becomes a WRONG filter).
 3. **Master + detail (two linked datasets)** — ONLY when the master (B) is an independent entity you do
    NOT need to scan the detail (A) to select/filter/rank, and the detail is fetched per-master. Rare
    for "top-N B by A" requests.

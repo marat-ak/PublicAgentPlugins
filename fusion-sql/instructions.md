@@ -33,22 +33,18 @@ looking, **wrong** SQL.
 
 - **`{ambiguous:false, domain, matches}`** — the closest real reports agree on one domain, each with
   clean SQL. **Adopt** its tables / joins / filters and proceed.
-- **`{ambiguous:true, domainBreakdown, guidance, candidates}`** — the matches split across ≥2 near-tied
-  domains. **No `cleanSql` is returned — you have zero grounded SQL. Emitting SQL from memory here is a
-  hard failure.** Resolve the domain first, in this order:
-  1. **Did the USER already name the domain?** If the user's own words pin it (a cue word, or an earlier
-     correction like "I mean the financial department segment"), it is resolved — re-call
-     `findSimilarQueries(intent, {domain:"…"})` (accepts a top level `"Financials"`/`"HCM"`, a sub-domain
-     `"AP"`/`"AR"`, or a full key `"Financials/AP"`) and **do NOT ask.**
-  2. **Same term, two readings, no cue → ASK one short question** naming the domains from
-     `domainBreakdown`, and **emit no SQL this turn.** Do not pick the "more likely" one.
-  3. **Genuinely multi-part request spanning domains → do NOT ask.** Call `findSimilarQueries` once per
-     domain, then combine the grounded examples (join / subquery / UNION). If unsure whether it is one
-     term or two parts, ASK.
+- **`{ambiguous:true, domainBreakdown, guidance, candidates}`** — matches split across ≥2 near-tied
+  domains. **No `cleanSql` — you have zero grounded SQL; emitting SQL from memory here is a hard
+  failure.** Resolve in order:
+  1. **User's own words already pin the domain** (cue word / earlier correction) → re-call
+     `findSimilarQueries(intent, {domain:"…"})` ("Financials", "AP", or "Financials/AP"); do NOT ask.
+  2. **One term, two readings, no cue → ASK one short question** naming the domains from
+     `domainBreakdown`; **no SQL this turn.** Never pick the "more likely" one.
+  3. **Multi-part request spanning domains → don't ask**; call once per domain, combine grounded
+     examples (join/subquery/UNION). Unsure whether 1-term or 2-part → ASK.
 
-  The full cue → domain table, ask/combine templates, and the Financials sub-ledger traps (AP vs AR
-  invoice/credit-memo/aging/payment/journal) live in the **fusion-sql-review** skill — invoke it when
-  you hit `ambiguous:true`.
+  Full cue→domain table, ask/combine templates, sub-ledger traps → **fusion-sql-review** skill; invoke
+  it on `ambiguous:true`.
 
 ## The 5-step SQL workflow
 1. **`findSimilarQueries(<intent>)` FIRST** — handle its result per the rule above (`ambiguous:false` →
@@ -73,6 +69,12 @@ looking, **wrong** SQL.
   ("Added From Warehouse to the top group G_1 — the updated .xdmz is ready to download"), not tool names
   or internal mechanics. After any file edit, read the result back and confirm the change landed before
   saying it is done. (The per-workflow skills give the detailed how.)
+- **LOOK at what you produce.** Any tool result with a `path` (rendered PDF/HTML, run output, mockup
+  image) is openable with the built-in **Read** tool — for PDFs ALWAYS with `pages` (e.g. `"1-3"`).
+  Never claim a render "matches" or "works" without having Read it this turn.
+- **Pod paths are computed, never invented.** Uploads go only under the per-user area via the prepare
+  tools (`prepareDataModelTest`, `prepareReportForPod`) — they return the exact catalog paths and the
+  rebound files; existing paths are never overwritten.
 
 ## Capability pointers — the skill router (INVOKE the named skill when its trigger fires)
 - **Before finalizing any SQL, or the moment `findSimilarQueries` returns `ambiguous:true`** → invoke
@@ -83,5 +85,6 @@ looking, **wrong** SQL.
   **datamodel-authoring** skill.
 - **Creating or modifying a report layout** (`.xdoz` / RTF / XPT / subtemplate `.xsb`) → invoke the
   **report-authoring** skill.
-- **Rendering a template to PDF/HTML/XLSX**, or downloading / browsing / running / uploading a catalog
-  object on the **real Fusion pod** → invoke the **rendering-and-running** skill.
+- **Rendering a template to PDF/HTML/XLSX, LOOKING at any produced output (Read + pages), or testing /
+  downloading / browsing / running / uploading on the real Fusion pod** (incl. `prepareDataModelTest` /
+  `prepareReportForPod`) → invoke the **rendering-and-running** skill.

@@ -67,6 +67,25 @@ createReportFile({ name:"Supplier Invoices", dataModelUrl:"…", layout:{ format
 addReportLayout(fileId, { label:"Invoice", format:"rtf", … })   // add another template/locale
 ```
 
+## Multi-level documents (RTF `blocks[]`) — the ONLY correct 3-level pattern
+"For each CUSTOMER a title page, then their INVOICES, each with LINES" (statement runs, dossiers,
+grouped listings) is **NOT** the invoice shape (`outerGroup`+`linesGroup`) faked deeper with `../FIELD`
+or `preceding-sibling` guards — that renders broken tables. Model the hierarchy in the DATA (nested
+groups G_CUSTOMER > G_INVOICE > G_LINE), then mirror it with **`blocks[]`**:
+
+```
+blocks:[ { kind:"forEach", group:"/DS/G_CUSTOMER", pageBreakAfter:true, blocks:[
+  { kind:"heading", text:"{CUSTOMER_NAME}", level:1 },          // fields inline via {FIELD}
+  { kind:"paragraph", text:"Balance: {TOTAL_DUE}" },
+  { kind:"forEach", group:"G_INVOICE", blocks:[                  // RELATIVE path = nested in parent
+      { kind:"heading", text:"Invoice {INVOICE_NUM} — {INVOICE_DATE}", level:2 },
+      { kind:"table", group:"G_LINE", columns:[…] } ] } ] } ]
+```
+Rules: inner `forEach`/`table` groups are **RELATIVE** (no leading `/`) so they nest; an ABSOLUTE inner
+group under an outer forEach is a bug (the builder rejects it). `pageBreakAfter` on the outer forEach =
+each customer starts a fresh page. Never reach "up" with `../` from a flat group — restructure the data
+model instead (datamodel-authoring: nested groups).
+
 ## Clarify the layout first
 When a requested dashboard has MORE THAN ONE plausible block arrangement (which sections, how many,
 side-by-side vs stacked, what goes top vs bottom), ASK the user which blocks and where BEFORE building
@@ -91,6 +110,12 @@ these controls (RTF `grid` + `table`; the same ideas exist on the `.xpt` grid):
 - **"landscape / wider"** → `page.widthTwips > heightTwips` (e.g. 15840×12240).
 - **"bigger/bold title", fonts, colors** → paragraph `style:{size,bold,align,font}`; column widths via
   `width` (twips); chart `colors:[…]`, `size`.
+- **"totals row"** → RTF table `totals:[{label?, field|expr, format?, span?}]` (+`totalsBg` shade);
+  `span` merges leading label cells. `.xpt` `tables`: `totals:{label, aggs:{FIELD:"sum"|"count"|"average"}}`
+  emits the native totalRow.
+- **"format the dates/amounts"** → `format:{type:"date"|"number"|"currency", mask}` — works on plain
+  `field` columns AND on computed `expr` columns.
+- **"each group on its own page"** → forEach `pageBreakAfter:true`; long single table: `splitByPage:true`.
 Keep everything else the user didn't mention unchanged. Re-run `createReportFile`/`addReportLayout` (XPT is
 regenerate-only; RTF you can also `modifyReportLayout`). Offer to render so they can see the correction.
 Titles: use ASCII (an em-dash/curly quote can render as `?`).
