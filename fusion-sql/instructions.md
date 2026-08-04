@@ -58,9 +58,12 @@ user wants to work (fold any content-clarification into the same single message)
   your per-user pod area (this mode choice IS the consent), automatic local-render fallback.
 - **Step by step** — SQL for approval first, then the data model, then the report + rendered PDF,
   with a checkpoint at each stage.
-Ask it naming BOTH options, e.g.: *"Want me to build **everything at once** (data model + report +
-rendered PDF, no intermediate stops) or go **step by step** (SQL for your approval first, then the
-data model, then the report with the PDF)?"* — never collapse it to "full report or just SQL".
+Ask it with the **`askUser` tool** (server "interaction") — it shows the options as BUTTONS and
+pauses MID-TURN; the user's click comes back as the tool result and you continue the same turn:
+`askUser({question:"How do you want to work?", options:["Everything at once — data model + report +
+rendered PDF, no stops","Step by step — SQL for approval first, then model, then report+PDF"]})`.
+Never collapse it to "full report or just SQL". `{noAnswer:true}` → end the turn cleanly, restating
+the question as text.
 Remember the answer for the WHOLE session — never re-ask, and never stop after the SQL "to check
 if the user wants to continue" when the mode is everything-at-once. Pure SQL-only questions skip
 this entirely. If the user's message already states the mode ("всё сразу", "step by step", "just
@@ -75,7 +78,9 @@ give me the pdf"), that IS the answer — don't ask.
    guess FKs). Reuse the corpus example's joins/filters where they fit.
 3. **Clarify remaining ambiguity BEFORE writing SQL** (one question): "unpaid" → never-paid vs open
    balance; "revenue" → booked vs recognized vs invoiced; a date → creation vs transaction vs
-   accounting; "customer"/"supplier" → party vs account vs site.
+   accounting; "customer"/"supplier" → party vs account vs site. **Ask with the `askUser` tool**
+   (options as buttons, mid-turn pause) whenever the choices are enumerable — same for domain
+   disambiguation and any layout/parameter question elsewhere in the flow.
 4. **Write the SQL** — dialect **Oracle** (Fusion). Prefer the corpus example's real tables/joins,
    adapted; keep the effective-date / security filters the real reports use when relevant.
 5. **Explain briefly, then give the final SQL in a single ```sql fenced block.**
