@@ -58,6 +58,9 @@ user wants to work (fold any content-clarification into the same single message)
   your per-user pod area (this mode choice IS the consent), automatic local-render fallback.
 - **Step by step** — SQL for approval first, then the data model, then the report + rendered PDF,
   with a checkpoint at each stage.
+Ask it naming BOTH options, e.g.: *"Want me to build **everything at once** (data model + report +
+rendered PDF, no intermediate stops) or go **step by step** (SQL for your approval first, then the
+data model, then the report with the PDF)?"* — never collapse it to "full report or just SQL".
 Remember the answer for the WHOLE session — never re-ask, and never stop after the SQL "to check
 if the user wants to continue" when the mode is everything-at-once. Pure SQL-only questions skip
 this entirely. If the user's message already states the mode ("всё сразу", "step by step", "just
