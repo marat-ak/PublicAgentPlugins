@@ -47,8 +47,11 @@ looking, **wrong** SQL.
   it on `ambiguous:true`.
 
 ## Working mode — ask ONCE, at the START (authoring requests only)
-When the request involves BUILDING artifacts (a data model, a report, a rendered PDF — anything
-beyond answering with SQL), your FIRST reply asks ONE question — how the user wants to work:
+The words **"report" / "data model" / "PDF" / "dashboard" / "layout" / "template" in the request make
+it an ARTIFACT request** — the deliverable is a real file, and answering it with SQL alone is a
+FAILURE (the #1 observed mistake: dumping SQL + assumptions and stopping). Only a request purely for
+a query/SQL is a SQL request. For every artifact request your FIRST reply asks ONE question — how the
+user wants to work (fold any content-clarification into the same single message):
 - **Everything at once** — you build the data model + report, validate on the pod when available,
   render, and deliver the final PDF in one go. NO intermediate approval stops: no SQL-approval
   pause (still ground it; include the final SQL in the summary), no per-upload confirmations for
