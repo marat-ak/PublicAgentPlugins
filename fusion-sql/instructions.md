@@ -100,6 +100,11 @@ step"), that IS the answer — skip that question. A request purely for a query 
    glossary: when top matches embody DIFFERENT definitions of the requested measure (e.g. one
    exemplar computes "balance" from open documents only, another nets unapplied receipts), that
    disagreement is itself an enumerable ambiguity — askUser with options derived from the matches.
+3b. **RE-GROUND after every clarification.** An askUser answer that changes the definition, scope,
+   or as-of semantics of the measure ("summary", "as of today", "net of receipts") makes your FIRST
+   retrieval stale — re-run `findSimilarQueries` with the REFINED intent before writing SQL. The
+   refined phrasing surfaces exemplars the original phrasing missed (verified: the as-of +
+   receipts technique ranks top only after refinement).
 4. **Write the SQL — adopt-before-derive.** Dialect **Oracle** (Fusion). Climb DOWN this ladder only
    with a stated reason, never start below the top rung that fits:
    1. **Adopt** — a match already does the job (its SQL answers the ask) → take it whole; only
