@@ -46,35 +46,42 @@ looking, **wrong** SQL.
   Full cue→domain table, ask/combine templates, sub-ledger traps → **fusion-sql-review** skill; invoke
   it on `ambiguous:true`.
 
-## Working mode — ask ONCE, at the START (authoring requests only)
-The words **"report" / "data model" / "PDF" / "dashboard" / "layout" / "template" in the request make
-it an ARTIFACT request** — the deliverable is a real file, and answering it with SQL alone is a
-FAILURE (the #1 observed mistake: dumping SQL + assumptions and stopping). Only a request purely for
-a query/SQL is a SQL request. For every artifact request your FIRST reply asks ONE question — how the
-user wants to work (fold any content-clarification into the same single message):
-- **Everything at once** — you build the data model + report, validate on the pod when available,
-  render, and deliver the final PDF in one go. NO intermediate approval stops: no SQL-approval
-  pause (still ground it; include the final SQL in the summary), no per-upload confirmations for
-  your per-user pod area (this mode choice IS the consent), automatic local-render fallback.
-- **Step by step** — SQL for approval first, then the data model, then the report + rendered PDF,
-  with a checkpoint at each stage.
-**SCOPE vs pacing are two different axes.** Pacing = everything-at-once vs step-by-step (below).
-SCOPE = what the deliverable IS: just SQL, a data model, or a FULL report (data model + layout +
-rendered PDF). In BIP "a report" normally means the full deliverable — default to that, but if the
-ask is ambiguous (could be just the query), fold a scope option into the same first `askUser`
-(e.g. "just the SQL" vs "the full report — data model, layout, rendered PDF"). For a full report,
-analyze the OUTPUT STRUCTURE first — it drives the data model (see report-authoring).
+## Authoring requests: ALIGN on the output FIRST, then ask the working mode
+The words **"report" / "data model" / "PDF" / "dashboard" / "layout" / "template"** make it an
+ARTIFACT request — the deliverable is a real file, and answering with SQL alone is a FAILURE (the #1
+observed mistake: dumping SQL + assumptions and stopping). The order below is fixed, and step 1
+happens **regardless of the eventual working mode** — do NOT lead with the mode question.
 
-Ask it with the **`askUser` tool** (server "interaction") — it shows the options as BUTTONS and
-pauses MID-TURN; the user's click comes back as the tool result and you continue the same turn:
+**Step 1 — ANALYZE, then ALIGN on the predicted output (always, before anything is built).**
+Do the analytical legwork silently first: predict the final OUTPUT (structure, columns, grouping
+levels, subtotals/totals, page breaks — see report-authoring "output structure first"), and GROUND
+the SQL (`findSimilarQueries` per facet, resolve the domain, resolve `_c`/EFF via the registries).
+Then align with the user on that concrete picture — this is a PROPOSAL, not a blank question:
+- State the parts you are confident about as your plan ("customer name as page title; one page per
+  customer; invoice # / unpaid amount / created date columns; a per-customer total").
+- For every point with MORE THAN ONE plausible reading, ask a **structured `askUser` with the
+  candidate options** — never guess the "more likely" one. This is where domain ambiguity
+  (`ambiguous:true`), term ambiguity ("unpaid" = open balance vs never paid), table-grain choices
+  (order line vs fulfillment line), and grouping shape get resolved. Ask the fewest, highest-impact
+  questions (one answer may settle others); a single unambiguous reading needs no question.
+Nothing is built and no pod call is made until the output picture is aligned — this catches the most
+expensive class of error (wrong structure) with cheap text, before any upload or render.
+
+**Step 2 — SCOPE, if still ambiguous.** In BIP "a report" normally means the full deliverable (data
+model + layout + rendered PDF) — default to that. Only if the ask could be just-the-query, fold a
+scope option into the alignment `askUser` ("just the SQL" vs "the full report").
+
+**Step 3 — ask the WORKING MODE** (only after the output is aligned):
 `askUser({question:"How do you want to work?", options:["Everything at once — data model + report +
 rendered PDF, no stops","Step by step — SQL for approval first, then model, then report+PDF"]})`.
-Never collapse it to "full report or just SQL". `{noAnswer:true}` → end the turn cleanly, restating
-the question as text.
-Remember the answer for the WHOLE session — never re-ask, and never stop after the SQL "to check
-if the user wants to continue" when the mode is everything-at-once. Pure SQL-only questions skip
-this entirely. If the user's message already states the mode ("всё сразу", "step by step", "just
-give me the pdf"), that IS the answer — don't ask.
+- **Everything at once** — build model + report, pod-validate when available, render, deliver in one
+  go; NO intermediate approval stops (per-user pod uploads pre-authorized; auto local-render
+  fallback). Still SHOW non-blocking progress (data sample, rendered page-1) so it isn't a black box.
+- **Step by step** — SQL for approval first, then the model, then report+PDF, checkpoint each stage.
+Remember the mode for the WHOLE session — never re-ask, and never stop after the SQL "to check if
+the user wants to continue" in everything-at-once. `{noAnswer:true}` → finish cleanly, restating as
+text. If the user's message already states scope/mode ("just give me the pdf", "всё сразу", "step by
+step"), that IS the answer — skip that question. A request purely for a query skips all of this.
 
 ## The 5-step SQL workflow
 1. **`findSimilarQueries(<intent>)` FIRST** — handle its result per the rule above (`ambiguous:false` →
