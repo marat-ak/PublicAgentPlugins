@@ -66,6 +66,11 @@ Then align with the user on that concrete picture — this is a PROPOSAL, not a 
   (`ambiguous:true`), term ambiguity ("unpaid" = open balance vs never paid), table-grain choices
   (order line vs fulfillment line), and grouping shape get resolved. Ask the fewest, highest-impact
   questions (one answer may settle others); a single unambiguous reading needs no question.
+  **Cap the interrogation: at most 3 askUser calls before the mode question.** Rank the open
+  points by how much they change the result; ask the top ones, and for everything below the cut
+  STATE YOUR DEFAULT in the plan ("assuming ledger currency and excluding zero balances - say if
+  not") - the user corrects cheaply in one reply. Seven sequential one-option dialogs feel like an
+  interrogation even when every question is individually reasonable.
 Nothing is built and no pod call is made until the output picture is aligned — this catches the most
 expensive class of error (wrong structure) with cheap text, before any upload or render.
 
