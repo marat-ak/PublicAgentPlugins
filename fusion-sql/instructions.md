@@ -61,34 +61,33 @@ the SQL (`findSimilarQueries` per facet, resolve the domain, resolve `_c`/EFF vi
 Then align with the user on that concrete picture — this is a PROPOSAL, not a blank question:
 - State the parts you are confident about as your plan ("customer name as page title; one page per
   customer; invoice # / unpaid amount / created date columns; a per-customer total").
-- For every point with MORE THAN ONE plausible reading, ask a **structured `askUser` with the
-  candidate options** — never guess the "more likely" one. This is where domain ambiguity
-  (`ambiguous:true`), term ambiguity ("unpaid" = open balance vs never paid), table-grain choices
-  (order line vs fulfillment line), and grouping shape get resolved. Ask the fewest, highest-impact
-  questions (one answer may settle others); a single unambiguous reading needs no question.
-  **Cap the interrogation: at most 3 askUser calls before the mode question.** Rank the open
-  points by how much they change the result; ask the top ones, and for everything below the cut
-  STATE YOUR DEFAULT in the plan ("assuming ledger currency and excluding zero balances - say if
-  not") - the user corrects cheaply in one reply. Seven sequential one-option dialogs feel like an
-  interrogation even when every question is individually reasonable.
+- For every point with MORE THAN ONE plausible reading, emit a **`fusion-ask` block** (see the
+  fusion-ask protocol in the base instructions) — never guess the "more likely" one. This is where
+  domain ambiguity (`ambiguous:true`), term ambiguity ("unpaid" = open balance vs never paid),
+  table-grain choices (order line vs fulfillment line), and grouping shape get resolved.
+  **Collapse ALL the align questions AND the scope/mode choice into ONE block (max 3 questions),
+  then STOP** — do not ask in a sequence of separate turns. For everything below that cut STATE
+  YOUR DEFAULT in the plan prose ("assuming ledger currency and excluding zero balances - say if
+  not") - the user corrects cheaply in the same reply. A single unambiguous reading needs no block.
 Nothing is built and no pod call is made until the output picture is aligned — this catches the most
 expensive class of error (wrong structure) with cheap text, before any upload or render.
 
 **Step 2 — SCOPE, if still ambiguous.** In BIP "a report" normally means the full deliverable (data
 model + layout + rendered PDF) — default to that. Only if the ask could be just-the-query, fold a
-scope option into the alignment `askUser` ("just the SQL" vs "the full report").
+scope question into the SAME `fusion-ask` block ("just the SQL" vs "the full report").
 
-**Step 3 — ask the WORKING MODE** (only after the output is aligned):
-`askUser({question:"How do you want to work?", options:["Everything at once — data model + report +
-rendered PDF, no stops","Step by step — SQL for approval first, then model, then report+PDF"]})`.
+**Step 3 — the WORKING MODE question** goes in that SAME `fusion-ask` block (do NOT split it into a
+later turn): a question like
+`{"id":"mode","q":"How do you want to work?","options":["Everything at once - data model + report + rendered PDF, no stops","Step by step - SQL for approval first, then model, then report+PDF"]}`.
 - **Everything at once** — build model + report, pod-validate when available, render, deliver in one
   go; NO intermediate approval stops (per-user pod uploads pre-authorized; auto local-render
   fallback). Still SHOW non-blocking progress (data sample, rendered page-1) so it isn't a black box.
 - **Step by step** — SQL for approval first, then the model, then report+PDF, checkpoint each stage.
 Remember the mode for the WHOLE session — never re-ask, and never stop after the SQL "to check if
-the user wants to continue" in everything-at-once. `{noAnswer:true}` → finish cleanly, restating as
-text. If the user's message already states scope/mode ("just give me the pdf", "всё сразу", "step by
-step"), that IS the answer — skip that question. A request purely for a query skips all of this.
+the user wants to continue" in everything-at-once. If the user answers in prose instead of picking
+an option, honor it. If the user's message already states scope/mode ("just give me the pdf", "всё
+сразу", "step by step"), that IS the answer — skip that question. A request purely for a query skips
+all of this.
 
 ## The 5-step SQL workflow
 1. **`findSimilarQueries(<intent>)` FIRST** — handle its result per the rule above (`ambiguous:false` →
@@ -97,15 +96,15 @@ step"), that IS the answer — skip that question. A request purely for a query 
 2. **Validate + adapt** — `validateTable` every table (fix via suggestions / `searchTables`);
    `getColumns` / `validateColumns` before using columns; `getRelatedTables` for real join keys (never
    guess FKs). Reuse the corpus example's joins/filters where they fit.
-3. **Clarify remaining ambiguity BEFORE writing SQL** (one question): "unpaid" → never-paid vs open
-   balance; "revenue" → booked vs recognized vs invoiced; a date → creation vs transaction vs
-   accounting; "customer"/"supplier" → party vs account vs site. **Ask with the `askUser` tool**
-   (options as buttons, mid-turn pause) whenever the choices are enumerable — same for domain
-   disambiguation and any layout/parameter question elsewhere in the flow. The corpus IS the
-   glossary: when top matches embody DIFFERENT definitions of the requested measure (e.g. one
-   exemplar computes "balance" from open documents only, another nets unapplied receipts), that
-   disagreement is itself an enumerable ambiguity — askUser with options derived from the matches.
-3b. **RE-GROUND after every clarification.** An askUser answer that changes the definition, scope,
+3. **Clarify remaining ambiguity BEFORE writing SQL** (one `fusion-ask` block): "unpaid" → never-paid
+   vs open balance; "revenue" → booked vs recognized vs invoiced; a date → creation vs transaction vs
+   accounting; "customer"/"supplier" → party vs account vs site. **Emit a `fusion-ask` block** (see
+   the fusion-ask protocol) whenever the choices are enumerable — same for domain disambiguation and
+   any layout/parameter question elsewhere in the flow. The corpus IS the glossary: when top matches
+   embody DIFFERENT definitions of the requested measure (e.g. one exemplar computes "balance" from
+   open documents only, another nets unapplied receipts), that disagreement is itself an enumerable
+   ambiguity — put it in the block with options derived from the matches.
+3b. **RE-GROUND after every clarification.** A user's answer that changes the definition, scope,
    or as-of semantics of the measure ("summary", "as of today", "net of receipts") makes your FIRST
    retrieval stale — re-run `findSimilarQueries` with the REFINED intent before writing SQL. The
    refined phrasing surfaces exemplars the original phrasing missed (verified: the as-of +

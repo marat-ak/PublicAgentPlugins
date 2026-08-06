@@ -90,7 +90,7 @@ building the data model — not after. From the user's ask, pull the STRUCTURAL 
 levels (one page per customer → invoices → lines = 3 nested groups), page breaks, which columns, any
 subtotals/totals, any pivot/matrix, parameters. These decide the model's `groupBy` nesting, field
 list, and aggregation — get them wrong and you rebuild the model (the Cotton File failure). Ask the
-user (askUser) for any structural detail that's ambiguous. STYLING (colors, fonts, exact template)
+user (via a `fusion-ask` block) for any structural detail that's ambiguous. STYLING (colors, fonts, exact template)
 comes LATER, on top of the correct structure. So the flow is **output structure ⇒ data model ⇒
 styling**, not "layout on top of whatever model exists".
 
@@ -142,8 +142,9 @@ RTF charts render fine (BI Beans vector graphics) — fetch the exact verified b
 
 ## Clarify the layout first
 When a requested dashboard has MORE THAN ONE plausible block arrangement (which sections, how many,
-side-by-side vs stacked, what goes top vs bottom), ASK the user which blocks and where BEFORE building
-— a wrong first guess costs a full rebuild-and-recheck round trip, while the question costs one turn.
+side-by-side vs stacked, what goes top vs bottom), ASK the user (a `fusion-ask` block) which blocks and
+where BEFORE building — a wrong first guess costs a full rebuild-and-recheck round trip, while the
+question costs one turn.
 This applies whether you're building from scratch or from a template — if a ready-made layout fits the
 request, check the **using-templates** skill first (`listTemplates`); its slot model turns most of this
 same clarification into naming a handful of slots instead of designing a grid from nothing.

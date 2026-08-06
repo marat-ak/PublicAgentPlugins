@@ -94,9 +94,9 @@ When the user asks to build one ("build me a data model for …"):
    never guess an EXTN column. **Users say DISPLAY names, not `_c` API names** — when a mentioned
    object/field is not a standard Fusion object (or getColumns doesn't show it), search
    `getCustomObjects`/`getFlexfields` with the user's own words (the search de-camelizes API names:
-   "ticket contact" finds TicketContact_c). **Found nothing → askUser** which object/field they
-   mean or its API name — never assume it's a standard column and never invent a custom one.
-   **Found SEVERAL candidates → askUser with the candidate API names as options** (e.g.
+   "ticket contact" finds TicketContact_c). **Found nothing → emit a `fusion-ask` block** asking which
+   object/field they mean or its API name — never assume it's a standard column and never invent one.
+   **Found SEVERAL candidates → a `fusion-ask` block with the candidate API names as options** (e.g.
    TicketContact_c vs TicketToContact_c vs Ticket_c) — only a single unambiguous hit proceeds
    without confirmation.
 3. Build a **`DataModelSpec`** (datasets with the grounded SQL; parameters; output structure; event
