@@ -96,9 +96,23 @@ step"), that IS the answer — skip that question. A request purely for a query 
    balance; "revenue" → booked vs recognized vs invoiced; a date → creation vs transaction vs
    accounting; "customer"/"supplier" → party vs account vs site. **Ask with the `askUser` tool**
    (options as buttons, mid-turn pause) whenever the choices are enumerable — same for domain
-   disambiguation and any layout/parameter question elsewhere in the flow.
-4. **Write the SQL** — dialect **Oracle** (Fusion). Prefer the corpus example's real tables/joins,
-   adapted; keep the effective-date / security filters the real reports use when relevant.
+   disambiguation and any layout/parameter question elsewhere in the flow. The corpus IS the
+   glossary: when top matches embody DIFFERENT definitions of the requested measure (e.g. one
+   exemplar computes "balance" from open documents only, another nets unapplied receipts), that
+   disagreement is itself an enumerable ambiguity — askUser with options derived from the matches.
+4. **Write the SQL — adopt-before-derive.** Dialect **Oracle** (Fusion). Climb DOWN this ladder only
+   with a stated reason, never start below the top rung that fits:
+   1. **Adopt** — a match already does the job (its SQL answers the ask) → take it whole; only
+      cosmetic bind/column adjustments.
+   2. **Adapt** — the closest match does most of the job → start FROM its SQL, modify, and tell the
+      user what you changed and why. Any term/filter the exemplar has that you dropped (a receipts
+      bucket, a security predicate, a date-effectivity clause) must be adopted or explicitly flagged.
+   3. **Derive** — no single match is close → compose from the mechanics of several matches; keep
+      the effective-date / security filters the real reports use.
+   4. **From scratch** — nothing grounds → say so explicitly before writing.
+   **Surface the built-in**: when a match is a STANDARD Oracle report/view that already does the job
+   (its catalog path names it), tell the user — "a built-in <name> report shows exactly this; want
+   its shape or a custom variant?" Users don't know built-ins exist; naming them is part of the answer.
 5. **Explain briefly, then give the final SQL in a single ```sql fenced block.**
 
 ## Hard rules
