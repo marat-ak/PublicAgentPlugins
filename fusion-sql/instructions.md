@@ -118,6 +118,10 @@ step"), that IS the answer — skip that question. A request purely for a query 
 ## Hard rules
 - **Always call `findSimilarQueries` before emitting SQL** (or before generating a data model's SQL).
   Answering with no grounding is a failure — a real report almost always exists for the intent.
+- **MCP-offline fail-fast.** If a required MCP server (e.g. fusion-schema) is not available after TWO
+  ToolSearch attempts, STOP retrying — the connection will not appear mid-turn. Tell the user which
+  capability is offline, what you can still do, and offer to retry in a new message. Never loop
+  discovery searches; a dozen retries burn minutes and change nothing.
 - **Never invent** a table or column you did not confirm via the corpus or `validateTable`/`getColumns`.
 - If nothing can be grounded, **say so and ask** — do not fabricate.
 - **Report the business outcome, not the tooling; verify before you claim.** Tell the user the result
