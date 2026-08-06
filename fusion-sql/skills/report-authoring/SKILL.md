@@ -10,6 +10,23 @@ Reports (`.xdoz`) bind to a data model's OUTPUT tree — **ground the model's ou
 against the real BIP engine. After building or changing a layout, offer to render it so the user can
 see it — invoke the **rendering-and-running** skill.
 
+## Layout corpus — consult BEFORE designing (findLayoutPattern / getLayoutPattern)
+The layout-pattern corpus holds render-VERIFIED archetypes (whole-report shapes), techniques (single
+mechanics with exact recipes), antipatterns (broken shapes + the working alternative), and capability
+notes (what BIP can do that the DSL can't yet — offer these as prose, don't fake them in the DSL).
+- **At the STRUCTURE step** (before the data model): `findLayoutPattern(<user's ask>, {kinds:
+  ["archetype"]})` — the matching archetype names the grouping levels, page breaks, and sections,
+  which then drive the model's `groupBy`.
+- **While building**: `findLayoutPattern` for each distinct mechanic ("totals row", "landscape",
+  "page header"); `getLayoutPattern(id)` returns the full verified recipe — PREFER a corpus recipe
+  over improvising; its `pitfalls` are engine-observed, not theory.
+- **A result may COMPOSE several rows** — one archetype + several techniques merged into one
+  `blocks[]`/grid; the `composition` notes say what combines.
+- **On a builder error naming a corpus id, fetch that row** — the builders cross-reference the corpus.
+- Respect `formatAdvice` in results: a technique marked format-exclusive (e.g. xpt-only side-by-side
+  chart+repeating-table) is withheld as a recipe when you asked for the other format — switch format
+  or pick the alternative it names, don't force it.
+
 ## Create
 `createReportFile` / `addReportLayout`. Two layout kinds:
 - **`.xpt` (interactive table / DASHBOARD)** — fully generatable. Binds `/<root>/<group>/<COL>` (e.g.
@@ -95,36 +112,22 @@ the most human-editable. That means:
 "For each CUSTOMER a title page, then their INVOICES, each with LINES" (statement runs, dossiers,
 grouped listings) is **NOT** the invoice shape (`outerGroup`+`linesGroup`) faked deeper with `../FIELD`
 or `preceding-sibling` guards — that renders broken tables. Model the hierarchy in the DATA (nested
-groups G_CUSTOMER > G_INVOICE > G_LINE), then mirror it with **`blocks[]`**:
-
-```
-blocks:[ { kind:"forEach", group:"/DS/G_CUSTOMER", splitByPage:true, blocks:[
-  { kind:"heading", level:1, runs:[{field:"CUSTOMER_NAME"}] },   // text = runs[]: "literal" | {field,format?} | {expr}
-  { kind:"paragraph", runs:["Balance: ", {field:"TOTAL_DUE", format:{type:"currency", mask:"#,##0.00"}}] },
-  { kind:"forEach", group:"G_INVOICE", blocks:[                  // RELATIVE path = nested in parent
-      { kind:"heading", level:2, runs:["Invoice ", {field:"INVOICE_NUM"}, " — ", {field:"INVOICE_DATE", format:{type:"date", mask:"dd-MMM-yyyy"}}] },
-      { kind:"table", forEach:"G_LINE", columns:[…] } ] } ] } ]  // table's group key is `forEach`
-```
-Rules: inner `forEach`/`table` groups are **RELATIVE** (no leading `/`) so they nest; an ABSOLUTE inner
-group under an outer forEach is a bug (the builder rejects it). **`splitByPage:true` on the outer
-forEach** = each customer starts a fresh page (emits `<?split-by-page-break:?>`) — this is the page-break
+groups G_CUSTOMER > G_INVOICE > G_LINE), then mirror it with **`blocks[]`** — fetch the verified recipe:
+`getLayoutPattern("lp:technique:rtf-multilevel-blocks")` (archetype: `lp:archetype:statement-run`).
+Rules that survive any recipe: inner `forEach`/`table` groups are **RELATIVE** (no leading `/`) so they
+nest; an ABSOLUTE inner group under an outer forEach is a bug (the builder rejects it).
+**`splitByPage:true` on the outer forEach** = each customer starts a fresh page — this is the page-break
 knob; there is no `pageBreakAfter`. Never reach "up" with `../` from a flat group — restructure the data
 model instead (datamodel-authoring: nested groups).
 
 ## Charts in RTF — engine-proven shape (works locally AND on the pod)
-RTF charts render fine (BI Beans vector graphics) when the block uses EXACTLY this shape — the keys
-are NOT the `.xpt` chart vocabulary:
-
-```json
-{ "kind":"chart", "graphType":"PIE",                        // PIE | BAR_VERT_CLUST | BAR_HORIZ_CLUST | BAR_VERT_STACK | LINE_VERT_ABS
-  "title":"Unpaid by Customer",
-  "group": { "select":"/DATA_DS/G_CUSTOMER", "by":"CUSTOMER_NAME" },   // select = repeating group XPath, by = category/slice field
-  "measures":[ { "label":"Unpaid", "field":"TOTAL_UNPAID_AMOUNT", "agg":"sum" } ],  // agg: sum|count|avg (default sum)
-  "dataLabels":true, "size":{ "widthPx":500, "heightPx":375 } }
-```
-- **NOT** `type`/`dimensionField`/string `group`/`measures[].name`/`agg:"summation"` — that's `.xpt`
-  chart vocabulary (the builder auto-translates the obvious cases and REJECTS the rest with a fix
-  message; read the error, don't conclude "RTF can't do charts").
+RTF charts render fine (BI Beans vector graphics) — fetch the exact verified block shape:
+`getLayoutPattern("lp:technique:rtf-chart")` (side-by-side variants: `rtf-grid-chart-chart`,
+`rtf-grid-chart-kpis`).
+- The RTF chart keys are **NOT** `.xpt` chart vocabulary (`type`/`dimensionField`/string
+  `group`/`measures[].name`/`agg:"summation"` all belong to `.xpt`; RTF wants `graphType` +
+  `group:{select,by}` + `measures:[{label,field,agg}]`). The builder auto-translates the obvious
+  cases and REJECTS the rest with a fix message; read the error, don't conclude "RTF can't do charts".
 - **Top-level block only.** A chart inside a `forEach` is re-emitted EVERY iteration (N copies down
   the page). "Chart on the first page" = chart block before the forEach blocks.
 - `binding:"raw"` = one bar per ROW (no grouping); default grouped mode aggregates per `by` value.
@@ -167,7 +170,10 @@ these controls (RTF `grid` + `table`; the same ideas exist on the `.xpt` grid):
 - **"format the dates/amounts"** → `format:{type:"date"|"number"|"currency", mask}` — works on plain
   `field` columns AND on computed `expr` columns.
 - **"each group on its own page"** → `splitByPage:true` on that `forEach` block (or on the top-level
-  layout for the invoice shape); on a `table` block it means one page per ROW.
+  layout for the invoice shape). **"one page per table ROW"** → NOT `splitByPage` on the `table` block
+  (engine-observed: header ends page 1 alone, last two rows share a page) — use a `forEach` with
+  `splitByPage:true` wrapping a STATIC 1-row table (header then repeats every page):
+  `getLayoutPattern("lp:technique:rtf-splitbypage-table")`.
 Keep everything else the user didn't mention unchanged. Re-run `createReportFile`/`addReportLayout` (XPT is
 regenerate-only; RTF you can also `modifyReportLayout`). Offer to render so they can see the correction.
 Titles: use ASCII (an em-dash/curly quote can render as `?`).

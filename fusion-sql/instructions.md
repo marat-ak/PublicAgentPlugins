@@ -54,7 +54,9 @@ happens **regardless of the eventual working mode** — do NOT lead with the mod
 
 **Step 1 — ANALYZE, then ALIGN on the predicted output (always, before anything is built).**
 Do the analytical legwork silently first: predict the final OUTPUT (structure, columns, grouping
-levels, subtotals/totals, page breaks — see report-authoring "output structure first"), and GROUND
+levels, subtotals/totals, page breaks — see report-authoring "output structure first"), ground the
+LAYOUT shape (`findLayoutPattern(<the ask>, {kinds:["archetype"]})` — the matching verified archetype
+names the sections/grouping/page-break shape your prediction should take), and GROUND
 the SQL (`findSimilarQueries` per facet, resolve the domain, resolve `_c`/EFF via the registries).
 Then align with the user on that concrete picture — this is a PROPOSAL, not a blank question:
 - State the parts you are confident about as your plan ("customer name as page title; one page per
