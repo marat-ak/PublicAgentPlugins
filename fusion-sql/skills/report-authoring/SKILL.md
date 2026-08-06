@@ -67,6 +67,30 @@ createReportFile({ name:"Supplier Invoices", dataModelUrl:"…", layout:{ format
 addReportLayout(fileId, { label:"Invoice", format:"rtf", … })   // add another template/locale
 ```
 
+## Output STRUCTURE first — it drives the data model (analyze BEFORE building the model)
+A report's layout requirements dictate the DATA shape, so extract them BEFORE (or together with)
+building the data model — not after. From the user's ask, pull the STRUCTURAL requirements: grouping
+levels (one page per customer → invoices → lines = 3 nested groups), page breaks, which columns, any
+subtotals/totals, any pivot/matrix, parameters. These decide the model's `groupBy` nesting, field
+list, and aggregation — get them wrong and you rebuild the model (the Cotton File failure). Ask the
+user (askUser) for any structural detail that's ambiguous. STYLING (colors, fonts, exact template)
+comes LATER, on top of the correct structure. So the flow is **output structure ⇒ data model ⇒
+styling**, not "layout on top of whatever model exists".
+
+## Simplicity contract — the MODEL computes, the LAYOUT displays; keep it HAND-EDITABLE
+The deliverable must be modifiable by a business/BI person by hand — among equivalent solutions, pick
+the most human-editable. That means:
+- All computation lives in SQL (see datamodel-authoring "Computation belongs in SQL"): aggregation,
+  pivots, subtotals via `ROLLUP`/`GROUPING SETS`, ranking. The template binds ready columns.
+- **BANNED in templates:** cross-group XPath aggregation in cells (`sum(/DS/G[…=current()…]/QTY)`
+  repeated per column), per-value predicates duplicated across columns (per-SKU literals in N cells),
+  and BIP conditionals that have an SQL equivalent. A wide pivot done in the template is unmaintainable
+  even when it renders (the Tama pivot) — pivot in SQL, keep the template a flat `<?FIELD?>` table.
+- ONE dataset + `groupBy` is the default; two linked datasets only for a truly independent master.
+- The hand-editability test before delivery: could a business user rename/move/delete a column in Word
+  WITHOUT silently changing numbers? If a layout edit can corrupt data, the logic is in the wrong
+  layer — move it into the model and rebuild.
+
 ## Multi-level documents (RTF `blocks[]`) — the ONLY correct 3-level pattern
 "For each CUSTOMER a title page, then their INVOICES, each with LINES" (statement runs, dossiers,
 grouped listings) is **NOT** the invoice shape (`outerGroup`+`linesGroup`) faked deeper with `../FIELD`

@@ -119,6 +119,32 @@ When the user asks to build one ("build me a data model for …"):
    **rendering-and-running** skill for the exact steps and parameter prompting.
 Never hand-wave a data model as prose — the deliverable is a real `.xdmz`.
 
+## Computation belongs in SQL — use the FULL power of Oracle
+Push every computation as far LEFT (toward SQL) as possible; the layout should be a dumb display of
+ready columns (see the report-authoring simplicity contract). Do NOT limit yourself to primitive
+constructs — Oracle SQL is rich, pick the STRONGEST fit:
+- pivots → native `PIVOT`/`UNPIVOT` (or `SUM(CASE …)` columns) so the layout gets flat/wide columns;
+- **detail + subtotals/grand-total in ONE query → `ROLLUP` / `CUBE` / `GROUPING SETS`** with
+  `GROUPING()`/`GROUPING_ID()` to tag the summary rows — this usually removes any need for a separate
+  summary mechanism;
+- ranking/running totals/first-non-null → window functions (`ROW_NUMBER`, `RANK`, `KEEP (DENSE_RANK
+  FIRST …)`, `SUM() OVER`); hierarchies → recursive `WITH`; string rollups → `LISTAGG`; complex
+  row-wise math → `MODEL`.
+Only when SQL genuinely can't carry it: **datamodel group-aggregate element** (`function="summation"|
+"count"|"average"` on a group) — the data engine computes it, the template just prints `<?FIELD?>`.
+Layout-side (XSLT) aggregation is the LAST resort — acceptable only for a single trivial summary line,
+**never a wide pivot** (per-cell cross-group sums across many columns are unmaintainable by a human).
+
+## BIP data-model SQL limitations (the engine's parser is stricter than Oracle) — with workarounds
+The model is authored against real Oracle, but the BIP data-model parser/designer rejects some valid
+Oracle SQL. Apply these preemptively:
+- **`:=` assignment inside a `WITH FUNCTION` body is rejected.** Inline `WITH FUNCTION … RETURN …` is
+  allowed, but replace every `var := expr;` in its body with **`SELECT expr INTO var FROM dual;`**.
+- **A dataset whose SQL STARTS with a CTE (`WITH …`) breaks grouping in the designer.** Wrap it:
+  **`SELECT * FROM (WITH … SELECT …)`** so the outer statement is a plain SELECT.
+- **If that wrapped SQL also contains an inline `WITH FUNCTION`, the OUTER select needs the hint
+  `/*+ with_plsql */`** — i.e. `SELECT /*+ with_plsql */ * FROM (WITH FUNCTION … SELECT …)`.
+
 ### Before `createDataModelFile`: honor the session WORKING MODE, and settle grouping
 
 **1. SQL approval is governed by the working mode** (asked once at session start — core instructions):

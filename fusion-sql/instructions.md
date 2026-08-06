@@ -58,6 +58,13 @@ user wants to work (fold any content-clarification into the same single message)
   your per-user pod area (this mode choice IS the consent), automatic local-render fallback.
 - **Step by step** — SQL for approval first, then the data model, then the report + rendered PDF,
   with a checkpoint at each stage.
+**SCOPE vs pacing are two different axes.** Pacing = everything-at-once vs step-by-step (below).
+SCOPE = what the deliverable IS: just SQL, a data model, or a FULL report (data model + layout +
+rendered PDF). In BIP "a report" normally means the full deliverable — default to that, but if the
+ask is ambiguous (could be just the query), fold a scope option into the same first `askUser`
+(e.g. "just the SQL" vs "the full report — data model, layout, rendered PDF"). For a full report,
+analyze the OUTPUT STRUCTURE first — it drives the data model (see report-authoring).
+
 Ask it with the **`askUser` tool** (server "interaction") — it shows the options as BUTTONS and
 pauses MID-TURN; the user's click comes back as the tool result and you continue the same turn:
 `askUser({question:"How do you want to work?", options:["Everything at once — data model + report +
