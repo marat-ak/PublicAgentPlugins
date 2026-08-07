@@ -121,11 +121,18 @@ all of this.
    4. **From scratch** — nothing grounds → say so explicitly before writing.
    **When you adopt/adapt a BIG report, GET ITS REAL SQL FIRST.** `findSimilarQueries` omits the SQL
    of large exemplars (`cleanSqlOmitted:true` + `sqlChars` + the match's `id`) — the mechanics text is
-   a MAP, not a substitute. Before adopting/adapting such a match, call `getReportQuery(id)` to pull
-   the full SQL (never clipped). A `.xdm` may have several datasets — getReportQuery returns the main
-   (largest) one plus a `datasets[]` list; fetch the specific dataset you need by its id. Building a
-   4-bucket/aging/statement report from mechanics alone (without ever reading the real query) is a
-   derive-from-scratch masquerading as adapt — and it shows.
+   a MAP, not a substitute. Before adopting/adapting such a match, call `getReportQuery` passing the
+   match's **`id` VERBATIM** (e.g. `getReportQuery({id:"sql:c999…"})`) — NEVER guess a human title
+   ("Aging 4 Bucket Report" is not a title; it will 404). That returns the full SQL (never clipped);
+   a `.xdm` with several datasets returns the main one plus a `datasets[]` list to fetch by id.
+   **Dropping a table the exemplar joins requires a STATED, SPECIFIC reason** — read the real SQL and
+   for EACH omitted table say why it is safe to drop (it serves a grain you excluded: site/address,
+   GL-account breakdown, a receipts UNION branch; OR it only supplies display labels). NEVER drop a
+   table that carries load-bearing logic — a security predicate, an effective-date (`_F` date range),
+   a dedup guard (`latest_rec_flag='Y'`, `account_class='REC'`, `complete_flag='Y'`, a greatest-n
+   filter) — unless you can show the remaining query doesn't need it (e.g. the driver is already
+   one-row-per-grain). Deciding what to drop from the mechanics SUMMARY instead of the real query is
+   how a load-bearing filter gets silently lost and the numbers quietly go wrong.
    **Surface the built-in**: when a match is a STANDARD Oracle report/view that already does the job
    (its catalog path names it), tell the user — "a built-in <name> report shows exactly this; want
    its shape or a custom variant?" Users don't know built-ins exist; naming them is part of the answer.
