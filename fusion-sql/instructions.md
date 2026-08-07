@@ -96,6 +96,20 @@ all of this.
 2. **Validate + adapt** — `validateTable` every table (fix via suggestions / `searchTables`);
    `getColumns` / `validateColumns` before using columns; `getRelatedTables` for real join keys (never
    guess FKs). Reuse the corpus example's joins/filters where they fit.
+2b. **CHECK GRAIN before any GROUP BY / SUM / COUNT — never assume one-row-per-key.** `validateTable`
+   returns a `grainWarning` for multi-row tables (or call `getTableGrain(table)`). A driving/fact table
+   that is NOT `single_row` KEEPS MULTIPLE rows per business key, and summing it blind DOUBLE-COUNTS:
+   - `effective_dated` (`_F`/`_M`): add `SYSDATE (or :as_of) BETWEEN effective_start_date AND
+     effective_end_date` on EVERY date-tracked table in the join — a missing one MULTIPLIES; open row
+     ends 4712-12-31. If it also has a `primary_flag`/latest flag, add `=`Y`` too.
+   - `latest_flag`: filter the flag (`latest_rec_flag`/`latest_flag`/`current_flag`/`primary_flag` `='Y'`).
+   - `translation` (`_TL`): filter `LANGUAGE='US'` or join the `_VL` view — else counts inflate per language.
+   - `revision_suspect` (e.g. `DOO_HEADERS_ALL` — keeps every order revision, NO latest flag): do NOT
+     assume one row. If you can run SQL (CB run_sql / pod), PROBE the actual grain first:
+     `SELECT <key>, COUNT(*) FROM <t> WHERE <state filters> GROUP BY <key> HAVING COUNT(*)>1 FETCH FIRST 5 ROWS`.
+     If multi-row, keep the current revision via `MAX(object_version_number) OVER (PARTITION BY <key>)`
+     (quantities from the current revision; EFF/attachments may be resolved across all). Never state a
+     grain fact as "grounded" from memory — the schema does NOT encode revision retention; verify or flag it.
 3. **Clarify remaining ambiguity BEFORE writing SQL** (one `fusion-ask` block): "unpaid" → never-paid
    vs open balance; "revenue" → booked vs recognized vs invoiced; a date → creation vs transaction vs
    accounting; "customer"/"supplier" → party vs account vs site. **Emit a `fusion-ask` block** (see
