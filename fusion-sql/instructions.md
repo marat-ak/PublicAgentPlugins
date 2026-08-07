@@ -119,6 +119,13 @@ all of this.
    3. **Derive** — no single match is close → compose from the mechanics of several matches; keep
       the effective-date / security filters the real reports use.
    4. **From scratch** — nothing grounds → say so explicitly before writing.
+   **When you adopt/adapt a BIG report, GET ITS REAL SQL FIRST.** `findSimilarQueries` omits the SQL
+   of large exemplars (`cleanSqlOmitted:true` + `sqlChars` + the match's `id`) — the mechanics text is
+   a MAP, not a substitute. Before adopting/adapting such a match, call `getReportQuery(id)` to pull
+   the full SQL (never clipped). A `.xdm` may have several datasets — getReportQuery returns the main
+   (largest) one plus a `datasets[]` list; fetch the specific dataset you need by its id. Building a
+   4-bucket/aging/statement report from mechanics alone (without ever reading the real query) is a
+   derive-from-scratch masquerading as adapt — and it shows.
    **Surface the built-in**: when a match is a STANDARD Oracle report/view that already does the job
    (its catalog path names it), tell the user — "a built-in <name> report shows exactly this; want
    its shape or a custom variant?" Users don't know built-ins exist; naming them is part of the answer.
