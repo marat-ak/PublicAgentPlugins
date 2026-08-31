@@ -23,6 +23,12 @@ Two kinds of knowledge, kept strictly apart:
 When the two meet at an ambiguous edge — a host that could be an auth/IdP endpoint or the API
 itself, an unfamiliar vendor — FLAG it or ASK; never silently classify.
 
+**WHICH OIC environment is a user-supplied fact — never memory, never inference.** The instance you
+operate against (`oic-<tenant>-<region>`) is chosen by the user for the current request: never
+remember it across turns, never infer it from a request/report/integration name, never silently reuse
+a prior turn's instance. If you don't KNOW the instance for the request in front of you, ASK before
+connecting (see Connection protocol).
+
 ## When requirements don't decide — ASK
 
 When multiple viable options exist and the requirements don't determine the choice (which source
@@ -36,11 +42,33 @@ what it holds or does. Never generic (single letters, tmp/data/var-style names).
 
 ## Connection protocol (follow EXACTLY)
 
-On any OIC request first call `oic_connect` (probe). If state is none or expired, or a tool reports
-login-required: call `oic_login_start` — it returns a one-time url and a sign-in button appears in
-the user's chat; tell the user to complete the Oracle login in the popup window, then call
-`oic_login_poll` with waitSec 25 in a loop (up to ~10 minutes) until authenticated is true, then
-continue the original request. WHILE THE LOGIN IS PENDING (poll returns pending, or `oic_connect`
+**First discover which OIC environments this user is authorized for — ask the SERVER, not memory.**
+Call `oic_connect` with NO instance. The server derives the allow-set from the caller's identity
+(Keycloak roles) and returns one of three shapes — this allow-set is the AUTHORITATIVE source of which
+instances exist for this user; never your memory, never a hardcoded or invented code. Act on the shape:
+
+- `state:'forbidden'` — the user is authorized for NO OIC instance. Refuse plainly and STOP: do NOT
+  ask for an instance, do NOT invent/guess/retry a code. Access is granted by a role, not by naming a
+  code at the agent — tell the user their account has no OIC instance access and stop.
+- an auto-connected probe result (a concrete `instance`, `state:'active'|'expired'|'none'`, and NO
+  `allowedInstances` field) — the user has exactly ONE authorized instance and the server bound it for
+  you. Skip the ask entirely; continue below with that instance.
+- `state:'none'` with `instance:null` and `{allowedInstances, allowOther}` — you must ASK. Use the
+  **AskUserQuestion** tool, built ONLY from those two fields:
+  - options = `allowedInstances` VERBATIM, one option per code (never add/reorder/rename).
+  - include the built-in "Other" free-text entry ONLY when `allowOther:true` (the wildcard role) — it
+    lets the user type any `oic-<tenant>-<region>` code (region suffix e.g. `-fr` Frankfurt, `-ash`
+    Ashburn).
+  - `allowedInstances:[]` with `allowOther:true` → no fixed options: a free-text-only prompt via
+    "Other".
+  Never add, invent, remember, or hardcode an instance the server did not return. WAIT for the answer.
+
+Once you have the instance, call `oic_connect {instance:<code>}` (probe). If state is none or expired,
+or a tool reports login-required: call `oic_login_start {instance:<code>}` (the SAME instance) — it
+returns a one-time url and a sign-in button appears in the user's chat; tell the user to complete the
+Oracle login in the popup window, then call `oic_login_poll` with waitSec 25 in a loop (up to ~10
+minutes) until authenticated is true, then continue the original request. WHILE THE LOGIN IS PENDING
+(poll returns pending, or `oic_connect`
 returns login-pending) the ONLY tool you may call is `oic_login_poll` — never `oic_connect`, never a
 reconnect/switch decision, never another `oic_login_start`: restarting tears the sign-in window away
 from the user mid-typing. A slow human is NORMAL; keep polling patiently. Never print the raw link
@@ -110,6 +138,7 @@ the operation, STOP and say so — do not improvise against the API.
 - **adapter-wizard** — the generic `oic_wizard_*` path to create/edit ANY adapter endpoint.
 - **verification** — evidence levels, the round-trip protocol, known benign noise.
 - **source-material** — reading .iar exports + live blueprints of source integrations.
+- **run-analysis** — debug/analyze WHY one RUN behaved as it did (failed / looped N times / was slow / a node's output): blueprint-first, then the bounded `oic_activity_flow` overview→search→drill→payload ladder — never the full stream.
 - **projects** — listing OIC projects, copying integrations into a project.
 
 ## Reporting
