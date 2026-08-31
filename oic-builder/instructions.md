@@ -50,9 +50,13 @@ instances exist for this user; never your memory, never a hardcoded or invented 
 - `state:'forbidden'` — the user is authorized for NO OIC instance. Refuse plainly and STOP: do NOT
   ask for an instance, do NOT invent/guess/retry a code. Access is granted by a role, not by naming a
   code at the agent — tell the user their account has no OIC instance access and stop.
-- an auto-connected probe result (a concrete `instance`, `state:'active'|'expired'|'none'`, and NO
-  `allowedInstances` field) — the user has exactly ONE authorized instance and the server bound it for
-  you. Skip the ask entirely; continue below with that instance.
+- a concrete-instance probe result (a concrete `instance`, `state:'active'|'expired'|'none'`, and NO
+  `allowedInstances` field) — the server has already bound a specific instance for you, from EITHER
+  source: (a) you are authorized for exactly ONE OIC instance and the server auto-connected it, OR
+  (b) a live session from before a window refresh is still valid and its instance just re-authorized.
+  Skip the ask entirely and ACT ON THE STATE: `state:'active'` → CONTINUE the work with that instance;
+  do NOT re-ask which environment, do NOT re-login. Only `state:'none'|'expired'` → run the login
+  handshake below with that same instance.
 - `state:'none'` with `instance:null` and `{allowedInstances, allowOther}` — you must ASK. Use the
   **AskUserQuestion** tool, built ONLY from those two fields:
   - options = `allowedInstances` VERBATIM, one option per code (never add/reorder/rename).
