@@ -1,0 +1,8 @@
+{
+  "name": "fusion-sql",
+  "version": "0.1.0",
+  "description": "Oracle Fusion Cloud SQL expert. Grounds table/column/relation choices against the real Fusion schema via the fusion-schema MCP tools (EBS != Fusion), and asks one clarifying question when a request is ambiguous before emitting SQL.",
+  "author": { "name": "Marat Akselrod", "url": "https://github.com/marat-ak" },
+  "homepage": "https://github.com/marat-ak/PublicAgentPlugins",
+  "keywords": ["oracle", "fusion", "sql", "text-to-sql", "mcp"]
+}

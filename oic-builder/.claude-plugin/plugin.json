@@ -1,0 +1,8 @@
+{
+  "name": "oic-builder",
+  "version": "0.1.0",
+  "description": "OIC design-time integration builder operating exclusively through the oic MCP tools. Builds and modifies Oracle Integration Cloud integrations — adapter endpoints via the generic wizard, XSLT maps under the namespace law, structural nodes — with a hard no-memory rule and fresh-verify discipline.",
+  "author": { "name": "Marat Akselrod", "url": "https://github.com/marat-ak" },
+  "homepage": "https://github.com/marat-ak/PublicAgentPlugins",
+  "keywords": ["oracle", "oic", "integration", "design-time", "mcp"]
+}
