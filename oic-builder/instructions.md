@@ -42,42 +42,50 @@ what it holds or does. Never generic (single letters, tmp/data/var-style names).
 
 ## Connection protocol (follow EXACTLY)
 
-**First discover which OIC environments this user is authorized for — ask the SERVER, not memory.**
-Call `oic_connect` with NO instance. The server derives the allow-set from the caller's identity
-(Keycloak roles) and returns one of three shapes — this allow-set is the AUTHORITATIVE source of which
-instances exist for this user; never your memory, never a hardcoded or invented code. Act on the shape:
+**On ANY OIC request, your FIRST tool call is `oic_authorized_instances` (no args).** Not `oic_status`,
+not `oic_connect {}`: the authorized set comes from the SERVER (your Keycloak roles), never your memory,
+never a hardcoded or invented code. It returns `{allowedInstances:[<codes>], allowOther}` — this is the
+AUTHORITATIVE, only source of which instances exist for this user. Branch on it:
 
-- `state:'forbidden'` — the user is authorized for NO OIC instance. Refuse plainly and STOP: do NOT
-  ask for an instance, do NOT invent/guess/retry a code. Access is granted by a role, not by naming a
-  code at the agent — tell the user their account has no OIC instance access and stop.
-- a concrete-instance probe result (a concrete `instance`, `state:'active'|'expired'|'none'`, and NO
-  `allowedInstances` field) — the server has already bound a specific instance for you, from EITHER
-  source: (a) you are authorized for exactly ONE OIC instance and the server auto-connected it, OR
-  (b) a live session from before a window refresh is still valid and its instance just re-authorized.
-  Skip the ask entirely and ACT ON THE STATE: `state:'active'` → CONTINUE the work with that instance;
-  do NOT re-ask which environment, do NOT re-login. Only `state:'none'|'expired'` → run the login
-  handshake below with that same instance.
-- `state:'none'` with `instance:null` and `{allowedInstances, allowOther}` — you must ASK. Use the
-  **AskUserQuestion** tool, built ONLY from those two fields:
-  - options = `allowedInstances` VERBATIM, one option per code (never add/reorder/rename).
-  - include the built-in "Other" free-text entry ONLY when `allowOther:true` (the wildcard role) — it
-    lets the user type any `oic-<tenant>-<region>` code (region suffix e.g. `-fr` Frankfurt, `-ash`
-    Ashburn).
-  - `allowedInstances:[]` with `allowOther:true` → no fixed options: a free-text-only prompt via
-    "Other".
-  Never add, invent, remember, or hardcode an instance the server did not return. WAIT for the answer.
+- `allowedInstances` empty AND `allowOther:false` — you are authorized for NO OIC instance. REFUSE
+  plainly and STOP: do NOT ask for an instance, do NOT invent/guess/retry a code. Access is granted by
+  a role, not by naming a code at the agent — tell the user their account has no OIC instance access.
+- exactly ONE `allowedInstances` code AND `allowOther:false` — do NOT ask. Call
+  `oic_connect {instance:<that code>}` directly.
+- otherwise — you must ASK. Use the **AskUserQuestion** tool, built ONLY from those two fields:
+  - options = `allowedInstances` VERBATIM, one option per code (never add/reorder/rename/relabel).
+  - **NEVER invent, guess, or generalize an option.** The choices are ONLY the exact instance codes in
+    `allowedInstances`. Do NOT offer environment-type labels — no "Production", "Test", "Non-prod",
+    "Dev", or an "Other" of your own — and no code the server did not return.
+    - *WRONG (this is the bug): offering "Production / Test/Non-prod / Other" of your own invention.*
+    - *RIGHT: offering exactly the codes the server returned, e.g. `oic-test-frvxnbuyqywq-fr`,
+      `oic-dev1-frvxnbuyqywq-fr`.*
+  - AskUserQuestion always renders its own built-in "Other" free-text box — that is the TOOL's, not a
+    choice you author. It is a legitimate way to type an `oic-<tenant>-<region>` code (region suffix
+    e.g. `-fr` Frankfurt, `-ash` Ashburn) ONLY when `allowOther:true` (the wildcard role). When
+    `allowOther:false`, do NOT encourage typing one: the server gate rejects any unauthorized code
+    typed there (fail-closed), so anything outside `allowedInstances` is simply refused.
+  - `allowedInstances:[]` with `allowOther:true` → no fixed options: a free-text-only prompt via "Other".
+  WAIT for the answer, then call `oic_connect {instance:<chosen code>}`.
 
-Once you have the instance, call `oic_connect {instance:<code>}` (probe). If state is none or expired,
-or a tool reports login-required: call `oic_login_start {instance:<code>}` (the SAME instance) — it
-returns a one-time url and a sign-in button appears in the user's chat; tell the user to complete the
-Oracle login in the popup window, then call `oic_login_poll` with waitSec 25 in a loop (up to ~10
-minutes) until authenticated is true, then continue the original request. WHILE THE LOGIN IS PENDING
-(poll returns pending, or `oic_connect`
-returns login-pending) the ONLY tool you may call is `oic_login_poll` — never `oic_connect`, never a
-reconnect/switch decision, never another `oic_login_start`: restarting tears the sign-in window away
-from the user mid-typing. A slow human is NORMAL; keep polling patiently. Never print the raw link
-into the chat text (the button carries it); only if the user says the link expired call
-`oic_login_start` once more. Never attempt to read or handle credentials/cookies yourself.
+`oic_connect {instance:<code>}` PROBES that instance (the server hard-gates the code against your roles
+again — an unauthorized one is refused). Act on the returned `state`:
+
+- `state:'active'` (with that concrete `instance`) → the session is live: CONTINUE the work. Do NOT
+  re-ask which environment, do NOT re-login. (This is also how a session that survived a window refresh
+  comes back — an already-valid instance just re-authorizes.)
+- `state:'none'|'expired'`, or a tool later reports login-required → run the login handshake with that
+  SAME instance: call `oic_login_start {instance:<code>}` — it returns a one-time url and a sign-in
+  button appears in the user's chat; tell the user to complete the Oracle login in the popup window,
+  then call `oic_login_poll` with waitSec 25 in a loop (up to ~10 minutes) until authenticated is true,
+  then continue the original request. Call `oic_login_poll` ONLY while a sign-in is actually in progress;
+  if it returns "no active sign-in", STOP polling (nothing is mid-login — re-check with `oic_connect`).
+  WHILE THE LOGIN IS PENDING (poll returns pending, or `oic_connect` returns login-pending) the ONLY
+  tool you may call is `oic_login_poll` — never `oic_connect`, never a reconnect/switch decision, never
+  another `oic_login_start`: restarting tears the sign-in window away from the user mid-typing. A slow
+  human is NORMAL; keep polling patiently. Never print the raw link into the chat text (the button
+  carries it); only if the user says the link expired call `oic_login_start` once more. Never attempt
+  to read or handle credentials/cookies yourself.
 
 ## Session lifecycle
 
