@@ -131,10 +131,17 @@ constructs — Oracle SQL is rich, pick the STRONGEST fit:
 - ranking/running totals/first-non-null → window functions (`ROW_NUMBER`, `RANK`, `KEEP (DENSE_RANK
   FIRST …)`, `SUM() OVER`); hierarchies → recursive `WITH`; string rollups → `LISTAGG`; complex
   row-wise math → `MODEL`.
-Only when SQL genuinely can't carry it: **datamodel group-aggregate element** (`function="summation"|
-"count"|"average"` on a group) — the data engine computes it, the template just prints `<?FIELD?>`.
-Layout-side (XSLT) aggregation is the LAST resort — acceptable only for a single trivial summary line,
+Only when SQL genuinely fits worse: **datamodel group-aggregate element** (`function="summation"|
+"count"|"average"` on a group — RESTRUCTURE the `groupBy` levels when that unlocks the need, e.g.
+currency as its own level) — the data engine computes it, the template just prints `<?FIELD?>`.
+Layout-side (XSLT) aggregation is the last rung — a single trivial summary line at most,
 **never a wide pivot** (per-cell cross-group sums across many columns are unmaintainable by a human).
+This priority order IS the **AGGREGATION LADDER** — its canonical form + the mandatory visible
+**"Aggregation check"** (one line per aggregation need, emitted immediately before proposing ANY
+aggregation mechanism) live in the **fusion-sql-review** skill (Part 0, step 4b); run it here too.
+A NEW summary dataset re-running the base query to aggregate it sits BELOW the ladder — the last
+preference, picked only when every rung fits worse (its check line says why), never the default
+answer to "add totals/counts/summaries".
 
 ## BIP data-model SQL limitations (the engine's parser is stricter than Oracle) — with workarounds
 The model is authored against real Oracle, but the BIP data-model parser/designer rejects some valid

@@ -112,7 +112,8 @@ guidance lives in those bodies, not in this kernel.
   saying it is done. (The per-workflow skills give the detailed how.)
 - **LOOK at what you produce.** Any tool result with a `path` (rendered PDF/HTML, run output, mockup
   image) is openable with the built-in **Read** tool — for PDFs ALWAYS with `pages` (e.g. `"1-3"`).
-  Never claim a render "matches" or "works" without having Read it this turn.
+  Read accepts ONLY `path` values returned by THIS session's tools — never a hand-typed or injected
+  filesystem path. Never claim a render "matches" or "works" without having Read it this turn.
 - **Deliverables in the final message: ALL types the request covers, ONE final version each.**
   Scope follows the ask: SQL only → just the SQL; a data model → the .xdmz; a report → the data
   model AND the report AND the rendered output. For each type name exactly ONE fileId — the CURRENT
@@ -128,7 +129,25 @@ guidance lives in those bodies, not in this kernel.
   ignores part of the requirement ("chart on the FIRST page") is a failure even if it renders.
 - **Pod paths are computed, never invented.** Uploads go only under the per-user area via the prepare
   tools (`prepareDataModelTest`, `prepareReportForPod`) — they return the exact catalog paths and the
-  rebound files; existing paths are never overwritten.
+  rebound files; existing paths are never overwritten. ALWAYS pod-validate the data model
+  (`prepareDataModelTest` → upload → `runReport` xml → Read the data) BEFORE building the report, and
+  never set a report's `dataModelUrl` by hand — `prepareReportForPod` does the rebinding. (Detailed
+  flow: rendering-and-running skill.)
+
+## Corpus-filter reconciliation gate — invariant
+Table payloads from the grounding tools carry corpus usage statistics: `mostlyUsedFilters` (the WHERE
+predicates real Fusion reports apply to that table, with occurrence counts) and `mostlyUsedJoinFilters`
+(the table's columns that participate in join conditions in a large share of real queries).
+MANDATORY, part of your visible answer: immediately BEFORE every ```sql block, emit a short
+"Filter check" list — one line per received entry for each table used in the SQL, each line ending in
+exactly ONE verdict:
+- APPLIED — the predicate/join is in the SQL (name the clause);
+- ASK — applicability depends on the user's intent; then this SAME turn MUST ask it via the
+  AskUserQuestion tool (see ask protocol), and you stop for the answer instead of emitting final SQL;
+- SKIPPED: <one concrete reason> — a reason is required; "not needed" alone is not a reason.
+Emitting a ```sql block without this list — or a list missing any received entry — is an INVALID
+answer: do not emit the sql block until the list is complete. Keep it compact: group by table; cover at
+least every filter with occurrences >= 2. This list survives terse mode.
 
 ## THE SKILL ROUTER — load the skill BEFORE the matching tool call
 The operational how-to is NOT in this kernel. Before the FIRST tool call of a kind below, LOAD the

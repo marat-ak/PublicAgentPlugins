@@ -1,12 +1,18 @@
 #!/usr/bin/env node
-// PreToolUse hook (matcher matches mcp__<server>__createDataModelFile / createReportFile): the
-// deterministic backstop to the thin-kernel router. DENY the build tool until its matching skill
-// body was loaded THIS session (recorded by skill-record.mjs), returning a clear "load X first"
-// reason so the model loads the skill and retries. Gates ONLY these two tools — never
-// using-templates / rendering-and-running / fusion-sql-review.
+// PreToolUse hook (matcher matches the MUTATING authoring build tools — see REQUIRED below; the
+// hooks.json matcher alternation must mirror its tool names): the deterministic backstop to the
+// thin-kernel router. DENY the build tool until every skill it requires was loaded THIS session
+// (recorded by skill-record.mjs), returning a clear "load X first" reason so the model loads the
+// skill(s) and retries. Gates ONLY mutating build tools — NEVER read-only/inspection tools
+// (getDataModel, getDataStructure, summarizeReportLayout, …), converters, prepare*/upload*, or
+// renderTemplate/runReport.
 //
-//   createDataModelFile -> requires the datamodel-authoring skill
-//   createReportFile    -> requires the report-authoring skill
+//   datamodel-mutating tools  -> datamodel-authoring (structural discipline: fileId chain, surgical
+//                                edits, grouping shapes); the SQL-carrying ones (createDataModelFile,
+//                                setDatasetSql) ALSO require fusion-sql-review (grounding workflow +
+//                                the aggregation ladder)
+//   report/layout-mutating    -> report-authoring
+//   instantiateTemplate       -> using-templates
 //
 // FAIL-OPEN by design: this is a QUALITY backstop, not a security gate (the engine's readGate/askGate
 // are the security gates and fail closed). If markers cannot be persisted (unwritable dir) or the
@@ -18,9 +24,34 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 
+const DM = "datamodel-authoring", SQL = "fusion-sql-review", RPT = "report-authoring", TPL = "using-templates";
 const REQUIRED = [
-  { suffix: "createDataModelFile", skill: "datamodel-authoring" },
-  { suffix: "createReportFile", skill: "report-authoring" },
+  // data model — mutating tools; SQL-carrying ones also re-read the SQL discipline
+  { tool: "createDataModelFile", skills: [DM, SQL] },
+  { tool: "setDatasetSql", skills: [DM, SQL] },
+  { tool: "updateDataModelFile", skills: [DM] },
+  { tool: "addStructureElement", skills: [DM] },
+  { tool: "moveStructureElement", skills: [DM] },
+  { tool: "removeStructureElement", skills: [DM] },
+  { tool: "editStructure", skills: [DM] },
+  { tool: "editParameters", skills: [DM] },
+  { tool: "editLexicals", skills: [DM] },
+  { tool: "editDatasets", skills: [DM] },
+  { tool: "editTriggers", skills: [DM] },
+  { tool: "editValueSets", skills: [DM] },
+  { tool: "editBursting", skills: [DM] },
+  { tool: "editProperties", skills: [DM] },
+  { tool: "editValidations", skills: [DM] },
+  // report / layout — mutating tools
+  { tool: "createReportFile", skills: [RPT] },
+  { tool: "updateReportFile", skills: [RPT] },
+  { tool: "addReportLayout", skills: [RPT] },
+  { tool: "setReportLayout", skills: [RPT] },
+  { tool: "modifyReportLayout", skills: [RPT] },
+  { tool: "editLayout", skills: [RPT] },
+  { tool: "createSubtemplateFile", skills: [RPT] },
+  // template instantiation
+  { tool: "instantiateTemplate", skills: [TPL] },
 ];
 
 const markerDir = process.env.FUSION_SKILLGATE_DIR || path.join(os.tmpdir(), "fusion-sql-skillgate");
@@ -53,20 +84,26 @@ let evt;
 try { evt = JSON.parse(raw || "{}"); } catch { proceed(); }
 
 const toolName = String(evt?.tool_name ?? "");
-const match = REQUIRED.find((r) => toolName.endsWith(r.suffix));
+const sep = toolName.lastIndexOf("__");
+const baseName = sep >= 0 ? toolName.slice(sep + 2) : toolName; // mcp__<server>__<tool> -> <tool>
+// EXACT base-name match, not endsWith (removeStructureElement endsWith moveStructureElement).
+const match = REQUIRED.find((r) => r.tool === baseName);
 if (!match || !evt?.session_id) proceed(); // not one of the gated tools -> no opinion
 
-const marker = path.join(markerDir, `${sanitize(evt.session_id)}__${match.skill}.loaded`);
-try {
-  if (fs.existsSync(marker)) proceed();     // skill was loaded this session -> allow
-} catch { proceed(); }
+const sid = sanitize(evt.session_id);
+const missing = match.skills.filter((skill) => {
+  try { return !fs.existsSync(path.join(markerDir, `${sid}__${skill}.loaded`)); }
+  catch { return false; }                    // can't check this marker -> treat as loaded (fail open)
+});
+if (!missing.length) proceed();              // every required skill was loaded this session -> allow
 
 if (!canPersist(markerDir)) proceed();       // can't track markers here -> fail open (no loop)
 
 deny(
-  `Load the \`${match.skill}\` skill FIRST (call the Skill tool), then retry ${match.suffix}. ` +
-  `Its build procedure, grouping-shape rules, and render-verified recipes are required and are NOT ` +
-  `in the always-on instructions — building from memory produces the wrong shape (e.g. two summary ` +
-  `SELECTs instead of one ROLLUP query). If the skill will not load after you call it, STOP and tell ` +
-  `the user; do not build from memory.`
+  `Load the ${missing.map((s) => `\`${s}\``).join(" and ")} skill${missing.length > 1 ? "s" : ""} ` +
+  `FIRST (one Skill-tool call each), then retry ${match.tool}. The build procedure, grouping-shape ` +
+  `rules, SQL discipline (incl. the aggregation ladder), and render-verified recipes are required and ` +
+  `are NOT in the always-on instructions — building from memory produces the wrong shape (e.g. a ` +
+  `second summary SELECT instead of one ROLLUP query). If a skill will not load after you call it, ` +
+  `STOP and tell the user; do not build from memory.`
 );

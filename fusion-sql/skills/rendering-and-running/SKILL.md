@@ -34,8 +34,8 @@ substitute an RTF approximation.
 
 ## 2. The live Fusion pod — `fusion-pod` MCP
 - **`listCatalogFolder(path)`** — browse. Read-only.
-- **`downloadCatalogObject(path)`** — fetch a real `.xdoz`/`.xdmz`. The bytes go to the session store;
-  you get `{fileId, summary}` (entries/templates manifest) — NOT raw bytes. Inspect via
+- **`downloadCatalogObject(path)`** — fetch a real `.xdoz`/`.xdmz`. The bytes go to the session file
+  store; you get `{fileId, name, size}` — NOT raw bytes. Inspect via
   `summarizeReportLayout` / `getFileSummary`, pull one entry with `extractEntry`, or render it by
   fileId. Read-only.
 - **`runReport(path, format?, parameters?)`** — execute on the real pod. Output lands in the store →

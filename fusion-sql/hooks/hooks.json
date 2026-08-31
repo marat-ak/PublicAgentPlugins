@@ -21,7 +21,7 @@
         ]
       },
       {
-        "matcher": "mcp__[A-Za-z0-9_-]+__(createDataModelFile|createReportFile)",
+        "matcher": "mcp__[A-Za-z0-9_-]+__(createDataModelFile|setDatasetSql|updateDataModelFile|addStructureElement|moveStructureElement|removeStructureElement|editStructure|editParameters|editLexicals|editDatasets|editTriggers|editValueSets|editBursting|editProperties|editValidations|createReportFile|updateReportFile|addReportLayout|setReportLayout|modifyReportLayout|editLayout|createSubtemplateFile|instantiateTemplate)",
         "hooks": [
           {
             "type": "command",

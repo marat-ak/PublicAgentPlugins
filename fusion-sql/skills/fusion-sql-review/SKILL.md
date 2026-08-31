@@ -1,6 +1,6 @@
 ---
 name: fusion-sql-review
-description: Use before finalizing ANY Fusion SQL (pure-SQL request OR a data model's dataset SQL), and whenever findSimilarQueries returned ambiguous:true. Provides the end-to-end SQL build workflow (ground -> validate -> grain-check -> clarify -> adopt/adapt/derive), the domain cue-table + ask/combine templates, Financials sub-ledger traps, a pre-flight grounding/scoping checklist, and the modern-Oracle-SQL construct menu.
+description: Use before finalizing ANY Fusion SQL (pure-SQL request OR a data model's dataset SQL), whenever findSimilarQueries returned ambiguous:true, and whenever the required output involves ANY aggregation (totals, subtotals, counts, summaries, per-X blocks, pivots). Provides the end-to-end SQL build workflow (ground -> validate -> grain-check -> clarify -> adopt/adapt/derive), the AGGREGATION LADDER (SQL -> group levels -> template) with its mandatory visible Aggregation check, the domain cue-table + ask/combine templates, Financials sub-ledger traps, a pre-flight grounding/scoping checklist, and the modern-Oracle-SQL construct menu.
 ---
 
 # Fusion SQL: build workflow + disambiguation + pre-flight review
@@ -72,9 +72,29 @@ playbook for BOTH a bare SQL request and the dataset SQL inside a data model.
    **Surface the built-in**: when a match is a STANDARD Oracle report/view that already does the job
    (its catalog path names it), tell the user — "a built-in <name> report shows exactly this; want
    its shape or a custom variant?" Users don't know built-ins exist; naming them is part of the answer.
-5. **Explain briefly, then give the final SQL in a single ```sql fenced block.** (Totals/subtotals are
-   part of the OUTPUT shape and belong in the SAME detail query via `ROLLUP`/`GROUPING SETS` — see the
-   datamodel-authoring "Computation belongs in SQL" section — NEVER a second summary SELECT.)
+4b. **AGGREGATION LADDER — run it whenever the required OUTPUT involves ANY aggregation** (totals,
+   subtotals, counts, summaries, grand totals, per-X blocks, pivots) — universal, for a bare SQL
+   answer, a datamodel build, AND a modify of an existing model. It is a PRIORITY ORDER, not a
+   prohibition list: invest in the top rung first — use Oracle SQL maximally — and step down only
+   where a lower rung genuinely fits better (one-clause reason when you do):
+   1. **SQL** — the first candidate, always: carry the aggregation in the ONE existing/detail query
+      (`ROLLUP` / `GROUPING SETS` with `GROUPING()` tags, `GROUP BY`, window functions,
+      `SUM(CASE …)`, `PIVOT`).
+   2. **Dataset group levels + group-aggregate elements** — the model's `groupBy` hierarchy,
+      RESTRUCTURED when that unlocks the need (e.g. currency as its own group level), with
+      summation/count/average elements (mechanics: datamodel-authoring).
+   3. **Template/XSLT-side** — last rung: a single trivial line at most (wide template pivots stay
+      banned — report-authoring simplicity contract).
+   A NEW summary dataset (a second SELECT re-running the base query to aggregate it) sits BELOW the
+   ladder — the last preference, picked only when every rung above is a worse fit; its check line
+   says why.
+   **"Aggregation check" — mandatory, visible** (same discipline as the Filter check): immediately
+   before proposing ANY aggregation mechanism — in a plan or a build — emit one line per
+   aggregation need: `<need> → rung N (<mechanism>)`, plus a one-clause reason whenever the pick is
+   below rung 1. One line per need is the whole ceremony — no essays. This list survives terse mode.
+5. **Explain briefly, then give the final SQL in a single ```sql fenced block.** (Totals/subtotals
+   are part of the OUTPUT shape — the 4b Aggregation ladder decides where they live, and its
+   Aggregation check precedes the sql block alongside the Filter check.)
 
 ## Part A — disambiguation (when `findSimilarQueries` returns `ambiguous:true`)
 
