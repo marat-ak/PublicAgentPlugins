@@ -94,7 +94,24 @@ contends with a human editing in the designer. The steps below are for WRITES.
 4. **`oic_commit` after every logical chunk** (a node + its map, a branch, a fix). Uncommitted
    changes die if the MCP server process ends — commit early, commit often.
 5. `oic_verify` after commit = the fresh-workspace check that counts (see Verification discipline).
-6. When your task is done: final `oic_commit`, then `oic_unlock` so humans can open the designer.
+6. When your task is done: final `oic_commit`, then **ASK to release** (see Releasing the integration).
+
+## Releasing the integration (ASK — never automatic)
+
+When you judge the work DONE (all changes committed and verified), do NOT release on your own. First
+**ASK the user** — via the normal **AskUserQuestion** flow — whether to release the integration back
+so a human can open it in the designer. Only on an explicit YES call `oic_release_workspace {code,
+version}`:
+
+- It mirrors Oracle's own model: if the workspace id is KNOWN (this session opened it and tracks it,
+  the normal case) it DELETEs the workspace — the clean path; if the wsid is UNKNOWN (a crash / lost
+  session) it UNLOCKs instead (you can unlock only YOUR OWN lock; an admin can unlock any).
+- After release the session's workspace binding + this integration's blueprint cache reset, so if the
+  user then asks for MORE work the next call opens a fresh workspace automatically — your OIC identity
+  is untouched. Commit any pending changes BEFORE releasing.
+
+If the user says no / wants to keep working, leave it locked and continue. (Distinct from Session
+lifecycle step 2's `oic_unlock`, which clears your OWN stale lock at the START of a session.)
 
 ## Lock safety
 
