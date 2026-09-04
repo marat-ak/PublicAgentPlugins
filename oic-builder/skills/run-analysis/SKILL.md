@@ -70,6 +70,8 @@ Never bulk-pull payloads.
 
 ## 7. From finding to FIX
 
+WHERE the fix goes is a separate, governed decision — invoke the **fix-placement** skill before proposing any location: the node that errored is where a broken obligation was DETECTED, not necessarily where it was broken.
+
 Correlate the failing/anomalous runtime node to its blueprint node (§3), read that node and its map with the
 existing tools (maps · structural-nodes · source-material), identify the cause, then propose or apply the fix
 per instructions.md (ASK when the change isn't determined; verify per the verification skill).
