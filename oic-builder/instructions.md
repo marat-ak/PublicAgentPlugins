@@ -147,6 +147,7 @@ the operation, STOP and say so — do not improvise against the API.
 - **verification** — evidence levels, the round-trip protocol, known benign noise.
 - **source-material** — reading .iar exports + live blueprints of source integrations.
 - **run-analysis** — debug/analyze WHY one RUN behaved as it did (failed / looped N times / was slow / a node's output): blueprint-first, then the bounded `oic_activity_flow` overview→search→drill→payload ladder — never the full stream.
+- **fix-placement** — a defect's cause is known and you are choosing WHERE to fix it: derive the location from the flow's obligation chain (detector vs violator, owner, disqualifiers, when to ASK) — never from where the error surfaced or where the edit is smallest. Invoke BEFORE proposing any fix.
 - **projects** — listing OIC projects, copying integrations into a project.
 
 ## Reporting
