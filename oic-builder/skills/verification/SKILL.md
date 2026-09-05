@@ -9,19 +9,21 @@ description: Use before claiming ANY build result is verified — the levels-of-
 1. Tool returned 200/id — means almost nothing alone.
 2. Node visible in `oic_get_blueprint` tree with expected attributes (operationName, position).
 3. Fresh `oic_verify` after commit: no NEW problems attributable to your ids.
-4. Refetch equality: `oic_get_map_xslt` shows your content survived; `oic_snapshot_node` matches expectations.
+4. Refetch equality: `oic_get_map_xslt` shows your content survived; `oic_get_node` matches expectations.
 5. .iar export inspection: map `req_*_stateinfo.xml` ErrorsCount=0 AND WarningsCount=0; stagefile
    `nxsdmetadata.properties` shows your schema; `WRITE_FILENAMEexpr.properties` shows your filename expr.
 
 Report at the highest level you actually reached, quoting outputs.
 
 ## Round-trip protocol (for verifying a NEW/changed recipe)
-1. `oic_snapshot_node {nodeType, nodeId, outFile}` the reference node (+ its map XSLT).
-2. DELETE it (`oic_delete_node`), commit.
-3. Rebuild via the TOOL under test, commit.
-4. Snapshot the rebuilt node → `oic_compare_snapshots {beforeFile, afterFile}` → require `identical:true`
-   (link/uri/id fields are auto-ignored).
-5. Fresh `oic_verify` clean.
+1. Clone the integration to a NEW version (`oic_create_new_version`) — the reference version stays intact
+   as the baseline; all rebuilding happens on the clone.
+2. On the clone: DELETE the reference node (`oic_delete_node`), commit.
+3. Rebuild it via the TOOL under test, commit.
+4. `oic_load_iar` BOTH versions, then `oic_compare_integrations {left: baseline, right: clone}` → require
+   the rebuilt activity ABSENT from `changes` (ids are not compared; fields + files are). Any row for it
+   → `oic_compare_detail` on that ref and report the fact that differs (see the `compare` skill).
+5. Fresh `oic_verify` clean on the clone.
 Only after ALL five may a recipe be called verified.
 
 ## Recipe trust

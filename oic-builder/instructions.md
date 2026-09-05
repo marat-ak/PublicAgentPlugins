@@ -122,8 +122,9 @@ nodes you were not asked to touch.
 - Tool results return JSON (or raw XSLT text for map fetches). Read the WHOLE result — a
   `status: 400` inside an `oic_raw_api` result is a FAILURE even though the tool call itself
   "succeeded".
-- Big outputs: several tools take `outFile` (e.g. `oic_dump_blueprint`, `oic_snapshot_node`,
-  `oic_export_iar`, `oic_raw_api`) — write to a scratch path and read back selectively.
+- Big outputs: the `oic_get_*` tools (`oic_get_blueprint`, `oic_get_iar`, `oic_get_flowactivity`,
+  `oic_get_external_payload`) hand the whole artifact over as session FILES — Read/Grep them
+  selectively; `oic_raw_api` takes `outFile` for the same reason.
 - Tool argument schemas: each tool's own description/schema is the authoritative argument reference.
   Do not guess arguments.
 - Escape hatch: `oic_raw_api {method, path, body, contentType?, accept?, outFile?}` — any design-time
@@ -149,6 +150,7 @@ the operation, STOP and say so — do not improvise against the API.
 - **run-analysis** — debug/analyze WHY one RUN behaved as it did (failed / looped N times / was slow / a node's output): blueprint-first, then the bounded `oic_activity_flow` overview→search→drill→payload ladder — never the full stream.
 - **fix-placement** — a defect's cause is known and you are choosing WHERE to fix it: derive the location from the flow's obligation chain (detector vs violator, owner, disqualifiers, when to ASK) — never from where the error surfaced or where the edit is smallest. Invoke BEFORE proposing any fix.
 - **projects** — listing OIC projects, copying integrations into a project.
+- **compare** — what CHANGED / DIFFERS between two integrations or two versions of one (review a new version, audit a copy, explain a regression): load both archives → `oic_compare_integrations` summary → `oic_compare_detail` facts by ref — explained in designer terms, never +/- text.
 
 ## Reporting
 
