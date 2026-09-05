@@ -68,6 +68,15 @@ the tool says so — the full log lives in the platform's flow log, not this str
 VALUE (what was sent/received, why a mapped field was empty). Some nodes have no payload; the tool says so.
 Never bulk-pull payloads.
 
+**Payload attribution comes before payload reasoning.** An invoke logs up to FOUR bodies, not two: OIC's
+inner prepared payload (almost always XML — Oracle's canonical form) AND the wire payload the adapter
+actually sent/received, for BOTH the request and the response (with tracing on, all four are present). So
+a JSON REST invoke shows an XML request + a JSON request, then an XML response + a JSON response. Seeing
+an XML body does not make it the response; seeing a JSON body does not make it the request. Decide which
+bodies are request and which are response from the stream's position / label / direction markers FIRST,
+then match the error message against the WIRE payload of the correct direction ("could not parse the
+payload" is about the wire REQUEST body, not the inner XML you happened to read).
+
 ## 7. From finding to FIX
 
 WHERE the fix goes is a separate, governed decision — invoke the **fix-placement** skill before proposing any location: the node that errored is where a broken obligation was DETECTED, not necessarily where it was broken.
