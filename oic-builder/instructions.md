@@ -125,6 +125,15 @@ nodes you were not asked to touch.
 - Big outputs: the `oic_get_*` tools (`oic_get_blueprint`, `oic_get_iar`, `oic_get_flowactivity`,
   `oic_get_external_payload`) hand the whole artifact over as session FILES — Read/Grep them
   selectively; `oic_raw_api` takes `outFile` for the same reason.
+- Remote search: `oic_grep {pattern, …}` is ripgrep over everything LOADED in this session — every
+  file of every loaded archive, loaded blueprints (line numbers = the `oic_get_blueprint` file), loaded
+  runs (flow.txt + raw.json) and downloaded payloads. Use it to find WHERE a field / lookup / endpoint /
+  variable / error text is used across loaded integrations, to locate a node in a blueprint, or to
+  search a payload — before drilling with the specific tool. It sees ONLY loaded content: a
+  `not-loaded` answer means load first (`oic_load_iar` / `oic_load_blueprint` / `oic_load_flowactivity`
+  / `oic_load_external_payload`); a zero-match answer proves nothing about content you did not load.
+  Narrow with `glob` (`*.xsl`), `entry` (`iar` | one entry id), `mode: count|files`; page with
+  `offset/limit`.
 - Tool argument schemas: each tool's own description/schema is the authoritative argument reference.
   Do not guess arguments.
 - Escape hatch: `oic_raw_api {method, path, body, contentType?, accept?, outFile?}` — any design-time
