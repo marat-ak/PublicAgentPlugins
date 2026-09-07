@@ -16,14 +16,27 @@ different maps. Therefore:
    The designer is a dumb renderer of this table; be the same.
 2. To reference a payload/variable: find its namespace URI's entry in `namespaces`, use that prefix.
    (The fresh wrapper header from `oic_get_map_xslt` shows only the in-use subset — the TABLE is the authority.)
-3. **WE NEVER GENERATE NAMESPACE DECLARATIONS. NEVER.** Not inline, not at the stylesheet top. The server
-   owns declarations and emits them when it saves your doc. If a URI you need has NO entry in the table,
-   that payload is not part of this map's model — register it (`extraSources` on save / confirm the payload
+3. **WE NEVER AUTHOR NAMESPACE DECLARATIONS.** The ONLY declarations permitted in a doc you save are
+   VERBATIM `{prefix, ns}` pairs copied from THIS map's current `oic_get_map_namespaces` result, placed on
+   the `xsl:stylesheet` tag, and only in full-doc `xslt` mode (the fetched header carries only the in-use
+   subset; a body prefix the header lacks dies with JETMAPPER-00324). NEVER an inline `xmlns:` on a body
+   element; NEVER a pair the table did not return. If a URI you need has NO entry in the table, that
+   payload is not part of this map's model — register it (`extraSources` on save / confirm the payload
    exists upstream), re-run `oic_get_map_namespaces`, use the server's entry. Still absent → STOP and
-   report; never invent.
-4. NEVER copy prefixes from another map, another integration, an export, documentation, or memory.
+   report; never invent. A missing query-param / request-payload namespace takes the SAME path:
+   `extraSources` on save → re-run `oic_get_map_namespaces` → the server's entry.
+4. NEVER copy prefixes or declarations from another map (a sibling map of the same integration included),
+   another integration, an archive (`oic_get_iar` / Read / grep of any `.xsl`), an export, documentation,
+   or memory. A prefix that "looks the same" in a sibling map binds a different URI here.
 5. Table prefixes are PER-WORKSPACE — a relock renumbers them. Re-fetch after any relock; never reuse
    a table across locks.
+6. **Tool failure is a STOP, not a detour.** If `oic_get_map_namespaces` or `oic_get_map_xslt` fails (id
+   resolution, error, empty table), STOP and report the failure to the user. NEVER substitute the table
+   by reading the archive, a sibling map's header, or memory — none of those is this map's table.
+
+Why "it works" is not evidence: a self-declared prefix can save with `errorsCount:0` and even run
+correctly at runtime, yet the mapper reports `hasMappings:false` / `targetsMappedCount:0` — the designer
+does not own that rule, so any designer re-save silently drops it. Only the table proves compliance.
 
 ### URI patterns (for LOCATING the right entry in the table — never for building declarations)
 | Payload | URI |
@@ -97,12 +110,13 @@ typed as a repeating group element of an nxsd surrogate), extraSources ALONE fai
 + 00329 — the mapper cannot resolve the var's schema from the UF entry. The fix:
 1. Find a SIBLING map that already uses the same var type; read its XSLT and copy its `mapSources`
    `<oracle-xsl-mapper:source>` entry for that var VERBATIM (its schema location + rootElement + param),
-   swapping in YOUR param name.
+   swapping in YOUR param name. The copy is that SOURCE entry only — never the sibling's namespace
+   declarations or prefixes (NAMESPACE LAW §3-4).
 2. Build the FULL doc (mode `xslt`, not spliceBody): fetched wrapper + that source entry added to
    mapSources (param name = YOUR var) + your xsl:param + pretty-printed body. Declare in the stylesheet
-   tag every prefix your body uses, with URIs from the SERVER table (`oic_get_map_namespaces`) — the
-   wrapper header only carries the in-use subset, so a spliced body referencing an undeclared prefix
-   dies with JETMAPPER-00324 "Namespace prefix … used".
+   tag every prefix your body uses — VERBATIM `{prefix, ns}` pairs from THIS map's `oic_get_map_namespaces`
+   table, nothing else (NAMESPACE LAW §3) — the wrapper header only carries the in-use subset, so a body
+   referencing an undeclared prefix dies with JETMAPPER-00324 "Namespace prefix … used".
 3. Keep the `extraSources` UF entry too. Result check: `rules>0`, `hasMappings:true`, `warningsCount:0`.
 - Running a manual `prepare` alongside the save pipeline can wedge the workspace (`412 Workspace is in
   use`) and even DROP THE LOCK — if it persists, relock and redo uncommitted work.

@@ -25,7 +25,8 @@ conditional emission. You author the XSLT.
    `<xsl:template match="/">` producing the target root. XSLT 2.0 available (`for-each-group`,
    `current-group()`, `replace`); mapper functions: `dvm:lookupValue`, `oraext:encodeReferenceToBase64`,
    `xp20:*` (catalog is auto-sent by the save tool). Prefixes: the NAMESPACE LAW — the server's
-   `addNamespacesToXSLT` table only; never generate declarations.
+   `addNamespacesToXSLT` table only; never author a declaration the table did not return, never inline
+   (the maps skill, NAMESPACE LAW §3-6).
 5. **Save** with `oic_set_map_xslt {mapId, spliceBody|xslt, extraSources:[…]}` — extraSources entry per
    param (source registration; otherwise params are silently stripped).
 6. **Check** (discipline: the verification skill): save result `errorsCount:0` AND `sourcesReferencedCount`

@@ -10,7 +10,8 @@ The source doc's prefixes are INVALID here (see the maps skill, THE NAMESPACE LA
 
 ## Algorithm (mechanical — never regex-scrape a header for prefixes, never mint your own)
 1. Get THIS map's server prefix table: `oic_get_map_namespaces {mapId}` → `namespaces: [{prefix, ns}]`.
-   Invert → `uri→prefix`.
+   Invert → `uri→prefix`. Tool fails → STOP and report; never substitute the table from the archive, a
+   sibling map's header, or memory (the maps skill, NAMESPACE LAW §6).
 2. `oic_get_map_xslt {mapId}` → FRESH doc. Keep everything through `</oracle-xsl-mapper:schema>` UNTOUCHED
    (server-owned header + schema section).
 3. From the SOURCE doc: take the tail AFTER `</oracle-xsl-mapper:schema>` (xsl:params + ALL templates,
@@ -24,7 +25,10 @@ The source doc's prefixes are INVALID here (see the maps skill, THE NAMESPACE LA
      `oic_get_map_namespaces`, use the server's entry. Still absent → STOP and report.
    - prefix not declared in the source header (typically the target `nstrgmpr`) → leave as-is; the fresh
      wrapper defines the target binding.
-5. Assemble: UNMODIFIED fresh header + fresh schema section + remapped tail.
+5. Assemble: UNMODIFIED fresh header + fresh schema section + remapped tail. One permitted header change:
+   a table prefix the tail uses that the fresh header lacks → add that `{prefix, ns}` pair VERBATIM from
+   the step-1 table to the `xsl:stylesheet` tag (the maps skill, NAMESPACE LAW §3) — nothing else, never
+   inline.
 6. Save with `oic_set_map_xslt {mapId, xslt: <assembled doc>}` + `extraSources` for every `xsl:param` the
    tail declares (see the maps skill, source registration).
 7. Verify per the maps skill §Verifying (refetch + fresh verify; params must survive).
