@@ -27,7 +27,7 @@ playbook for BOTH a bare SQL request and the dataset SQL inside a data model.
    - `latest_flag`: filter the flag (`latest_rec_flag`/`latest_flag`/`current_flag`/`primary_flag` `='Y'`).
    - `translation` (`_TL`): filter `LANGUAGE='US'` or join the `_VL` view — else counts inflate per language.
    - `revision_suspect` (e.g. `DOO_HEADERS_ALL` — keeps every order revision, NO latest flag): do NOT
-     assume one row. If you can run SQL (CB run_sql / pod), PROBE the actual grain first:
+     assume one row. PROBE the actual grain first with the pod `runSql` tool (or CB `run_sql`):
      `SELECT <key>, COUNT(*) FROM <t> WHERE <state filters> GROUP BY <key> HAVING COUNT(*)>1 FETCH FIRST 5 ROWS`.
      If multi-row, keep the current revision via `MAX(object_version_number) OVER (PARTITION BY <key>)`
      (quantities from the current revision; EFF/attachments may be resolved across all). Never state a

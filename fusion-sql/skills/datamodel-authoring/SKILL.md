@@ -85,9 +85,11 @@ When the user asks to build one ("build me a data model for …"):
    **DFF/EFF fields (`*_EFF_B`, `ATTRIBUTE_CHARn`, `GLOBAL_ATTRIBUTEn`, "additional/custom
    attribute X"): resolve via `getFlexfields`** (fusion-schema) — it maps business names to the real
    context_code + attribute column + value set from the customer's registry. Never guess a
-   context_code and never ship a placeholder when the registry answers; registry empty → ASK, and
-   ALWAYS filter EFF tables by the resolved `context_code` (+ dedup/pre-aggregate multirow EFF
-   before joining).
+   context_code and never ship a placeholder when the registry answers; registry empty or the
+   customer pod differs from the registry snapshot → read the LIVE definition with the pod tool
+   **`describeFlexfield(table | flexfieldCode)`** (fusion-pod: contexts, segments → columns, value
+   sets, EFF categories); still nothing → ASK. ALWAYS filter EFF tables by the resolved
+   `context_code` (+ dedup/pre-aggregate multirow EFF before joining).
    **Custom OBJECTS and custom fields: resolve via `getCustomObjects`** — a custom object lives in
    a GENERIC table (e.g. HZ_REF_ENTITIES) with a mandatory row filter (`context column =
    'Object_c'`) and EXTN_ATTRIBUTE_* column mappings; a custom field on a built-in object lives in
@@ -95,8 +97,11 @@ When the user asks to build one ("build me a data model for …"):
    never guess an EXTN column. **Users say DISPLAY names, not `_c` API names** — when a mentioned
    object/field is not a standard Fusion object (or getColumns doesn't show it), search
    `getCustomObjects`/`getFlexfields` with the user's own words (the search de-camelizes API names:
-   "ticket contact" finds TicketContact_c). **Found nothing → emit a `fusion-ask` block** asking which
-   object/field they mean or its API name — never assume it's a standard column and never invent one.
+   "ticket contact" finds TicketContact_c). Registry miss but you know the `_c` API name or the
+   table → **`describeCustomObject(object | table)`** (fusion-pod) reads the LIVE definition
+   (physical table, context filter, EXTN_ATTRIBUTE_* columns, datatypes — no display labels).
+   **Still nothing → emit a `fusion-ask` block** asking which object/field they mean or its API
+   name — never assume it's a standard column and never invent one.
    **Found SEVERAL candidates → a `fusion-ask` block with the candidate API names as options** (e.g.
    TicketContact_c vs TicketToContact_c vs Ticket_c) — only a single unambiguous hit proceeds
    without confirmation.

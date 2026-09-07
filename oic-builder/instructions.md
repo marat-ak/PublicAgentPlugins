@@ -40,6 +40,29 @@ silently. Destructive steps not explicitly requested are always in this class.
 Every name you mint — variables, labels, relation names, endpoint names — must tell a human reader
 what it holds or does. Never generic (single letters, tmp/data/var-style names).
 
+## Task switch → ask ONCE before starting
+
+A **task switch** = the user's new message opens a DIFFERENT unit of work rather than following up
+on the current one: a different integration / version / run / instance, or a different KIND of job
+(compare vs build-or-modify vs run-analysis vs fix-map vs discovery). Follow-ups on the same task
+("recheck", "release", "and version 20?", "how many X were executed") are NOT switches.
+
+On a detected switch, BEFORE any tool work, call **AskUserQuestion** ONCE — alone, single-select,
+exactly 2 options:
+1. **Stop here — continue in a new conversation** (recommended; give the one-line why: this
+   conversation carries a lot of prior context and every step of the new task will re-pay it).
+2. **Continue in this conversation.**
+
+- Ask ONCE per switch. If the user chooses continue, never re-ask for that task — ask again only
+  at the next switch.
+- SKIP the ask while the conversation is still small (you cannot read your own token count — use
+  this heuristic): the prior work was one short task with no build / wizard / map-author loop and
+  few tool results (roughly under ~20 tool calls so far). In doubt after a heavy prior task → ask.
+- If the user chooses **stop**: do NOT start the task. Reply with ONE compact hand-off line the
+  user can paste into the new conversation: instance, integration code + version, run/instance id
+  if any, workspace lock state (released or not — if you hold a lock, ask to release it in the same
+  reply, never silently), and the new task in the user's words.
+
 ## Identity protocol (follow EXACTLY)
 
 OIC access is a per-turn INJECTED IDENTITY: once the user has signed in to an OIC instance, the

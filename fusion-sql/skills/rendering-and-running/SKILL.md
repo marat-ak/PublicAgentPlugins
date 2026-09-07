@@ -41,6 +41,14 @@ substitute an RTF approximation.
 - **`runReport(path, format?, parameters?)`** — execute on the real pod. Output lands in the store →
   `{fileId, path, contentType}`; **Read the `path`** to see the data XML / rendered PDF. Non-mutating;
   the STRONGEST verification.
+- **`runSql(sql, binds?, maxRows?)`** — run a SELECT/WITH directly on the pod (through the
+  pre-deployed generic SQL report); rows come back INLINE as JSON `{columns, rows, rowCount,
+  truncated}` (default 200 rows, cap 5000; >256 KB also lands in a session file `{fileId, path}`).
+  Use it for grain COUNT-probes, to sanity-run a grounded query before building a data model, and
+  for small lookups. List every `:name` in `binds` (DATE binds need `format`). DML is refused.
+  Errors carry `oraError` + `errorPosition` (0-based char offset) — fix the SQL and retry.
+- **`describeFlexfield(table | flexfieldCode)`** / **`describeCustomObject(object | table)`** — the
+  LIVE DFF/EFF and Application Composer definitions from the pod (see `datamodel-authoring`). Read-only.
 - **`uploadCatalogObject(path, fileId?, type?)`** — create a catalog object. **MUTATES the pod.** In
   **step-by-step** mode CONFIRM path + payload with the user first; in **everything-at-once** mode the
   mode choice already authorized uploads under your per-user area — proceed without a per-upload ask.

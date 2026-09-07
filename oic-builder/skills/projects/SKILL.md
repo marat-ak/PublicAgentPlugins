@@ -11,6 +11,10 @@ OIC **projects** are a management grouping; project-scoped integrations live und
 - `oic_list_projects` → `[{id, name, status, type}]`. The project id is what every project-scoped call takes.
 - `oic_list_integrations {project}` lists a project's integrations; without `project` it lists standalone
   (globally-available) ones. `codeFilter` is a regex on the code.
+- Lookups (DVMs) take the same `project?`: `oic_list_lookups` / `oic_get_lookup` / `oic_create_lookup` /
+  `oic_update_lookup` / `oic_delete_lookup` / `oic_clone_lookup` / `oic_lookup_usage` /
+  `oic_export_lookup` / `oic_import_lookup {csv, mode:add|replace}` — with `project` they act on
+  `…/projects/{projectId}/lookups`, without it on the top-level lookups.
 
 ## Copy existing integrations INTO a project — `oic_copy_integrations_to_project`
 The designer's "Add to project" = `POST /projects/{projectId}/integrations/copy`
