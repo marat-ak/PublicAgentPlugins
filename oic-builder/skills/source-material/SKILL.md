@@ -17,8 +17,12 @@ For a STAGEFILE or INVOKE/RECEIVE node, this returns the parsed config directly 
 Fall back to the raw-artifact tables below only for what the tool does not return (exact schema sample
 text, map XSLT).
 
-## .iar export — `oic_export_iar {code, version, outFile}`
-Zip layout: `icspackage/project/<CODE>_<VER>/resources/…`
+## The .iar archive — `oic_load_iar {instance, code, version, project?}`
+Loads the integration archive into the cache of this conversation for that instance (no file, no disk,
+nothing to unzip). Every reader below then works cache-only over it, each taking the SAME four params
+`{instance, code, version, project?}`. Re-download after an edit with `oic_reload_iar` (same params).
+
+Zip layout INSIDE the archive (what the readers parse — for orientation, not for you to open):
 
 | Artifact | Where | What you get |
 |---|---|---|
@@ -39,8 +43,10 @@ Note: `.properties` files here are JSON (load with utf-8-sig) or `Key : value` l
   (nxsd samples).
 - `oic_iar_schema` → per-endpoint ordered payload element list `[{name,type}]` (payload `xsd:` elements;
   adapter-envelope `xs:` excluded).
-- `oic_iar_schema_diff {oldFile, newFile|code+version}` → per-endpoint `{added,removed,typeChanged,clean}`
-  (the fidelity proof).
+- `oic_iar_schema_diff` → per-endpoint `{added,removed,typeChanged,clean}` between the schema loaded
+  NOW and the one captured at the PREVIOUS load — the fidelity proof. Sequence:
+  `oic_load_iar` (baseline) → edit the integration → `oic_reload_iar` (stashes the baseline) →
+  `oic_iar_schema_diff`.
 The generated `*_REQUEST.wsdl` is a LOSSY derivation of the sample (types/order/arrays) — never rebuild a
 payload from it; use `oic_iar_samples`. (These tools run the sample/schema extraction server-side, so no
 script is needed.)

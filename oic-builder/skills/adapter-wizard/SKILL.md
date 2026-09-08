@@ -64,7 +64,8 @@ response — an existing sample EXISTS, and you MUST start from it verbatim:
 2. **REST request/response pages DO NOT echo the stored sample** (`inputContentRequest` /
    `inputContentResponse` come back `null` on resume) — BUT the ORIGINAL sample the user uploaded is
    stored VERBATIM in the endpoint's artifact. Get it with a TOOL, do NOT reconstruct and do NOT script:
-   - **`oic_iar_samples`** (defaults to the live integration) → `endpoints:{<Ref>:{requestSample,
+   - **`oic_iar_samples {instance, code, version, project?}`** (cache-only over the archive you
+     loaded with `oic_load_iar`; load it first) → `endpoints:{<Ref>:{requestSample,
      responseSample,…}}`. `requestSample`/`responseSample` are the exact JSON/XML the user uploaded. THAT
      is the source of truth — exactly what the wizard expects re-uploaded.
    - Splice ONLY your intended additions into that verbatim sample (e.g. insert new fields after a named
@@ -75,11 +76,15 @@ response — an existing sample EXISTS, and you MUST start from it verbatim:
 3. **Can't obtain the existing payload** (`oic_iar_samples` returns no sample for the endpoint, no
    capture)? **STOP AND ASK THE USER** for the current sample. NEVER generate a payload from memory, notes,
    or field lists.
-4. **Mandatory post-save proof — via `oic_iar_schema_diff`, not a script**: `oic_export_iar {outFile:pre.iar}`
-   BEFORE the edit; after saving, `oic_iar_schema_diff {oldFile:'pre.iar', code, version}` (diffs the
-   before image against the live after). Assert for the edited endpoint: `removed:[]`, `typeChanged:[]`,
-   `added:[exactly the intended fields]`, `clean:true` (request AND response). A schema edit without this
-   diff is UNVERIFIED regardless of oic_verify being green.
+4. **Mandatory post-save proof — via `oic_iar_schema_diff`, never a script and never a file.** Every
+   call below takes the SAME `{instance, code, version, project?}`:
+   a. BEFORE the edit: `oic_load_iar` — the baseline image of the archive (no-op if already loaded).
+   b. After saving: `oic_reload_iar` — re-downloads the archive and stashes the baseline schema.
+   c. `oic_iar_schema_diff` — the before/after verdict. Assert for the edited endpoint: `removed:[]`,
+      `typeChanged:[]`, `added:[exactly the intended fields]`, `clean:true` (request AND response).
+   d. When the diff needs explaining, read the after-image itself with `oic_iar_samples` /
+      `oic_iar_schema`.
+   A schema edit without this diff is UNVERIFIED regardless of oic_verify being green.
 
 ## Adapter payload classes + the "rebuild-by-duplication" workaround
 Adapters differ in WHERE the endpoint's field set comes from — this decides who owns "are all fields

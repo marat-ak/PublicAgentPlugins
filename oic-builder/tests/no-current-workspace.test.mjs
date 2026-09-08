@@ -11,6 +11,8 @@ function* walk(d) { for (const n of readdirSync(d)) { const p = join(d, n); if (
 const BANNED = [
   /setContext/,
   /oic_dump_blueprint/,
+  /oic_export_iar/,          // never existed as a tool; the archive is LOADED into the conversation
+  /oldFile/,                 // the iar tools take no file paths at all (no disk, no before/after files)
   /\bcurrent (workspace|context|session)\b/i,
   /workspace context/i,
   /server holds your context/i,
