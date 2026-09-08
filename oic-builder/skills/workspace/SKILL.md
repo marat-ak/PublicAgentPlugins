@@ -49,7 +49,7 @@ dropped; MORE work = `oic_open_workspace` again explicitly — your OIC identity
 - Lock survives process death (server-side) — a server-held lock outlives the process that took it.
 - 423 on open = someone else's lock (or your stale one). Distinguish by briefing/task context. Human designer lock → STOP, report.
 - Work in a workspace is INVISIBLE to others (and to `oic_verify`) until commit.
-- (Session cadence — start-with-unlock, commit after every chunk, unlock when done — is the core: instructions.md §Session lifecycle.)
+- (Session cadence — start-with-unlock, commit after every chunk, ASK-then-release when done — is the core: instructions.md §Session lifecycle.)
 - After committing changes, a human with the designer open sees a STALE canvas — note in your report that the designer must be reloaded.
 
 ## Projects
