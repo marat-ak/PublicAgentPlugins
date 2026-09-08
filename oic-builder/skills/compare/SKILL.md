@@ -19,13 +19,13 @@ the SAME instance.
    confirm with the user when several exist.
 2. **Load both**: `oic_load_iar` for the left (base / older) and for the right (changed / newer). A
    `needs-load` answer from the compare names the side still missing — load it, do not retry blindly.
-3. **Summary**: `oic_compare_integrations {left, right}` → `compareId`, `counts`, `project`
+3. **Summary**: `oic_compare_integrations {instance, left, right}` → `compareId`, `counts`, `project`
    (name/version fields; connections added / removed / rebound) and `changes[]` — ONE row per activity
    with its OWN change: `ref` (d1, d2 …), `status` added|removed|modified, the designer `path`
    (`GLOBAL_TRY > Scope > Route > activity`), the identity on each side `{id, type, name}` and counts
    of field / file / child changes. Containers changed only through a descendant are NOT listed — the
    `path` of the descendant says where it sits. Paginate with `offset/limit` when `next` is present.
-4. **Drill what matters**: `oic_compare_detail {compareId, ref}` → `fieldDiffs` (name, variable,
+4. **Drill what matters**: `oic_compare_detail {instance, compareId, ref}` → `fieldDiffs` (name, variable,
    expression XPath/text, connection, endpoint…) + per changed file structured `facts` by `kind`:
    - `mapping` (.xsl): `targetsAdded / targetsRemoved / selectChanged {target, old, new} /
      contextChanged (for-each / if / when ancestry) / variables / sourcesChanged / targetSchemaChanged`.

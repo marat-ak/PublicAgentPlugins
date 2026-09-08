@@ -23,7 +23,7 @@ If the task requires SPECIFIC ids, creation ORDER determines them — plan the o
 | `oic_add_scope {name, anchor, rpi}` | TRY container (`t*`). Variables declared INSIDE are invisible after it — declare outer flags before the scope. |
 | `oic_add_catchall {tryId}` | fault handler (`ta*`) on an EXISTING t*. GLOBAL fault handler creation is UNDECODED (no gt0 element exists until it materializes) — if asked, STOP and report. |
 | `oic_add_stop {anchor}` | valid at branch/route end only, not mid-sequence |
-| `oic_add_throw {…}` / `oic_add_note {…}` | see tool schema |
+| `oic_add_throw {anchor, rpi, name, faultCode, condition?, reason?, details?}` / `oic_add_note {…}` | the fault code is `faultCode`, NOT `code` (`code` is the integration code of the workspace triple); expressions are `{textExpression, xpathExpression?}`. Note: see tool schema |
 | `oic_add_notification {anchor, rpi, name, from, to, subject, body, attachments?}` | from/to/subject = `{textExpression, xpathExpression?}`; body = HTML string; referenced $vars must exist in scope; `name` REQUIRED |
 | `oic_add_publisher {anchor, rpi, name, eventCode}` | resolves eventType code→revision dynamically (never hardcode revision); creates its request map — configure per the maps skill |
 | `oic_patch_assignment` | edit expr in place. Minimal body {operation,typeDef,expression} = create body minus location (tool handles it; GET-echo → 400). Same expr engine as create (the maps skill §the `fn:` law). |

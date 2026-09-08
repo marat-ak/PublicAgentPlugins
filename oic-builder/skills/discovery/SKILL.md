@@ -24,7 +24,7 @@ integration-dependency question, and no tool answers it today.
 
 ## The one search call
 
-`oic_find_connections {adapters?, names?, text?}` sweeps every connection ONCE and searches IN MEMORY
+`oic_find_connections {instance, adapters?, names?, text?}` sweeps every connection ONCE and searches IN MEMORY
 across every field — adapter code + display name, connection name, description, endpoint/host URLs — so
 one call carries as many angles as you need. `adapters` matches the adapter kind, `names` the
 connection name, `text` the whole haystack (where a provider's host or API name surfaces a *generic*
@@ -40,8 +40,8 @@ connection, and a match ONLY in the auth/token field is a WEAKER signal than one
 **Search BOTH shapes in the one call.** A capability is reached EITHER through a dedicated adapter OR
 through a generic connector (REST/SOAP/database/…) whose URL targets the provider — so run the
 `adapters` angle AND the `text`/URL angle together, or you silently miss the other shape. Turn "the
-provider I have in mind" into the real code with `oic_list_adapters {filter?}` (same regex over the
-tenant's live adapter catalog) BEFORE `oic_find_connections {adapters:[...]}`; never type a code from
+provider I have in mind" into the real code with `oic_list_adapters {instance, filter?}` (same regex over the
+tenant's live adapter catalog) BEFORE `oic_find_connections {instance, adapters:[...]}`; never type a code from
 memory. An EMPTY adapter list does NOT prove the capability is absent — it may exist only as a
 generic-connector-with-URL, so still run the text angle.
 
@@ -75,7 +75,7 @@ targeted FIND.
 
 ### Inventory — "every system we talk to"
 
-The no-term call `oic_find_connections {}` IS the exhaustive primitive — it returns EVERY connection;
+The no-term call `oic_find_connections {instance}` IS the exhaustive primitive — it returns EVERY connection;
 that full set (swept per-project + global) is your raw material. Group connections into SYSTEMS by
 resolved host, NOT by connection count: judge each by its API/resource URL field, not its name, and
 union both shapes (dedicated adapter and generic-connector) that resolve to the same host onto ONE
