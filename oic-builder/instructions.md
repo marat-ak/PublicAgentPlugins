@@ -105,22 +105,30 @@ simply work without any handshake.
 
 ## Session lifecycle
 
+There is NO implicit workspace and no server-side context. Every workspace tool takes
+`{instance, code, version, project?, wsid}` explicitly — `instance` is the instance you signed in
+to, `wsid` is what `oic_open_workspace` returned in THIS conversation. The server rejects an
+`instance` that differs from your identity and a `wsid` this conversation did not open (the error
+lists what IS registered) — never guess, never reuse a wsid from an earlier conversation. You may
+hold several integrations open at once; each call names its own.
+
 Read-only work (inspection, audit, discovery) SKIPS the write lifecycle below: open with
-`lock:false, setContext:false` and never commit or unlock — taking a write lock just to read
-contends with a human editing in the designer. The steps below are for WRITES.
+`lock:false` and never commit or unlock — taking a write lock just to read contends with a human
+editing in the designer. The steps below are for WRITES.
 
 1. Connect per the CONNECTION PROTOCOL above.
-2. **Start with** `oic_unlock {code, version}` (releases YOUR OWN stale lock from a previous dead
-   session; 412 = wasn't locked, fine).
-3. `oic_open_workspace {code, version, lock:true}` before any write. The workspace context persists
-   across your tool calls for the whole session.
-4. **`oic_commit` after every logical chunk** (a node + its map, a branch, a fix). Uncommitted
-   changes die if the MCP server process ends — commit early, commit often.
-5. `oic_verify` after commit = the fresh-workspace check that counts (see Verification discipline).
-6. When your task is done: final `oic_commit`, then **ASK to release** — the ask-the-user flow and the
-   `oic_release_workspace` semantics (DELETE if wsid known, else UNLOCK) live in the **workspace**
-   skill (§Releasing when done). Also the LOCK RULE (read = `lock:false`, edit = `lock:true`) is there:
-   invoke the **workspace** skill before workspace work.
+2. **Start with** `oic_unlock {instance, code, version, project?}` (releases YOUR OWN stale lock
+   from a previous dead session; 412 = wasn't locked, fine).
+3. `oic_open_workspace {instance, code, version, project?, lock:true}` before any write; keep the
+   returned `wsid` and pass the full triple on every subsequent call.
+4. **`oic_commit {instance, code, version, project?, wsid}` after every logical chunk** (a node +
+   its map, a branch, a fix). Uncommitted changes die with the conversation — commit early, often.
+5. `oic_verify {instance, code, version, project?}` after commit = the fresh-workspace check that
+   counts (see Verification discipline).
+6. When your task is done: final `oic_commit`, then **ASK to release** — the ask-the-user flow and
+   the `oic_release_workspace {…, wsid}` semantics live in the **workspace** skill (§Releasing when
+   done). The LOCK RULE (read = `lock:false`, edit = `lock:true`) and the lock-upgrade recipe are
+   there too: invoke the **workspace** skill before workspace work.
 
 ## Lock safety
 
@@ -140,28 +148,32 @@ nodes you were not asked to touch.
 
 ## Using the oic MCP tools
 
-- The MCP server holds your workspace context server-side — `oic_open_workspace` once, then work, then
-  `oic_commit` (commit cadence: Session lifecycle).
+- Every workspace tool names its workspace: pass `{instance, code, version, project?, wsid}` from your
+  `oic_open_workspace` result (Session lifecycle). Cache readers (`oic_blueprint_view`, `oic_get_node`,
+  `oic_iar_*`, `oic_get_map_xslt`, …) take `{instance, code, version, project?}`; `oic_grep`,
+  `oic_find_connections`, `oic_list_adapters`, monitoring and compare tools take `instance`.
 - Tool results return JSON (or raw XSLT text for map fetches). Read the WHOLE result — a
   `status: 400` inside an `oic_raw_api` result is a FAILURE even though the tool call itself
   "succeeded".
 - Big outputs: the `oic_get_*` tools (`oic_get_blueprint`, `oic_get_iar`, `oic_get_flowactivity`,
   `oic_get_external_payload`) hand the whole artifact over as session FILES — Read/Grep them
   selectively; `oic_raw_api` takes `outFile` for the same reason.
-- Remote search: `oic_grep {pattern, …}` is ripgrep over everything LOADED in this session — every
-  file of every loaded archive, loaded blueprints (line numbers = the `oic_get_blueprint` file), loaded
-  runs (flow.txt + raw.json) and downloaded payloads. Use it to find WHERE a field / lookup / endpoint /
-  variable / error text is used across loaded integrations, to locate a node in a blueprint, or to
-  search a payload — before drilling with the specific tool. It sees ONLY loaded content: a
-  `not-loaded` answer means load first (`oic_load_iar` / `oic_load_blueprint` / `oic_load_flowactivity`
-  / `oic_load_external_payload`); a zero-match answer proves nothing about content you did not load.
+- Remote search: `oic_grep {instance, pattern, …}` is ripgrep over everything LOADED in this
+  conversation for the given `instance` — every file of every loaded archive, loaded blueprints (line
+  numbers = the `oic_get_blueprint` file), loaded runs (flow.txt + raw.json) and downloaded payloads.
+  Use it to find WHERE a field / lookup / endpoint / variable / error text is used across loaded
+  integrations, to locate a node in a blueprint, or to search a payload — before drilling with the
+  specific tool. It sees ONLY loaded content: a `not-loaded` answer means load first (`oic_load_iar` /
+  `oic_load_blueprint` / `oic_load_flowactivity` / `oic_load_external_payload`); a zero-match answer
+  proves nothing about content you did not load.
   Narrow with `glob` (`*.xsl`), `entry` (`iar` | one entry id), `mode: count|files`; page with
   `offset/limit`.
 - Tool argument schemas: each tool's own description/schema is the authoritative argument reference.
   Do not guess arguments.
-- Escape hatch: `oic_raw_api {method, path, body, contentType?, accept?, outFile?}` — any design-time
-  call with auth+csrf added; path is origin-relative. Use ONLY when no native tool fits, and flag
-  every use in your report.
+- Escape hatch: `oic_raw_api {instance, method, path, body, contentType?, accept?, outFile?}` — any
+  design-time call with auth+csrf added; path is origin-relative. A path containing
+  `/workspace/<wsid>/` is refused unless THIS conversation opened that wsid. Use ONLY when no native
+  tool fits, and flag every use in your report.
 
 ## Skills — invoke the matching skill BEFORE the operation
 

@@ -21,8 +21,11 @@ page is the SAME loop.
 
 | Entry | Call | Pages arrive | Your job per page |
 |---|---|---|---|
-| **EDIT in place** | `oic_wizard_create {connection, editNodeId, nodeType}` (`nodeType` = segment: `stagefiles`, `invokes`, …) | **pre-filled** with the existing config — incl. file bindings absent from get_node/blueprint/.jca (`Filename`/`FileReferenceName` expressions; otherwise only in `.iar` `*expr.properties`, see the stage-files and source-material skills) | change ONLY your deltas; everything else echoes |
-| **NEW endpoint** | `oic_wizard_create {connection, name, anchor, rpi?}` | **server defaults** | fill the required fields (read labels/options from the live page, like a designer user) |
+| **EDIT in place** | `oic_wizard_create {instance, code, version, project?, wsid, connection, editNodeId, nodeType}` (`nodeType` = segment: `stagefiles`, `invokes`, …) | **pre-filled** with the existing config — incl. file bindings absent from get_node/blueprint/.jca (`Filename`/`FileReferenceName` expressions; otherwise only in `.iar` `*expr.properties`, see the stage-files and source-material skills) | change ONLY your deltas; everything else echoes |
+| **NEW endpoint** | `oic_wizard_create {instance, code, version, project?, wsid, connection, name, anchor, rpi?}` | **server defaults** | fill the required fields (read labels/options from the live page, like a designer user) |
+
+Every `oic_wizard_*` call carries the SAME `{instance, code, version, project?, wsid}` — one wizard per
+integration per conversation; `oic_wizard_cancel` before creating another for the same integration.
 
 Node-order plumbing is the tool's problem, not yours: invokes/receives get a stub before the wizard;
 stagefiles are POSTed at save with the generated artifact. `oic_wizard_save` is the same call either way
@@ -40,7 +43,7 @@ stagefiles are POSTed at save with the generated artifact. `oic_wizard_save` is 
    stored value sent back unmodified); pass only non-event deltas. `op:'previous'` goes back.
 5. At summary: it shows the SERVER's view of the full config (incl. bindings like Filename/Append) —
    read it as the pre-generate confirmation that nothing was lost/missing.
-6. `oic_wizard_generate` → artifactId; `oic_wizard_save`; then `oic_commit` + `oic_verify`.
+6. `oic_wizard_generate` → artifactId; `oic_wizard_save`; then `oic_commit` + `oic_verify` (all with the workspace triple).
 - `oic_wizard_page {field?}` — introspect without advancing; with `field` = RAW subtree (debug unknown
   object types).
 
@@ -105,7 +108,7 @@ When a metadata-defined adapter node is MISSING fields, two resolutions:
 ## Worked recipes
 No separate recipe — both are the loop above. A **schema edit**: resume on `editNodeId`, obtain the current
 sample per the SAMPLE FIDELITY LAW, splice, generate/save, then its mandatory `.iar` diff proof (law §4) +
-a `oic_set_map_xslt {validateOnly}` refresh on each dependent map. A **new endpoint**: the same loop from
+a `oic_set_map_xslt {…, wsid, mapId, validateOnly}` refresh on each dependent map. A **new endpoint**: the same loop from
 defaults, then configure the auto-created request map (the maps skill) before verify. Commit per node.
 
 ## Child pages + `submitchild` (dialogs-within-a-page)

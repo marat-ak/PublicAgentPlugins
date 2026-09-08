@@ -8,8 +8,8 @@ description: Use before claiming ANY build result is verified — the levels-of-
 ## Levels of evidence (weakest → strongest)
 1. Tool returned 200/id — means almost nothing alone.
 2. Node visible in `oic_get_blueprint` tree with expected attributes (operationName, position).
-3. Fresh `oic_verify` after commit: no NEW problems attributable to your ids.
-4. Refetch equality: `oic_get_map_xslt` shows your content survived; `oic_get_node` matches expectations.
+3. Fresh `oic_verify {instance, code, version, project?}` after commit: no NEW problems attributable to your ids.
+4. Refetch equality: `oic_get_map_xslt` shows your content survived; `oic_get_node` matches expectations (both cache reads — `{instance, code, version, project?}`, no wsid).
 5. .iar export inspection: map `req_*_stateinfo.xml` ErrorsCount=0 AND WarningsCount=0; stagefile
    `nxsdmetadata.properties` shows your schema; `WRITE_FILENAMEexpr.properties` shows your filename expr.
 
@@ -18,12 +18,12 @@ Report at the highest level you actually reached, quoting outputs.
 ## Round-trip protocol (for verifying a NEW/changed recipe)
 1. Clone the integration to a NEW version (`oic_create_new_version`) — the reference version stays intact
    as the baseline; all rebuilding happens on the clone.
-2. On the clone: DELETE the reference node (`oic_delete_node`), commit.
+2. On the clone: DELETE the reference node (`oic_delete_node` with the workspace triple `{instance, code, version, project?, wsid}`), commit.
 3. Rebuild it via the TOOL under test, commit.
-4. `oic_load_iar` BOTH versions, then `oic_compare_integrations {left: baseline, right: clone}` → require
+4. `oic_load_iar {instance, code, version, project?}` BOTH versions, then `oic_compare_integrations {instance, left: baseline, right: clone}` → require
    the rebuilt activity ABSENT from `changes` (ids are not compared; fields + files are). Any row for it
    → `oic_compare_detail` on that ref and report the fact that differs (see the `compare` skill).
-5. Fresh `oic_verify` clean on the clone.
+5. Fresh `oic_verify {instance, code, version, project?}` clean on the clone.
 Only after ALL five may a recipe be called verified.
 
 ## Recipe trust

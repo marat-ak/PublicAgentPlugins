@@ -8,7 +8,7 @@ description: Use when a task says "replicate X from integration Y" or you must r
 When a task says "replicate X from integration Y", the source of truth is Y's live API + its .iar export.
 Never reconstruct payloads/schemas/samples from memory or documentation.
 
-## First choice: `oic_describe_activity {code, version, nodeId}`
+## First choice: `oic_describe_activity {instance, code, version, project?, nodeId}`
 For a STAGEFILE or INVOKE/RECEIVE node, this returns the parsed config directly — no hand-reading the
 `.iar`. STAGEFILE → `{op, format: opaque|json|xml|csv, delimiter, headerRow, ref}`. INVOKE → REST
 `{verb, uri, uriKind, templateParams, queryParams, mediaType, customHeaders}`, Fusion ERP/HCM
@@ -46,7 +46,7 @@ payload from it; use `oic_iar_samples`. (These tools run the sample/schema extra
 script is needed.)
 
 ## Live blueprint of the source — read-only workspace
-`oic_open_workspace {code, version, lock:false}` + `oic_get_blueprint` / `oic_get_node` / `oic_dump_blueprint {outFile}`.
+`oic_open_workspace {instance, code, version, project?, lock:false}` + `oic_load_blueprint {…, wsid}`, then `oic_get_blueprint` / `oic_get_node` / `oic_blueprint_view {instance, code, version, project?}`.
 Gives: node tree + ids, route `expressionXpath` (conditions), assignment expressions+namespaces, foreach
 xpaths, notification fields, invoke connection ids. Blueprint node reads are the write-shape reference.
 

@@ -10,7 +10,7 @@ conditional emission. You author the XSLT.
 (Copying from another integration — the port-map skill — is a learning/benchmark aid, not the product flow.)
 
 ## Procedure
-1. **Discover the TARGET shape** — fetch the fresh doc (`oic_get_map_xslt {mapId}`): the empty template
+1. **Discover the TARGET shape** — fetch the fresh doc (`oic_get_map_xslt {instance, code, version, project?, mapId}`): the empty template
    shows the target root element; the schema section names the target wsdl. For element structure read the
    target's wsdl/schema from the .iar (the source-material skill) or the live tree
    (`fetchTreeNodeChildren type:target` via `oic_raw_api`, jetmapper contentType text/plain). For stagefile
@@ -27,10 +27,10 @@ conditional emission. You author the XSLT.
    `xp20:*` (catalog is auto-sent by the save tool). Prefixes: the NAMESPACE LAW — the server's
    `addNamespacesToXSLT` table only; never author a declaration the table did not return, never inline
    (the maps skill, NAMESPACE LAW §3-6).
-5. **Save** with `oic_set_map_xslt {mapId, spliceBody|xslt, extraSources:[…]}` — extraSources entry per
+5. **Save** with `oic_set_map_xslt {instance, code, version, project?, wsid, mapId, spliceBody|xslt, extraSources:[…]}` — extraSources entry per
    param (source registration; otherwise params are silently stripped).
 6. **Check** (discipline: the verification skill): save result `errorsCount:0` AND `sourcesReferencedCount`
-   == params you used; commit; fresh `oic_verify`; refetch shows body intact.
+   == params you used; `oic_commit {instance, code, version, project?, wsid}`; fresh `oic_verify {instance, code, version, project?}`; refetch shows body intact.
 
 ## Authoring rules
 - Emit optional target elements inside `<xsl:if test="normalize-space(…) != ''">` when the requirement says

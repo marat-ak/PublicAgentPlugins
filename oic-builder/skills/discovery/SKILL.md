@@ -13,6 +13,10 @@ holds thousands of integrations; opening workspaces/blueprints to "look inside" 
 lock-risky, and unbounded. Blueprint has exactly ONE role: confirming a flow-level detail on a
 SHORTLIST you already built — never the search primitive.
 
+`oic_find_connections` and `oic_list_adapters` take `{instance}` — the instance you signed in to, named
+on every call (instructions.md §Session lifecycle). `oic_list_integrations` and `oic_connection_usage`
+are instance-free.
+
 Connection search sees **DIRECT reach only.** An integration that reaches a capability transitively —
 by invoking another integration, or subscribing to its published event — holds no connection of its
 own, so it never surfaces in usage. State that limit honestly; a transitive trace is a separate

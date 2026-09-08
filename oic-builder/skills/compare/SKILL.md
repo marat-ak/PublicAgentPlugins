@@ -8,11 +8,15 @@ description: Use when asked what CHANGED / what DIFFERS between two integrations
 The compare works on the integrations' ARCHIVES (.iar / project .car) held in the local cache — never
 on live blueprints. Both sides must be loaded first; the compare itself is cache-only and instant.
 
+Every call here names the `instance`: `oic_load_iar {instance, code, version, project?}`,
+`oic_compare_integrations {instance, …}`, `oic_compare_detail {instance, …}`. Both sides must live in
+the SAME instance.
+
 ## The ladder (always in this order)
 
 1. **Identify both sides explicitly** — `{code, version, project?}` each. Two versions of one code, or
    two different integrations. Never guess a version: list with `oic_list_integrations {codeFilter}` and
-   confirm with the user when several exist. Both sides live in the CURRENT instance.
+   confirm with the user when several exist.
 2. **Load both**: `oic_load_iar` for the left (base / older) and for the right (changed / newer). A
    `needs-load` answer from the compare names the side still missing — load it, do not retry blindly.
 3. **Summary**: `oic_compare_integrations {left, right}` → `compareId`, `counts`, `project`

@@ -5,7 +5,9 @@ description: Use when adding or editing structural blueprint nodes — labels, a
 
 # Structural nodes
 
-All create tools take `anchor` + `rpi` (`BEFORE` = insert before anchor node; `AT_END` = append inside anchor
+Every tool in the table below takes the workspace triple `{instance, code, version, project?, wsid}` —
+the workspace YOU opened in this conversation (instructions.md §Session lifecycle). All create tools also
+take `anchor` + `rpi` (`BEFORE` = insert before anchor node; `AT_END` = append inside anchor
 container). Node ids are server-assigned sequentially per type (next free `l*`, `a*`, `s*`, `sc*`, `f*`, `t*`…).
 If the task requires SPECIFIC ids, creation ORDER determines them — plan the order first.
 `name`/`variableName` values you mint follow the core naming rule (instructions.md).
@@ -25,7 +27,7 @@ If the task requires SPECIFIC ids, creation ORDER determines them — plan the o
 | `oic_add_notification {anchor, rpi, name, from, to, subject, body, attachments?}` | from/to/subject = `{textExpression, xpathExpression?}`; body = HTML string; referenced $vars must exist in scope; `name` REQUIRED |
 | `oic_add_publisher {anchor, rpi, name, eventCode}` | resolves eventType code→revision dynamically (never hardcode revision); creates its request map — configure per the maps skill |
 | `oic_patch_assignment` | edit expr in place. Minimal body {operation,typeDef,expression} = create body minus location (tool handles it; GET-echo → 400). Same expr engine as create (the maps skill §the `fn:` law). |
-| `oic_list_datatypes {anchor, rpi?, elementType?}` | **variable catalog at a flow location** — the designer's expression-picker list. Returns `source` (readable vars) + `target` (writable vars), each `{name, ns, root}` → build xpath `$name/ns:root/…` with NO guessing of names/namespaces. Call BEFORE authoring any assignment/route/foreach/notification expression. `elementType` defaults `assignments`. |
+| `oic_list_datatypes {instance, code, version, project?, wsid, anchor, rpi?, elementType?}` | **variable catalog at a flow location** — the designer's expression-picker list. Returns `source` (readable vars) + `target` (writable vars), each `{name, ns, root}` → build xpath `$name/ns:root/…` with NO guessing of names/namespaces. Call BEFORE authoring any assignment/route/foreach/notification expression. `elementType` defaults `assignments`. |
 
 ## Assignment authoring
 Assignment is a PLAIN blueprint node (NOT a CAF wizard). Create = `POST assignments {location, operation:"Assign",
@@ -42,12 +44,12 @@ then `oic_add_assignment`. (Expression-engine rule — 1.0 core vs 2.0-via-prefi
 ## STITCH (no dedicated tool — use the escape hatches)
 A STITCH appends/assigns into a variable in place (XPath 2.0-capable — use the `fn:` prefix). Two-step, no
 mapper pipeline (unlike TRANSFORMER):
-1. Create shell: `oic_node_post {segment:"stitches", body:{...minimal...}}` (returns the new `sh*` id).
-2. Configure: `oic_node_patch {segment:"stitches", id:"<the sh* id>", body:{ name, description:"", statements:[
+1. Create shell: `oic_node_post {instance, code, version, project?, wsid, segment:"stitches", body:{...minimal...}}` (returns the new `sh*` id).
+2. Configure: `oic_node_patch {instance, code, version, project?, wsid, segment:"stitches", id:"<the sh* id>", body:{ name, description:"", statements:[
    {operation:"Append", to:{type:"XPathPath", path:"$targetVar/ns:Repeating/ns:Elem"},
     from:{type:"XPathExpression", expression:"$src/ns:...[predicate]"}} ], namespaces:[{prefix,value}] }}`.
    Server auto-populates `variables[]` + the full namespace table; a MINIMAL `namespaces` (just the prefixes
-   your paths use) is fine. Then `oic_commit`.
+   your paths use) is fine. Then `oic_commit` (with the workspace triple `{instance, code, version, project?, wsid}`).
 - **Append only targets a REPEATING element** (`maxOccurs`>1). The designer reads maxOccurs from the schema
   tree (`webmapper/schematree`) and won't let you target a single node; the API just stores the path, so YOU
   must ensure `to.path` is a repeating element.

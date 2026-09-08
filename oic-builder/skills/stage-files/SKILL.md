@@ -36,7 +36,7 @@ is wrong:
    type → **zero cascade**.
 
 ## MANDATORY result check (known silent failure)
-After create/edit + save, `oic_get_node stagefiles/<id>` (or `oic_get_blueprint`) and assert:
+After create/edit + save, `oic_get_node {instance, code, version, project?, nodeType:'stagefiles', nodeId}` (or `oic_get_blueprint`) and assert:
 1. `operationName` equals what you requested — the CAF `ui/event` firing field MUST be `processed:false`
    (`processed:true` makes the server silently IGNORE the change → e.g. a Write silently becomes Read).
    The generic driver builds orderOfEvents this way by construction; still verify the result.
@@ -56,7 +56,7 @@ ROLE; a name-grep finds nothing and falsely suggests the binding is unrecoverabl
   CURRENT sample from the page's own file field `value` (base64 — no .iar needed), splice, upload. Bindings
   (Filename/Append/FileRef) survive by construction; walk it per the adapter-wizard skill.
 
-AFTER the edit: commit → FRESH lock → `oic_set_map_xslt {validateOnly:true}` on every dependent map
+AFTER the edit: `oic_commit {instance, code, version, project?, wsid}` → a FRESH lock (release that wsid, then `oic_open_workspace {…, lock:true}` — new wsid) → `oic_set_map_xslt {…, wsid, mapId, validateOnly:true}` on every dependent map
 (stale-error fix), then commit again.
 
 ## Payload fields DIE at every schema boundary (debugging rule)

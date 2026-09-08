@@ -5,6 +5,11 @@ description: Use for ANY map (XSLT / TRANSFORMER node) configuration — THE NAM
 
 # Maps (XSLT / TRANSFORMER nodes)
 
+Every map tool here takes the workspace triple `{instance, code, version, project?, wsid}` — the
+workspace YOU opened in this conversation (instructions.md §Session lifecycle). The exceptions are the
+cache reads `oic_get_map_xslt` / `oic_get_map_namespaces` and `oic_verify`, which take
+`{instance, code, version, project?}` and no wsid.
+
 ## THE NAMESPACE LAW (violating this breaks maps silently)
 Prefixes are **per-map, server-assigned, and unstable across maps**: the fresh wrapper header numbers
 `nsmprN` prefixes in THIS map's upstream-payload order. The same prefix name binds DIFFERENT URIs in
@@ -99,7 +104,7 @@ others), or Oracle failed to create the default map.
    anchor. (Same invoke = same `applicationId` across anchors, so several route maps can share one target.)
 2. `oic_add_map {anchor, rpi, outputUri:<applicationId>}` → new `m*`, bound to that target. The map ships a
    valid identity xsl — it **verifies CLEAN even empty** (no blueprint error) while emitting no real target fields.
-3. Configure it with `oic_set_map_xslt` (NAMESPACE LAW applies) → `oic_commit` for real output.
+3. Configure it with `oic_set_map_xslt` (NAMESPACE LAW applies) → `oic_commit` for real output (both with the workspace triple `{instance, code, version, project?, wsid}`).
 The target (`outputUri`) is the ONLY binding — several maps may target the same `applicationId` (one per
 route). The designer's mapper-open calls (prepare/jetmapper) are the config UI, NOT needed to create the node.
 
@@ -144,7 +149,7 @@ both fixed by how you call the tool:
    logic. **Always emit indented XSLT.**
 
 Reliable clean build = indented `spliceBody` + `extraSources` = the real sources + `skipBaseSources:true`,
-then commit + `oic_verify` (map absent from problems).
+then `oic_commit {instance, code, version, project?, wsid}` + `oic_verify {instance, code, version, project?}` (map absent from problems).
 
 The tool runs the FULL required pipeline internally (saveSourceCode → tree enrichment ×3 → fetchRules →
 rich saveSuccess → PATCH transformers). All stages are required for the verdict to persist. Commit separately.
@@ -156,7 +161,7 @@ Facts the tool relies on (do not fight them):
 
 ## Verifying a map REALLY saved
 1. Save result: `stateInfo.errorsCount == 0` AND `sourcesReferencedCount` == number of referenced params. `saveMessages` JETMAPPER-00332 WARNINGs are suspect — investigate, don't dismiss.
-2. `oic_commit`, then fresh `oic_verify`: no "Invalid map/expression" for this map id.
+2. `oic_commit {instance, code, version, project?, wsid}`, then fresh `oic_verify {instance, code, version, project?}`: no "Invalid map/expression" for this map id.
 3. Strongest evidence: `oic_get_map_xslt` refetch — your params/template survived verbatim.
 4. Deep check (when asked): export .iar, read the map's `req_*_stateinfo.xml` — `ErrorsCount` and `WarningsCount` must be 0. WarningsCount > 0 flips the badge even with 0 errors.
 

@@ -9,10 +9,10 @@ Use when a task says "make map mX equal to map from integration Y / this .xsl fi
 The source doc's prefixes are INVALID here (see the maps skill, THE NAMESPACE LAW). Port = remap by URI.
 
 ## Algorithm (mechanical — never regex-scrape a header for prefixes, never mint your own)
-1. Get THIS map's server prefix table: `oic_get_map_namespaces {mapId}` → `namespaces: [{prefix, ns}]`.
+1. Get THIS map's server prefix table: `oic_get_map_namespaces {instance, code, version, project?, mapId}` → `namespaces: [{prefix, ns}]`.
    Invert → `uri→prefix`. Tool fails → STOP and report; never substitute the table from the archive, a
    sibling map's header, or memory (the maps skill, NAMESPACE LAW §6).
-2. `oic_get_map_xslt {mapId}` → FRESH doc. Keep everything through `</oracle-xsl-mapper:schema>` UNTOUCHED
+2. `oic_get_map_xslt {instance, code, version, project?, mapId}` → FRESH doc. Keep everything through `</oracle-xsl-mapper:schema>` UNTOUCHED
    (server-owned header + schema section).
 3. From the SOURCE doc: take the tail AFTER `</oracle-xsl-mapper:schema>` (xsl:params + ALL templates,
    including named templates, + `</xsl:stylesheet>`). The SOURCE header's `prefix→uri` map tells you what
@@ -29,7 +29,7 @@ The source doc's prefixes are INVALID here (see the maps skill, THE NAMESPACE LA
    a table prefix the tail uses that the fresh header lacks → add that `{prefix, ns}` pair VERBATIM from
    the step-1 table to the `xsl:stylesheet` tag (the maps skill, NAMESPACE LAW §3) — nothing else, never
    inline.
-6. Save with `oic_set_map_xslt {mapId, xslt: <assembled doc>}` + `extraSources` for every `xsl:param` the
+6. Save with `oic_set_map_xslt {instance, code, version, project?, wsid, mapId, xslt: <assembled doc>}` + `extraSources` for every `xsl:param` the
    tail declares (see the maps skill, source registration).
 7. Verify per the maps skill §Verifying (refetch + fresh verify; params must survive).
 

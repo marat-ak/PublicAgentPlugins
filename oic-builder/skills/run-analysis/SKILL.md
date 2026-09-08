@@ -14,9 +14,15 @@ govern everything below:
 - **Payloads ONLY when the question needs a body.** Never fetch a node's payload to reason about STRUCTURE —
   structure comes from the blueprint, not from runtime bodies.
 
+Every runtime call here takes `{instance}` — `oic_activity_flow {instance, instanceId, …}` and the
+`oic_load_flowactivity` / `oic_get_flowactivity` / `*_external_payload` family; the design-time reads
+take `{instance, code, version, project?}` (`oic_get_blueprint`, `oic_describe_activity`).
+`oic_list_instances` (run search) is instance-free. Name it on every call (instructions.md §Session
+lifecycle).
+
 ## 1. Build the mental model from the BLUEPRINT, not the run
 
-Before touching runtime, understand the integration's DESIGN. `oic_get_blueprint` (session-cached, cheap to
+Before touching runtime, understand the integration's DESIGN. `oic_get_blueprint` (cached per conversation, cheap to
 re-call) is the bounded structural map: the trigger, every node (list/read, ForEach loops, maps, invokes,
 routers/routes, scopes), and what calls what. Open the integration read-only for this (Session lifecycle:
 read-only — no lock). Your model of "what SHOULD happen" is built here; the run tells you what DID.
@@ -28,8 +34,8 @@ run; that is the discovery skill's inventory law applied to runs). Then:
 
 `oic_activity_flow {op:"overview", instanceId}` returns a TINY summary — did it fail and WHERE, the hoisted
 error root cause, node/error counts, and a shallow skeleton (top-level nodes + collapsed subtree counts). It
-is deliberately not the full tree. The stream is fetched + parsed ONCE per instanceId and cached in the
-session; later ops reuse it (`refresh:true` re-fetches). A `410 Gone` means the run's stream was purged —
+is deliberately not the full tree. The stream is fetched + parsed ONCE per instanceId and cached in this
+conversation; later ops reuse it (`refresh:true` re-fetches). A `410 Gone` means the run's stream was purged —
 pick a more recent run.
 
 Read the overview to decide the ONE question worth drilling. **A failed run's implicit goal is "why did it

@@ -15,10 +15,10 @@ Every invoke's wizard auto-creates a request map (TRANSFORMER before the invoke)
 (the maps skill) — an invoke with an unconfigured map is invalid.
 
 ## Prefer EDIT over delete+recreate (artifact-conflict rule)
-To change an existing invoke, EDIT it in place (`oic_wizard_create {editNodeId, nodeType:'invokes'}`).
+To change an existing invoke, EDIT it in place (`oic_wizard_create {instance, code, version, project?, wsid, editNodeId, nodeType:'invokes'}`).
 NEVER churn delete→create of the same invoke in one workspace — it orphans wizard artifacts → later
 PATCH 500 (Cache null / ICS-18122) or subsequent creates 400. If you truly must delete: delete +
-`oic_commit`, then rebuild on a FRESH lock.
+`oic_commit` (with the workspace triple `{instance, code, version, project?, wsid}`), then rebuild on a FRESH lock (release that wsid, re-open `lock:true`).
 
 ## Per-adapter page notes (apply while walking the wizard)
 - **REST** (`connection` = your REST adapter connection id): welcome page — `resourceURI`, `httpVerb` (both
