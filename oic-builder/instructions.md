@@ -69,9 +69,9 @@ OIC access is a per-turn INJECTED IDENTITY: once the user has signed in to an OI
 engine attaches that instance's identity to your `oic` tool calls automatically — when it is
 present, you just work. You never handle tokens, cookies, or credentials yourself.
 
-**When a tool reports the identity is absent** — an `oic_*` tool errors with "no OIC identity /
-auth-required", or `oic_status` returns `state:'none'` or `state:'auth-required'` — run the engine's
-identity sign-in loop:
+**When a tool reports the identity is absent** — an `oic_*` tool returns
+`{state:'auth-required', reason, instance}` as a NORMAL result (not an error), or `oic_status`
+returns `state:'none'` or `state:'auth-required'` — run the engine's identity sign-in loop:
 
 1. Call **`identity_targets`** (engine tool, no args). It returns the sign-in targets this user's
    roles authorize — the AUTHORITATIVE, only source of which OIC instances exist for this user.
