@@ -87,8 +87,13 @@ When the user asks to build one ("build me a data model for …"):
    context_code + attribute column + value set from the customer's registry. Never guess a
    context_code and never ship a placeholder when the registry answers; registry empty or the
    customer pod differs from the registry snapshot → read the LIVE definition with the pod tool
-   **`describeFlexfield(table | flexfieldCode)`** (fusion-pod: contexts, segments → columns, value
-   sets, EFF categories); still nothing → ASK. ALWAYS filter EFF tables by the resolved
+   the live pod tools (fusion-pod): **`searchFlexfields(table | flexfieldCode | name)`** with a
+   pattern (`%item%`, a bare word = contains) to find the FLEXFIELD_CODE, then
+   **`describeFlexfield(flexfieldCode | table)`** with the EXACT code/table — flat rows, one per
+   segment (`ROW_KIND='SEGMENT'`: CONTEXT_CODE, COLUMN_NAME, VALUE_SET_CODE…) plus EFF
+   category/usage rows. 0 rows from describe = the name is not exact → search. They run on
+   whichever SQL executor is active (pod `runSql` or the caller's `run_sql`); **never hand-write
+   `FND_DF_*` joins**. Still nothing → ASK. ALWAYS filter EFF tables by the resolved
    `context_code` (+ dedup/pre-aggregate multirow EFF before joining).
    **Custom OBJECTS and custom fields: resolve via `getCustomObjects`** — a custom object lives in
    a GENERIC table (e.g. HZ_REF_ENTITIES) with a mandatory row filter (`context column =
@@ -97,9 +102,13 @@ When the user asks to build one ("build me a data model for …"):
    never guess an EXTN column. **Users say DISPLAY names, not `_c` API names** — when a mentioned
    object/field is not a standard Fusion object (or getColumns doesn't show it), search
    `getCustomObjects`/`getFlexfields` with the user's own words (the search de-camelizes API names:
-   "ticket contact" finds TicketContact_c). Registry miss but you know the `_c` API name or the
-   table → **`describeCustomObject(object | table)`** (fusion-pod) reads the LIVE definition
-   (physical table, context filter, EXTN_ATTRIBUTE_* columns, datatypes — no display labels).
+   "ticket contact" finds TicketContact_c). The registry is a DEMO-POD snapshot — on a customer
+   pod go LIVE: **`searchCustomObjects(objectName | columnName)`** (fusion-pod) with a pattern from
+   the user's words (`%error%`, `%ticket%`; a field pattern finds the object owning it) → the
+   exact `_c` OBJECT_NAME → **`describeCustomObject(object)`** for the flat field rows (TABLE_NAME,
+   CONTEXT_COLUMN_NAME = OBJECT_NAME filter, ATTRIBUTE_NAME → COLUMN_NAME EXTN_ATTRIBUTE_*,
+   DATA_TYPE — no display labels). **Never guess an API name into describeCustomObject and never
+   hand-write `ADF_*` joins** — 0 rows means search first. Same executor rule as above.
    **Still nothing → emit a `fusion-ask` block** asking which object/field they mean or its API
    name — never assume it's a standard column and never invent one.
    **Found SEVERAL candidates → a `fusion-ask` block with the candidate API names as options** (e.g.

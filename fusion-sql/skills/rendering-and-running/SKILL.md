@@ -47,8 +47,16 @@ substitute an RTF approximation.
   Use it for grain COUNT-probes, to sanity-run a grounded query before building a data model, and
   for small lookups. List every `:name` in `binds` (DATE binds need `format`). DML is refused.
   Errors carry `oraError` + `errorPosition` (0-based char offset) — fix the SQL and retry.
-- **`describeFlexfield(table | flexfieldCode)`** / **`describeCustomObject(object | table)`** — the
-  LIVE DFF/EFF and Application Composer definitions from the pod (see `datamodel-authoring`). Read-only.
+- **Live metadata, search → describe** (see `datamodel-authoring` for when):
+  **`searchFlexfields(table? | flexfieldCode? | name?)`** → compact flexfield list;
+  **`describeFlexfield(table | flexfieldCode)`** → the exact flexfield's segment rows;
+  **`searchCustomObjects(objectName? | columnName?)`** → distinct custom objects;
+  **`describeCustomObject(object)`** → the exact object's field rows. search* takes patterns
+  (case-insensitive, `%`/`_` wildcards, a bare word = contains); describe* needs the EXACT name —
+  **0 rows from describe* means the name is not exact → search first**. All four are flat ROWS and
+  run through whichever SQL executor is active for this conversation (the pod `runSql`, or the
+  caller's own `run_sql` when one is declared, e.g. CloudBeaver). **Never hand-write `ADF_*` /
+  `FND_DF_*` joins — these tools are those joins.** Read-only.
 - **`uploadCatalogObject(path, fileId?, type?)`** — create a catalog object. **MUTATES the pod.** In
   **step-by-step** mode CONFIRM path + payload with the user first; in **everything-at-once** mode the
   mode choice already authorized uploads under your per-user area — proceed without a per-upload ask.
