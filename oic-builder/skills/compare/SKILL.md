@@ -9,11 +9,13 @@ The compare works on the integrations' ARCHIVES (.iar / project .car) held in th
 on live blueprints. Both sides must be loaded first; the compare itself is cache-only and instant.
 
 Each side is one of two sources:
-- **LIVE** `{code, version, project?}` — downloaded from the tenant named by the call's `instance`
-  (`oic_load_iar {instance, code, version, project?}`). Live sides must live in the SAME instance.
-- **UPLOADED ARCHIVE** `{file}` — an .iar/.car the USER attached in this conversation. Load it once
-  with `oic_load_iar {fileId}` (the fileId of their upload); it reports the `file` name to use from
-  then on, plus the code/version read from the archive itself. No instance, no sign-in.
+- **LIVE** `{code, version, project?}` — must be loaded first with
+  `oic_load_iar {instance, code, version, project?}` (a tenant download is never triggered from the
+  compare). Live sides must live in the SAME instance.
+- **UPLOADED ARCHIVE** `{fileId}` (the id of the .iar/.car the USER attached) or `{file}` (its file
+  name once it is in this conversation). **No load step and no sign-in**: pass the two fileIds and the
+  compare fetches and caches them itself, then answers. The result names each side's `file`, `code` and
+  `version` — read from the archive — so later calls can use `{file}`.
 
 So upload↔upload, upload↔live and live↔live all run through the same `oic_compare_integrations`. Pass
 `instance` only when a side is live. `oic_compare_detail {compareId, ref}` needs nothing else — the
@@ -21,12 +23,13 @@ compare remembers both sides.
 
 ## The ladder (always in this order)
 
-1. **Identify both sides explicitly** — `{code, version, project?}` or `{file}` each. Two versions of one
-   code, two different integrations, or an uploaded archive against what is live. Never guess a version:
-   list with `oic_list_integrations {codeFilter}` and confirm with the user when several exist.
-2. **Load both**: `oic_load_iar` for the left (base / older) and for the right (changed / newer) — by
-   `{instance, code, version}` for a live one, by `{fileId}` for the user's upload. A `needs-load` answer
-   from the compare names the side still missing — load it, do not retry blindly.
+1. **Identify both sides explicitly** — `{code, version, project?}` for a live one, `{fileId}`/`{file}`
+   for an uploaded archive. Two versions of one code, two different integrations, or an uploaded archive
+   against what is live. Never guess a version: list with `oic_list_integrations {codeFilter}` and
+   confirm with the user when several exist.
+2. **Load the LIVE sides** with `oic_load_iar {instance, code, version, project?}` (an uploaded side
+   needs no load — the compare resolves it). A `needs-load` answer names the live side still missing —
+   load it, do not retry blindly. A dead fileId errors with "re-upload": ask the user to attach it again.
 3. **Summary**: `oic_compare_integrations {left, right}` (+ `instance` when a side is live) → `compareId`, `counts`, `project`
    (name/version fields; connections added / removed / rebound) and `changes[]` — ONE row per activity
    with its OWN change: `ref` (d1, d2 …), `status` added|removed|modified, the designer `path`

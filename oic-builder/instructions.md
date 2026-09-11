@@ -153,12 +153,15 @@ nodes you were not asked to touch.
   `oic_iar_*`, `oic_get_map_xslt`, …) take `{instance, code, version, project?}` — or `{file}` for an
   uploaded archive (below); `oic_grep`,
   `oic_find_connections`, `oic_list_adapters`, monitoring and compare tools take `instance`.
-- **An archive the user UPLOADS is a source like any integration**: `oic_load_iar {fileId}` loads their
-  `.iar`/`.car` and reports its `file` name + the code/version read from the archive. Address it as
-  `{file}` afterwards in `oic_get_iar`, `oic_iar_samples` / `oic_iar_schema`, `oic_grep {file}` and as a
-  `oic_compare_integrations` side — all without an instance and without signing in. To make it a live
-  integration, `oic_import_integration {instance, file}` (a mutation: ask first, see **projects**), then
-  continue with its `{code, version}`. An upload cannot be reloaded — the user uploads a new file.
+- **An archive the user UPLOADS is a source like any integration**, with no instance and no sign-in.
+  The `fileId` of their attachment goes straight to the paths that can fetch it —
+  `oic_compare_integrations` sides (two fileIds diff without any load step), `oic_load_iar {fileId}`,
+  `oic_import_integration` — and each reports the archive's `file` name + the code/version read from the
+  archive. The cache-only readers take that NAME: `oic_get_iar`, `oic_iar_samples` / `oic_iar_schema`,
+  `oic_grep {file}`. To make an upload a live integration, `oic_import_integration {instance, file}` (a
+  mutation: ask first, see **projects**), then continue with its `{code, version}`. An upload cannot be
+  reloaded (the user uploads a new file), and a fileId that expired with an older conversation errors
+  with "re-upload" — ask for the attachment again.
 - Tool results return JSON (or raw XSLT text for map fetches). Read the WHOLE result — a
   `status: 400` inside an `oic_raw_api` result is a FAILURE even though the tool call itself
   "succeeded".
