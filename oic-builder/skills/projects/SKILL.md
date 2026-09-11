@@ -32,7 +32,18 @@ The designer's "Add to project" = `POST /projects/{projectId}/integrations/copy`
 - NOT a move and NOT a clone-with-rename: the copy keeps the same code/version, now under the project. If a
   same-code integration already exists in the project you get 409 (no overwrite).
 
+## Import an UPLOADED archive into a tenant — `oic_import_integration`
+When the user attaches an `.iar`/`.car`, `oic_import_integration {instance, fileId | file, targetProject?}`
+puts it into that tenant (add `targetProject` to land it inside a project). The code|version come from the
+archive itself. It is a MUTATION and the only one in this flow:
+- If that code|version already exists you get `{state:"clash", existing:{code,version,status}}` and nothing
+  was changed. ASK the user (AskUserQuestion) before overwriting — showing the
+  `oic_compare_integrations` diff of live-vs-upload first is usually what they want — then re-call with
+  `replace:true`, which is irreversible. An ACTIVATED target is refused even then.
+- On success the integration is CONFIGURED, not activated, and its connections may be unconfigured in
+  this tenant: `oic_verify {instance, code, version}`, and continue with `{code, version}` like any other
+  live integration. Activation stays a separate agreement.
+
 ## Related (Oracle REST, not yet wrapped as tools)
-- Import an .iar into a project: `POST /projects/{projectId}/integrations/archive` (multipart `file`).
 - Clone a whole project: `POST /projects/{id}/clone`. Update/activate an integration already in a project:
   `POST /projects/{projectId}/integrations/{code%7Cversion}` (X-HTTP-Method-Override: PATCH).

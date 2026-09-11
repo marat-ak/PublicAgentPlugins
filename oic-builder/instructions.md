@@ -150,8 +150,15 @@ nodes you were not asked to touch.
 
 - Every workspace tool names its workspace: pass `{instance, code, version, project?, wsid}` from your
   `oic_open_workspace` result (Session lifecycle). Cache readers (`oic_blueprint_view`, `oic_get_node`,
-  `oic_iar_*`, `oic_get_map_xslt`, …) take `{instance, code, version, project?}`; `oic_grep`,
+  `oic_iar_*`, `oic_get_map_xslt`, …) take `{instance, code, version, project?}` — or `{file}` for an
+  uploaded archive (below); `oic_grep`,
   `oic_find_connections`, `oic_list_adapters`, monitoring and compare tools take `instance`.
+- **An archive the user UPLOADS is a source like any integration**: `oic_load_iar {fileId}` loads their
+  `.iar`/`.car` and reports its `file` name + the code/version read from the archive. Address it as
+  `{file}` afterwards in `oic_get_iar`, `oic_iar_samples` / `oic_iar_schema`, `oic_grep {file}` and as a
+  `oic_compare_integrations` side — all without an instance and without signing in. To make it a live
+  integration, `oic_import_integration {instance, file}` (a mutation: ask first, see **projects**), then
+  continue with its `{code, version}`. An upload cannot be reloaded — the user uploads a new file.
 - Tool results return JSON (or raw XSLT text for map fetches). Read the WHOLE result — a
   `status: 400` inside an `oic_raw_api` result is a FAILURE even though the tool call itself
   "succeeded".
@@ -193,8 +200,8 @@ the operation, STOP and say so — do not improvise against the API.
 - **source-material** — reading .iar exports + live blueprints of source integrations.
 - **run-analysis** — debug/analyze WHY one RUN behaved as it did (failed / looped N times / was slow / a node's output): blueprint-first, then the bounded `oic_activity_flow` overview→search→drill→payload ladder — never the full stream.
 - **fix-placement** — a defect's cause is known and you are choosing WHERE to fix it: derive the location from the flow's obligation chain (detector vs violator, owner, disqualifiers, when to ASK) — never from where the error surfaced or where the edit is smallest. Invoke BEFORE proposing any fix.
-- **projects** — listing OIC projects, copying integrations into a project.
-- **compare** — what CHANGED / DIFFERS between two integrations or two versions of one (review a new version, audit a copy, explain a regression): load both archives → `oic_compare_integrations` summary → `oic_compare_detail` facts by ref — explained in designer terms, never +/- text.
+- **projects** — listing OIC projects, copying integrations into a project, importing an uploaded archive into a tenant (`oic_import_integration` — a mutation: clash → ask → `replace:true`).
+- **compare** — what CHANGED / DIFFERS between two integrations, two versions of one, or an UPLOADED archive vs what is live (review a new version, audit a copy, explain a regression): load both sides → `oic_compare_integrations` summary → `oic_compare_detail` facts by ref — explained in designer terms, never +/- text.
 
 ## Reporting
 
