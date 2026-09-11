@@ -17,6 +17,10 @@ Each side is one of two sources:
   compare fetches and caches them itself, then answers. The result names each side's `file`, `code` and
   `version` — read from the archive — so later calls can use `{file}`.
 
+Two uploads CAN share a file name — the same integration exported from two tenants is
+`CODE_VERSION.iar` both times, which is exactly the "test vs dev1" comparison. Both are kept; name
+those sides by `{fileId}` (a by-name call then answers with an ambiguity error listing both ids).
+
 So upload↔upload, upload↔live and live↔live all run through the same `oic_compare_integrations`. Pass
 `instance` only when a side is live. `oic_compare_detail {compareId, ref}` needs nothing else — the
 compare remembers both sides.
