@@ -34,7 +34,8 @@ Assignment is a PLAIN blueprint node (NOT a CAF wizard). Create = `POST assignme
 typeDef:"simple", expression:{…}}`; edit = same `expression` minus `location` via PATCH. The designer only
 adds catalog READS around it: `listAvailableDatatypesForLocation` (→ `oic_list_datatypes`), `xpathFunctions`
 (→ `oic_xpath_functions`), `webmapper/schematree` (expression-builder tree — no tool, heavy). To author
-generically: `oic_list_datatypes` to find the var + its ns/root, `oic_xpath_functions` for non-standard funcs,
+generically: `oic_list_datatypes` to find the var + its ns/root, `oic_xpath_functions` for the Oracle/custom
+funcs (default `scope:"extensions"`; `"standard"`/`"all"` add the built-ins catalog, `filter` narrows),
 then `oic_add_assignment`. (Expression-engine rule — 1.0 core vs 2.0-via-prefix — is the maps skill §the `fn:` law.)
 - **textExpression vs xpathExpression**: designer sends `textExpression` = the friendly label shown on
   the canvas, `xpathExpression` = the canonical xpath of the same value (`$<var>/<ns>:<root>/…`). Runtime

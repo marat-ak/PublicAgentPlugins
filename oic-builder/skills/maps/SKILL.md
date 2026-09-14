@@ -193,6 +193,9 @@ blueprint ASSIGNMENT, ROUTER/route condition, FOR, STITCH from/to, NOTIFICATION 
 core** engine (OIC is a BPEL engine): 1.0 core functions run bare, but any 2.0 function needs a prefix —
 W3C `fn:` with `fn`=`http://www.w3.org/2005/xpath-functions` declared, or Oracle `xp20:`/`oraext:` (from
 `oic_xpath_functions`) — else the engine errors "Could not find function"
-(e.g. `fn:ends-with(fn:lower-case($x/ns:f),'<ext>')`). No API declares the version; `oic_xpath_functions`
-lists only Oracle/custom libs, never the standard funcs. (In blueprint expression fields the `namespaces`
-array prefix names are FREE, unlike a map's server-assigned prefixes above.)
+(e.g. `fn:ends-with(fn:lower-case($x/ns:f),'<ext>')`). No API declares the version. `oic_xpath_functions`
+takes `scope`: `extensions` (default) = Oracle `ora`/`oraext`/`xp20` + this instance's CUSTOM `orajs*`
+library (the part you cannot guess); `standard` = the designer's built-ins catalog (String/Date/Node-set/
+Boolean/Conversion/Mathematical/Advanced/Integration Cloud groups, with signatures); `all` = both merged.
+`filter` = case-insensitive substring on name/category/signature/description. (In blueprint expression
+fields the `namespaces` array prefix names are FREE, unlike a map's server-assigned prefixes above.)
