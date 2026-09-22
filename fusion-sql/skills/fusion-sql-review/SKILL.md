@@ -1,6 +1,6 @@
 ---
 name: fusion-sql-review
-description: Use before finalizing ANY Fusion SQL (pure-SQL request OR a data model's dataset SQL), whenever findSimilarQueries returned ambiguous:true, and whenever the required output involves ANY aggregation (totals, subtotals, counts, summaries, per-X blocks, pivots). Provides the end-to-end SQL build workflow (ground -> validate -> grain-check -> clarify -> adopt/adapt/derive), the AGGREGATION LADDER (SQL -> group levels -> template) with its mandatory visible Aggregation check, the domain cue-table + ask/combine templates, Financials sub-ledger traps, a pre-flight grounding/scoping checklist, and the modern-Oracle-SQL construct menu.
+description: Use before emitting or running ANY Fusion SQL (a final answer, a data model's dataset SQL, a run_sql/explain_plan probe, SQL in prose or in a hand-off prompt), whenever findSimilarQueries returned ambiguous:true, and whenever the required output involves ANY aggregation (totals, subtotals, counts, summaries, per-X blocks, pivots). Provides the end-to-end SQL build workflow (ground -> validate -> grain-check -> clarify -> adopt/adapt/derive), the AGGREGATION LADDER (SQL -> group levels -> template) with its mandatory visible Aggregation check, the domain cue-table + ask/combine templates, Financials sub-ledger traps, a pre-flight grounding/scoping checklist, and the modern-Oracle-SQL construct menu.
 ---
 
 # Fusion SQL: build workflow + disambiguation + pre-flight review
@@ -169,6 +169,10 @@ UNION as the request needs). If you cannot tell whether it is one term or two pa
       dimension / conversion.
 - [ ] **Status/date semantics**: is the intended status flag and date type (creation vs transaction vs
       accounting) the one the user meant? (If it was ambiguous, you should already have asked.)
+- [ ] **API-first**: every derived business value in the query (a quantity, a conversion, a rate, a
+      formatted name/address, a session/profile value, a concatenated flexfield) that an Oracle
+      package computes is taken FROM that package (`mostlyUsedApis` on the table payloads /
+      `findPlsqlApi`) — or the answer states why the package does not fit (Part C).
 
 ### 4. Datatype consistency (prevents ORA-00932 "inconsistent datatypes")
 - [ ] **NEVER do arithmetic on a DATE bind: `:date_param ± n` is banned.** Oracle types `:P + 1` as a
@@ -215,9 +219,28 @@ actually demands it — never for show.
   ONLY way to run procedural logic (loops, multi-step fallback rules, calling PL/SQL APIs) in SaaS,
   where creating DB objects is impossible. Mark functions `DETERMINISTIC` when they are.
   `findSimilarQueries("inline PL/SQL WITH FUNCTION technique")` has working examples.
-- **Public PL/SQL APIs from SQL**: e.g. `INV_QUANTITY_TREE_PUB.QUERY_QUANTITIES` (true
-  available-to-transact qty), `FND_PROFILE.VALUE(...)` (env config). Prefer an official API over
-  re-deriving complex application logic in joins.
+- **Oracle-shipped PL/SQL APIs from SQL — FIRST priority** (the rule lives in the kernel; this is
+  the how). Before deriving any business value with joins, look the API up:
+  `findPlsqlApi({query:"<words of the computation>"})` (name search over the real-corpus
+  inventory, e.g. "convert qty", "closest rate", "format address", "user partyid"),
+  `findPlsqlApi({table})` for the packages real reports call alongside a table (the pushed
+  `mostlyUsedApis`), `findPlsqlApi({package})` to confirm a package exists and list its functions.
+  Adopt a returned `sampleCalls[].call` as the call shape (argument order, literals such as
+  `'Corporate'` rate types or profile option names) and `getReportQuery({id})` for the full
+  statement around it. Call rules: a function with a scalar RETURN and IN parameters is called
+  inline in the SELECT/WHERE (`FND_PROFILE.VALUE('FND_CURRENCY')`,
+  `INV_CONVERT.INV_UM_CONVERT(...)`, `GL_CURRENCY_API.GET_CLOSEST_RATE_SQL(from, to, date,
+  'Corporate', 366)`); a parameterless package function is referenced without parens
+  (`FND_GLOBAL.USER_NAME`, `HZ_SESSION_UTIL.GET_USER_PARTYID`); a PROCEDURE or a function with OUT
+  parameters is wrapped in an inline `/*+ WITH_PLSQL */ WITH FUNCTION … RETURN … ` that declares
+  the OUT locals and returns the one the question asks for; a collection-returning API goes through
+  `TABLE(...)`. A package that exists but has no corpus usage (`statements: 0`) is still the right
+  answer — take the signature from Oracle documentation and prove the call with one probe before
+  emitting it. **Quantities**: `INV_QUANTITY_TREE_PUB.QUERY_QUANTITIES` inside a `WITH FUNCTION …
+  RETURN NUMBER` called per item/org/subinventory/locator with `p_api_version_number => 1.0`,
+  `p_tree_mode => 2`, `p_onhand_source => 3`, the item's revision/lot/serial control flags, and OUT
+  `x_qoh` (on hand), `x_rqoh` (reservable on hand), `x_qr` (reserved), `x_qs` (suggested), `x_att`
+  (available to transact), `x_atr` (available to reserve) — return the one the question asks for.
 - **`LATERAL` / `CROSS APPLY` / `OUTER APPLY`** — per-row subqueries; combine with `JSON_TABLE` to
   explode JSON built by an inline function.
 - **JSON**: `JSON_OBJECT`, `JSON_ARRAYAGG`, `JSON_TABLE` — aggregate-to-JSON and back.

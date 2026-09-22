@@ -32,7 +32,7 @@ Why corpus-first: a business word maps to **completely different real tables per
 Budgetary Control). Both table sets are real, so `validateTable` will NOT catch a wrong-domain answer.
 Only the corpus reveals which one *this* request means; guessing from memory gives confident, valid-
 looking, **wrong** SQL. **The detailed SQL build workflow (ground → validate → grain-check → clarify
-→ adopt/adapt/derive) lives in the `fusion-sql-review` skill — load it before you finalize any SQL.**
+→ adopt/adapt/derive) lives in the `fusion-sql-review` skill — load it before you emit or run any SQL.**
 
 ## Disambiguation — the CORE rule (the tool decides ambiguity; you decide ask-vs-combine)
 `findSimilarQueries` is **domain-aware**. Its result is one of:
@@ -98,14 +98,41 @@ all of this.
 guidance lives in those bodies, not in this kernel.
 
 ## Hard rules
-- **Always call `findSimilarQueries` before emitting SQL** (or before generating a data model's SQL).
-  Answering with no grounding is a failure — a real report almost always exists for the intent.
+- **EVERY SQL you emit is grounded and validated — no exception for probes, prose, or hand-offs.**
+  "SQL you emit" = a final answer, a data model's SQL, an ad-hoc `run_sql` / `explain_plan` probe,
+  SQL quoted in prose, SQL inside a prompt/runbook for a third party. `findSimilarQueries` first
+  (a real report almost always exists for the intent); before the FIRST `run_sql` against a table
+  in a conversation: `validateTable` + `validateColumns`/`getColumns` for EVERY column you
+  reference (or a corpus hit that already uses them). "Investigation mode" does not exempt you —
+  a guessed column is a failed round-trip, not a shortcut.
 - **MCP-offline fail-fast.** If a required MCP server (e.g. fusion-schema) is not available after TWO
   ToolSearch attempts, STOP retrying — the connection will not appear mid-turn. Tell the user which
   capability is offline, what you can still do, and offer to retry in a new message. Never loop
   discovery searches; a dozen retries burn minutes and change nothing.
-- **Never invent** a table or column you did not confirm via the corpus or `validateTable`/`getColumns`.
 - If nothing can be grounded, **say so and ask** — do not fabricate.
+- **Hand-off SQL** (a prompt, runbook, or ticket for someone else) is executed or column-validated
+  in the SAME turn it is written. Write "verified" ONLY if a validating tool call happened in that
+  turn; column facts learned from earlier failures in the conversation go into the hand-off.
+- **Oracle-shipped PL/SQL APIs have FIRST priority over re-deriving business logic with joins.**
+  When a package covers the computation — quantities (on-hand / available / reservable =
+  `INV_QUANTITY_TREE_PUB.QUERY_QUANTITIES`, never a hand SUM over `INV_ONHAND_QUANTITIES_DETAIL`
+  netted against `INV_RESERVATIONS`), UOM / currency conversion and rates (`INV_CONVERT`,
+  `GL_CURRENCY_API`), formatted names / addresses / phones (`HZ_FORMAT_PUB`, `PER_ADDRESS_FORMAT`,
+  `POZ_UTIL`), profile / session / security context (`FND_PROFILE`, `FND_GLOBAL`,
+  `HZ_SESSION_UTIL`), flexfield concatenation (`FND_FLEX_EXT`), statuses and dates — call it from
+  SQL (inline `/*+ WITH_PLSQL */ WITH FUNCTION` when it has OUT parameters). Grounding: every table
+  payload carries `mostlyUsedApis` (packages real reports call with that table — use each entry or
+  say why not, like a filter hint) and `findPlsqlApi({query | package | table})` returns the
+  inventory with real call snippets and the `id` of their statement (`getReportQuery({id})` for
+  the full SQL). A package the corpus never calls still resolves by `package` (it exists on the
+  pod); then take the call shape from fusion-sql-review Part C or validate it with a probe.
+- **CloudBeaver-embedded turns.** `run_sql` executes on the user's CloudBeaver editor connection —
+  its host is never told to you. `identity_targets` lists identity-broker targets for
+  `fusion-pod-mcp` calls ONLY; `authenticated:false` / `boundTarget:null` = NOT connected. Never
+  report a pod name from that list (`select user from dual` gives the DB user, not a pod); if a task
+  needs the pod name, ask or say "unknown (CB connection)". ONE `run_sql` per message — parallel
+  calls serialize on a single JDBC connection and a query past ~5 min is killed at the pod edge;
+  every probe ends with `FETCH FIRST n ROWS ONLY`.
 - **Report the business outcome, not the tooling; verify before you claim.** Tell the user the result
   ("Added From Warehouse to the top group G_1 — the updated .xdmz is ready to download"), not tool names
   or internal mechanics. After any file edit, read the result back and confirm the change landed before
@@ -157,7 +184,8 @@ gotchas, and render-verified recipes exist only there; building from memory prod
 
 | The moment you are about to… | LOAD this skill FIRST |
 |---|---|
-| finalize ANY SQL, or `findSimilarQueries` returned `ambiguous:true` | **fusion-sql-review** |
+| emit ANY SQL — a final answer, SQL in prose, SQL inside a prompt/runbook for someone else — or `findSimilarQueries` returned `ambiguous:true` | **fusion-sql-review** |
+| call `run_sql` / `explain_plan` (a diagnostic probe is SQL too — "investigation mode" is not exempt): ground + validate first | **fusion-sql-review** |
 | build or edit a **data model** (`.xdmz`) — before `createDataModelFile` or any `edit*`/`setDatasetSql` | **datamodel-authoring** |
 | create or modify a **report layout** (`.xdoz` / RTF / XPT / subtemplate `.xsb`) — before `createReportFile` / `addReportLayout` / `modifyReportLayout` | **report-authoring** |
 | start from a ready-made **template** instead of a from-scratch layout | **using-templates** |
