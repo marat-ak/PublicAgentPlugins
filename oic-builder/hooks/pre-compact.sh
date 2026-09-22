@@ -6,8 +6,8 @@
 # summarization prompt under "Additional Instructions:". JSON output fields are NOT the channel:
 # `systemMessage` is parsed and then DISCARDED for this event, and there is no
 # PreCompactHookSpecificOutput / additionalContext in the SDK (@anthropic-ai/claude-agent-sdk
-# 0.3.210 sdk.d.ts — 'PreCompact' is absent from the hookSpecificOutput union). So, unlike
-# session-start.sh, emit the instruction text as PLAIN prose on stdout — no JSON wrapper.
+# 0.3.210 sdk.d.ts — 'PreCompact' is absent from the hookSpecificOutput union). So emit the
+# instruction text as PLAIN prose on stdout — no JSON wrapper.
 set -euo pipefail
 cat <<'EOF'
 When compacting this conversation, preserve VERBATIM: (1) every workspace opened in this conversation as `{instance, code|version, project, wsid, lock}`, and the OIC connection/login state; (2) every node id and map id created or modified in this conversation, with what was changed; (3) the latest fresh oic_verify outcome (error/warning list) and which changes are committed vs uncommitted; (4) explicit user constraints and decisions stated in the conversation. These must survive compaction word-for-word.
