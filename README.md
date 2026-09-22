@@ -23,6 +23,6 @@ Marketplace name: **`public-agent-plugins`**
 ## Layout
 ```
 .claude-plugin/marketplace.json   marketplace manifest
-fusion-sql/                        the plugin (instructions, SessionStart hook, skills)
+fusion-sql/                        the plugin (instructions.md spliced into the system prompt by the engine, hooks, skills)
 oic-builder/                       the plugin (instructions, SessionStart hook, skills)
 ```

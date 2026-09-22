@@ -9,10 +9,11 @@ Pairs with the **fusion-schema MCP server** (grounding tools: `searchTables`, `v
 `getColumns`, `validateColumns`, `getIndexes`, `getRelatedTables`).
 
 ## What it provides
-- **`instructions.md`** — the agent's behavior (grounding workflow + clarify-first rule). Injected
-  at session start via the SessionStart hook, so editing it changes behavior on the next session
-  (`git pull`, no rebuild).
-- **`hooks/`** — SessionStart hook that injects `instructions.md` as context.
+- **`instructions.md`** — the agent's behavior (grounding workflow + clarify-first rule). The
+  engine splices `instructions.md` into the system prompt each turn, so editing it changes
+  behavior on the next turn (`git pull`, no rebuild).
+- **`hooks/`** — PreToolUse hooks (skill routing record + authoring skill gate) and the PreCompact
+  hook that preserves key facts across compaction.
 - **`skills/fusion-sql-review`** — a pre-flight checklist the model runs before finalizing a query.
 
 ## Use in your own Claude Code
