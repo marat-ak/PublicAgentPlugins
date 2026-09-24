@@ -1,6 +1,6 @@
 ---
 name: run-analysis
-description: Use when analyzing or debugging WHY one integration RUN behaved as it did — why it failed / where it errored / why a ForEach looped N times / which node was slow / what a node emitted — starting from a run instanceId. Blueprint-first, then a bounded activity OVERVIEW, then targeted search/drill/payload. NEVER dump the full runtime stream into reasoning.
+description: Use when analyzing or debugging WHY an integration RUN behaved as it did — why it failed / where it errored / why a ForEach looped N times / which node was slow / what a node emitted — or the same question over MANY runs (the last N executions, which run did X, how a value differed across runs). Blueprint-first, then a bounded OVERVIEW, then targeted search/drill/payload; multi-run questions use the batch tools (oic_runs_load / oic_runs_search / oic_runs_extract), never a loop of single-run calls. NEVER dump the full runtime stream into reasoning.
 ---
 
 # Analyzing / debugging an integration run
@@ -44,6 +44,48 @@ Read the overview to decide the ONE question worth drilling. **A failed run's im
 fail" → go straight to the hoisted root cause / the error nodes.** For a broad or unpinned request ("check
 this run", "is it healthy"), do NOT trawl — ASK what to verify first (instructions.md: when requirements
 don't decide, ASK).
+
+## 2b. MANY runs → the batch tools, ONE call per step (never a loop of single-run calls)
+
+The moment a question spans more than one run — "the last 10 runs", "which run processed file X", "what
+filter did each run send", "did the error start today", "compare the file counts" — stop using the
+per-run ladder in a loop. Each single-run call is a full model round-trip; ten runs × four calls is the
+cost this section removes. Three cache-scoped tools, all `{instance}`-bound:
+
+1. `oic_runs_load {instance, code, timewindow?, status?, version?, project?, limit?}` — OR
+   `{instance, instanceIds:[…]}` (never both). ONE call lists the runs server-side (same filters as
+   `oic_list_instances`, newest first, ≤ 50) and downloads their streams IN PARALLEL (bounded pool,
+   automatic backoff on throttling). Returns one compact row per run — outcome, status, start, duration,
+   node/error counts, the first error's node + `#identifier` + message, cache state — and NEVER a tree.
+   `purged` (410) and `failed` (with HTTP status) are per-run states, not batch failures; `pending`
+   rows + `pendingIds` mean the time budget ran out — call again with those ids (loaded runs are hits).
+   `payloads` (default `"none"`): `"all"` or a node selector `{adapter?, milestone?, identifier?, text?}`
+   downloads the EXTERNAL bodies of the matching nodes only (≤ `maxPayloadsPerRun`). Use the selector,
+   never `"all"`, unless the question is literally about every body.
+2. `oic_runs_search {instance, instanceIds?, …filters}` — the §4 filters (`errorsOnly`, `adapter`,
+   `text`, `milestone`, `minIterations`/`maxIterations`, `slowerThanMs`) plus `errorText` (regex over
+   error summary/details) and `payloadText` (regex over inline + downloaded bodies — the "which run saw
+   file X" question Oracle's monitor cannot answer) — run ONCE across the loaded set, grouped per run
+   (`perRunLimit` lines each, `offset/limit` over matching runs). `notLoaded` lists ids you never loaded;
+   `payloadsNotSearched` says external bodies were skipped — a miss there proves nothing until you load
+   them with `payloads:{…}`.
+3. `oic_runs_extract {instance, instanceIds?, node:{…selector}, pick?, fields?, payload?}` — picks the SAME
+   node in every run (by `identifier` exactly, or `milestone`/`adapter`/`text` regex) and returns its facts
+   (`elapsed`, `iterations`, `childCount`, `message`, `errorSummary`) plus ONE extracted value from its
+   body: `payload:{xpath}` (XML, `namespaces` map optional; `count(...)` for counts), `{regex}` (capture
+   group 1, `count` of matches) or `{jsonPath}` (dotted path). `payloadSource:"needs-load"` +
+   `needsPayload` means the body is external and not downloaded — `oic_runs_load {instanceIds, payloads:
+   <the same node selector>}` then re-run. Cache-only: it never downloads.
+
+Worked shape — "which filter did the SFTP list send and how many files came back, over the last 10 runs":
+`oic_runs_load {code, limit:10, payloads:{adapter:"ftp", milestone:"list"}}` → `oic_runs_extract
+{node:{adapter:"ftp", milestone:"list"}, payload:{xpath:"count(//*[local-name()='File'])"}}` and a second
+extract with `{regex:"<Filter>([^<]+)</Filter>"}` — three calls, not forty. Then, if ONE run needs
+drilling, drop to the single-run ladder (§2–§6) for THAT instanceId only — it is already cached.
+
+Selection discipline still applies: a run set is ALWAYS explicit — a selector with `code` or an
+`instanceIds` list. The tools never default to "all runs" or "the last run"; if the question does not
+pin the set, ASK.
 
 ## 3. Correlate runtime ↔ design by `#identifier`
 
