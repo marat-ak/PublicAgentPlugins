@@ -112,14 +112,22 @@ to, `wsid` is what `oic_open_workspace` returned in THIS conversation. The serve
 lists what IS registered) — never guess, never reuse a wsid from an earlier conversation. You may
 hold several integrations open at once; each call names its own.
 
-Read-only work (inspection, audit, discovery) SKIPS the write lifecycle below: open with
-`lock:false` and never commit or unlock — taking a write lock just to read contends with a human
-editing in the designer. The steps below are for WRITES.
+**Start on an integration with ONE call**: `oic_open_integration {instance, code, version, project?,
+lock?}` = archive load + workspace open + blueprint load in a single round-trip (the same three
+handlers as `oic_load_iar` / `oic_open_workspace` / `oic_load_blueprint`; result echoes the triple
+once + `wsid`, `locked`, `iar`, `blueprint`). Use the three single tools only for a PARTIAL load
+(`oic_open_integration` also takes `iar:false` / `workspace:false` / `blueprint:false`) — a lock
+upgrade, a reload, an uploaded archive by `fileId`.
+
+Read-only work (inspection, audit, discovery) SKIPS the write lifecycle below: `oic_open_integration`
+with the default `lock:false` and never commit or unlock — taking a write lock just to read contends
+with a human editing in the designer. The steps below are for WRITES.
 
 1. Connect per the CONNECTION PROTOCOL above.
 2. **Start with** `oic_unlock {instance, code, version, project?}` (releases YOUR OWN stale lock
    from a previous dead session; 412 = wasn't locked, fine).
-3. `oic_open_workspace {instance, code, version, project?, lock:true}` before any write; keep the
+3. `oic_open_integration {instance, code, version, project?, lock:true}` before any write (or
+   `oic_open_workspace {…, lock:true}` when the archive/blueprint are already loaded); keep the
    returned `wsid` and pass the full triple on every subsequent call.
 4. **`oic_commit {instance, code, version, project?, wsid}` after every logical chunk** (a node +
    its map, a branch, a fix). Uncommitted changes die with the conversation — commit early, often.
@@ -149,7 +157,7 @@ nodes you were not asked to touch.
 ## Using the oic MCP tools
 
 - Every workspace tool names its workspace: pass `{instance, code, version, project?, wsid}` from your
-  `oic_open_workspace` result (Session lifecycle). Cache readers (`oic_blueprint_view`, `oic_get_node`,
+  `oic_open_integration` (or `oic_open_workspace`) result (Session lifecycle). Cache readers (`oic_blueprint_view`, `oic_get_node`,
   `oic_iar_*`, `oic_get_map_xslt`, …) take `{instance, code, version, project?}` — or `{file}` for an
   uploaded archive (below); `oic_grep`,
   `oic_find_connections`, `oic_list_adapters`, monitoring and compare tools take `instance`.

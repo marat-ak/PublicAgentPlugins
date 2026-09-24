@@ -20,7 +20,7 @@ Report at the highest level you actually reached, quoting outputs.
    as the baseline; all rebuilding happens on the clone.
 2. On the clone: DELETE the reference node (`oic_delete_node` with the workspace triple `{instance, code, version, project?, wsid}`), commit.
 3. Rebuild it via the TOOL under test, commit.
-4. `oic_load_iar {instance, code, version, project?}` BOTH versions, then `oic_compare_integrations {instance, left: baseline, right: clone}` → require
+4. `oic_load_iar {instance, code, version, project?}` BOTH versions (archive-only partial load; the clone's archive may already be in the cache from `oic_open_integration`), then `oic_compare_integrations {instance, left: baseline, right: clone}` → require
    the rebuilt activity ABSENT from `changes` (ids are not compared; fields + files are). Any row for it
    → `oic_compare_detail` on that ref and report the fact that differs (see the `compare` skill).
 5. Fresh `oic_verify {instance, code, version, project?}` clean on the clone.

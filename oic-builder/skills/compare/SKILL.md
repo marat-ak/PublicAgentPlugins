@@ -31,8 +31,9 @@ compare remembers both sides.
    for an uploaded archive. Two versions of one code, two different integrations, or an uploaded archive
    against what is live. Never guess a version: list with `oic_list_integrations {codeFilter}` and
    confirm with the user when several exist.
-2. **Load the LIVE sides** with `oic_load_iar {instance, code, version, project?}` (an uploaded side
-   needs no load — the compare resolves it). A `needs-load` answer names the live side still missing —
+2. **Load the LIVE sides** with `oic_load_iar {instance, code, version, project?}` — the archive-only
+   partial load is exactly what a compare needs (a side you also want to inspect/edit: `oic_open_integration`
+   loads its archive too). An uploaded side needs no load — the compare resolves it. A `needs-load` answer names the live side still missing —
    load it, do not retry blindly. A dead fileId errors with "re-upload": ask the user to attach it again.
 3. **Summary**: `oic_compare_integrations {left, right}` (+ `instance` when a side is live) → `compareId`, `counts`, `project`
    (name/version fields; connections added / removed / rebound) and `changes[]` — ONE row per activity

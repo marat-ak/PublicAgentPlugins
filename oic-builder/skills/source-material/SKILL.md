@@ -17,10 +17,12 @@ For a STAGEFILE or INVOKE/RECEIVE node, this returns the parsed config directly 
 Fall back to the raw-artifact tables below only for what the tool does not return (exact schema sample
 text, map XSLT).
 
-## The .iar archive — `oic_load_iar {instance, code, version, project?}`
-Loads the integration archive into the cache of this conversation for that instance (no file, no disk,
-nothing to unzip). Every reader below then works cache-only over it, each taking the SAME four params
-`{instance, code, version, project?}`. Re-download after an edit with `oic_reload_iar` (same params).
+## The .iar archive — loaded by `oic_open_integration` (single: `oic_load_iar {instance, code, version, project?}`)
+`oic_open_integration` (the default one-call start — **workspace** skill) loads the integration archive
+into the cache of this conversation for that instance together with the workspace + blueprint;
+`oic_load_iar` is the archive-only partial load (no file, no disk, nothing to unzip). Every reader below
+then works cache-only over it, each taking the SAME four params `{instance, code, version, project?}`.
+Re-download after an edit with `oic_reload_iar` (same params).
 
 Zip layout INSIDE the archive (what the readers parse — for orientation, not for you to open):
 
@@ -52,7 +54,7 @@ payload from it; use `oic_iar_samples`. (These tools run the sample/schema extra
 script is needed.)
 
 ## Live blueprint of the source — read-only workspace
-`oic_open_workspace {instance, code, version, project?, lock:false}` + `oic_load_blueprint {…, wsid}`, then `oic_get_blueprint` / `oic_get_node` / `oic_blueprint_view {instance, code, version, project?}`.
+`oic_open_integration {instance, code, version, project?}` (lock defaults to false; = archive + read-only workspace + blueprint in one call — the singles `oic_open_workspace {…, lock:false}` + `oic_load_blueprint {…, wsid}` only for a partial load), then `oic_get_blueprint` / `oic_get_node` / `oic_blueprint_view {instance, code, version, project?}`.
 Gives: node tree + ids, route `expressionXpath` (conditions), assignment expressions+namespaces, foreach
 xpaths, notification fields, invoke connection ids. Blueprint node reads are the write-shape reference.
 

@@ -24,8 +24,10 @@ lifecycle).
 
 Before touching runtime, understand the integration's DESIGN. `oic_get_blueprint` (cached per conversation, cheap to
 re-call) is the bounded structural map: the trigger, every node (list/read, ForEach loops, maps, invokes,
-routers/routes, scopes), and what calls what. Open the integration read-only for this (Session lifecycle:
-read-only — no lock). Your model of "what SHOULD happen" is built here; the run tells you what DID.
+routers/routes, scopes), and what calls what. Open the integration read-only for this in ONE call —
+`oic_open_integration {instance, code, version, project?}` (lock defaults to false; it also loads the
+archive and blueprint, so `oic_get_blueprint` / `oic_describe_activity` answer from the cache at once).
+Your model of "what SHOULD happen" is built here; the run tells you what DID.
 
 ## 2. Get the instanceId, then the OVERVIEW — never the full tree
 

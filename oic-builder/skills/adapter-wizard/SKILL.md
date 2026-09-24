@@ -64,8 +64,8 @@ response — an existing sample EXISTS, and you MUST start from it verbatim:
 2. **REST request/response pages DO NOT echo the stored sample** (`inputContentRequest` /
    `inputContentResponse` come back `null` on resume) — BUT the ORIGINAL sample the user uploaded is
    stored VERBATIM in the endpoint's artifact. Get it with a TOOL, do NOT reconstruct and do NOT script:
-   - **`oic_iar_samples {instance, code, version, project?}`** (cache-only over the archive you
-     loaded with `oic_load_iar`; load it first) → `endpoints:{<Ref>:{requestSample,
+   - **`oic_iar_samples {instance, code, version, project?}`** (cache-only over the archive
+     `oic_open_integration` loaded when you started — or `oic_load_iar` alone; load it first) → `endpoints:{<Ref>:{requestSample,
      responseSample,…}}`. `requestSample`/`responseSample` are the exact JSON/XML the user uploaded. THAT
      is the source of truth — exactly what the wizard expects re-uploaded.
    - Splice ONLY your intended additions into that verbatim sample (e.g. insert new fields after a named
@@ -78,7 +78,8 @@ response — an existing sample EXISTS, and you MUST start from it verbatim:
    or field lists.
 4. **Mandatory post-save proof — via `oic_iar_schema_diff`, never a script and never a file.** Every
    call below takes the SAME `{instance, code, version, project?}`:
-   a. BEFORE the edit: `oic_load_iar` — the baseline image of the archive (no-op if already loaded).
+   a. BEFORE the edit: the archive baseline — already loaded by `oic_open_integration`; otherwise
+      `oic_load_iar` (no-op if already loaded).
    b. After saving: `oic_reload_iar` — re-downloads the archive and stashes the baseline schema.
    c. `oic_iar_schema_diff` — the before/after verdict. Assert for the edited endpoint: `removed:[]`,
       `typeChanged:[]`, `added:[exactly the intended fields]`, `clean:true` (request AND response).

@@ -1,31 +1,44 @@
 ---
 name: workspace
-description: Use when opening, committing, unlocking, verifying, or releasing an OIC integration workspace — oic_open_workspace / oic_commit / oic_unlock / oic_verify / oic_release_workspace semantics, the lock rule (read vs edit), read-only and concurrent opens, the lock upgrade, 423 lock conflicts, release-on-done, project-scoped calls.
+description: Use when opening, committing, unlocking, verifying, or releasing an OIC integration workspace — oic_open_integration (the one-call default open) / oic_open_workspace / oic_commit / oic_unlock / oic_verify / oic_release_workspace semantics, the lock rule (read vs edit), read-only and concurrent opens, the lock upgrade, 423 lock conflicts, release-on-done, project-scoped calls.
 ---
 
 # Workspace lifecycle
+
+## Open with ONE call — `oic_open_integration`
+`oic_open_integration {instance, code, version, project?, lock?}` loads the archive, opens the
+workspace and loads the blueprint in a single round-trip — it IS `oic_load_iar` + `oic_open_workspace`
++ `oic_load_blueprint` (same handlers, same caches, same registration), returning the triple once plus
+`wsid`, `locked`, `iar:{endpoints, stagefiles, schemaEndpoints, …}` and `blueprint:{tree + problem
+summary}`. This is the DEFAULT way to start on an integration. The single tools are for a PARTIAL
+load only — or pass `iar:false` / `workspace:false` / `blueprint:false` (e.g. `workspace:false` loads
+the blueprint on the wsid already registered for the triple). Parts fail independently into their own
+`{error}`; an opened `wsid` is always reported — read the whole result.
 
 ## The lock rule — open correctly the FIRST time
 A workspace id is required for BOTH reading a blueprint and editing; the LOCK differs by intent, so
 choose it up front (opening the wrong way wastes a throwaway open):
 
 - **READ a blueprint / inspect** (`oic_get_blueprint`, `oic_get_node`, `oic_get_map_xslt`, …): the
-  wsid may be opened **WITHOUT lock** — `oic_open_workspace {instance, code, version, project?, lock:false}`. Read-only,
-  never contends with a human designer.
+  wsid may be opened **WITHOUT lock** — `oic_open_integration {instance, code, version, project?}` (lock
+  defaults to false; the single is `oic_open_workspace {…, lock:false}`). Read-only, never contends with
+  a human designer.
 - **Any EDIT / mutation** (`oic_set_map_xslt`, structural-node adds, assignments, wizard save, delete
   — anything that changes the integration): requires a wsid opened **WITH lock** —
-  `oic_open_workspace {instance, code, version, project?, lock:true}`. A `lock:false` wsid CANNOT edit.
+  `oic_open_integration {instance, code, version, project?, lock:true}` (single: `oic_open_workspace
+  {…, lock:true}`). A `lock:false` wsid CANNOT edit.
 
 So: open `lock:false` for read-only work; open (or re-open) `lock:true` BEFORE the first edit. If you
 inspected read-only and then decide to edit, release that wsid and open again with `lock:true` (§Lock upgrade).
 
 ## Tools
-- `oic_open_workspace {instance, code, version, project?, lock:true|false}` → `{instance, code, version, project, wsid, locked}`. `lock:false` = read-only open (safe for inspection); `lock:true` = editable (lock rule above). Every open mints a NEW wsid. Opening an integration that is already open in this conversation is an ERROR (reuse the registered wsid, or release it first). You may hold several integrations open at once — every call names which.
+- `oic_open_integration {instance, code, version, project?, lock?, iar?, workspace?, blueprint?}` → `{instance, code, version, project, wsid, locked, iar, blueprint}` — the one-call default (above). Same open semantics as `oic_open_workspace` below (a second open of an already-open integration is an ERROR: reuse its wsid with `workspace:false`).
+- `oic_open_workspace {instance, code, version, project?, lock:true|false}` → `{instance, code, version, project, wsid, locked}` — the single, for a partial load (lock upgrade, re-open after release). `lock:false` = read-only open (safe for inspection); `lock:true` = editable (lock rule above). Every open mints a NEW wsid. Opening an integration that is already open in this conversation is an ERROR (reuse the registered wsid, or release it first). You may hold several integrations open at once — every call names which.
 - `oic_commit {instance, code, version, project?, wsid}` → persists the workspace draft. Releases nothing; keep working.
 - `oic_unlock {instance, code, version, project?}` → force-releases the edit lock. 200 = released, 412 = wasn't locked (fine). For clearing your OWN stale lock at the START of a session (instructions.md §Session lifecycle step 2) and for crash recovery when you have no wsid — to release WHEN DONE see "Releasing when done".
 - `oic_verify {instance, code, version, project?}` → opens a FRESH workspace, returns `{hasErrors, hasWarnings, problems[]}`, deletes that throwaway. The authoritative verdict. Problems carry the node `id` when node-specific.
 - `oic_release_workspace {instance, code, version, project?, wsid}` → releases the workspace for a human (see "Releasing when done").
-- Read tools (`oic_load_blueprint` needs `{…, wsid}`; `oic_get_blueprint`, `oic_blueprint_view`, `oic_get_node`, `oic_get_map_xslt`, `oic_get_map_namespaces` need `{instance, code, version, project?}` — cache-only, no wsid) → cross-integration inspection mid-build = open each integration `lock:false` and name it on every read.
+- Read tools (`oic_load_blueprint` needs `{…, wsid}` — already done by `oic_open_integration`; `oic_get_blueprint`, `oic_blueprint_view`, `oic_get_node`, `oic_get_map_xslt`, `oic_get_map_namespaces` need `{instance, code, version, project?}` — cache-only, no wsid) → cross-integration inspection mid-build = `oic_open_integration` each integration (default `lock:false`) and name it on every read.
 
 ## Lock upgrade
 Inspected with `lock:false` and now need to edit? `oic_release_workspace` that wsid, then
