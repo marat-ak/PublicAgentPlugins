@@ -10,7 +10,8 @@ OIC **projects** are a management grouping; project-scoped integrations live und
 ## Discover
 - `oic_list_projects` → `[{id, name, status, type}]`. The project id is what every project-scoped call takes.
 - `oic_list_integrations {project}` lists a project's integrations; without `project` it lists standalone
-  (globally-available) ones. `codeFilter` is a regex on the code.
+  (globally-available) ones. `codeFilter` is a regex on the code. Which to search — and every later
+  `project` argument — is the user's pinned choice (instructions.md §Integration scope).
 - Lookups (DVMs) take the same `project?`: `oic_list_lookups` / `oic_get_lookup` / `oic_create_lookup` /
   `oic_update_lookup` / `oic_delete_lookup` / `oic_clone_lookup` / `oic_lookup_usage` /
   `oic_export_lookup` / `oic_import_lookup {csv, mode:add|replace}` — with `project` they act on

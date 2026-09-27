@@ -59,10 +59,11 @@ breaks the moment the connection changes; CONFIGURED / inactive = a latent or st
 live break. If several connections matched but the question implies ONE ("our X connection"), confirm
 WHICH is in scope before unioning their usage.
 
-Both `oic_find_connections` and `oic_connection_usage` take `project?`. An EXHAUSTIVE or inventory
-question MUST enumerate the projects and sweep per-project **and** global — otherwise project-scoped
-connections and usages are silently missed (see the **projects** skill). A single targeted lookup needs
-only one global sweep.
+Both `oic_find_connections` and `oic_connection_usage` take `project?`, and the sweep follows the
+conversation's pinned integration scope (instructions.md §Integration scope — asked before the first
+search when the tenant has projects): standalone → the global sweep; projects → one sweep per project
+in scope; both → both. An EXHAUSTIVE or inventory question covers the WHOLE pinned scope — every
+project in it — or project-scoped connections and usages are silently missed (see the **projects** skill).
 
 ## By question shape
 
@@ -70,13 +71,12 @@ only one global sweep.
 
 The shared core above (law → search → expand) already answers this — stop after usage. If a
 direction is named, add a LIGHT per-finalist operation check (the **Direction** rule), not the
-scale seam (finalists are a handful); skip Inventory grouping and per-project enumeration for a
-targeted FIND.
+scale seam (finalists are a handful); skip Inventory grouping for a targeted FIND.
 
 ### Inventory — "every system we talk to"
 
 The no-term call `oic_find_connections {instance}` IS the exhaustive primitive — it returns EVERY connection;
-that full set (swept per-project + global) is your raw material. Group connections into SYSTEMS by
+that full set (swept across the whole pinned scope) is your raw material. Group connections into SYSTEMS by
 resolved host, NOT by connection count: judge each by its API/resource URL field, not its name, and
 union both shapes (dedicated adapter and generic-connector) that resolve to the same host onto ONE
 system. EXCLUDE or explicitly FLAG auth/IdP-only hosts (token endpoints, identity providers) — they are

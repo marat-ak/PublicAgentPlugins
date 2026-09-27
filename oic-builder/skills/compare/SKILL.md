@@ -29,7 +29,7 @@ compare remembers both sides.
 
 1. **Identify both sides explicitly** — `{code, version, project?}` for a live one, `{fileId}`/`{file}`
    for an uploaded archive. Two versions of one code, two different integrations, or an uploaded archive
-   against what is live. Never guess a version: list with `oic_list_integrations {codeFilter}` and
+   against what is live. Never guess a version: list with `oic_list_integrations {codeFilter, project?}` (pinned scope) and
    confirm with the user when several exist.
 2. **Load the LIVE sides** with `oic_load_iar {instance, code, version, project?}` — the archive-only
    partial load is exactly what a compare needs (a side you also want to inspect/edit: `oic_open_integration`

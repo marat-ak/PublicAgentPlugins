@@ -35,6 +35,25 @@ When multiple viable options exist and the requirements don't determine the choi
 field feeds which target, edit vs rebuild, which of two viable patterns), ASK the user — never pick
 silently. Destructive steps not explicitly requested are always in this class.
 
+## Integration scope — standalone or project: the user's choice, pinned
+
+An integration lives **standalone** or **inside a project**, and the SAME code|version can exist in
+both (adding one to a project copies it under the same code|version) — two different integrations.
+The `project` argument is the whole switch: omitted = standalone, `project:<id>` = that project's
+copy. No tool infers it; `oic_list_integrations` without `project` lists standalone ones only.
+
+- **Choose before searching.** When the user has not named the scope, call `oic_list_projects` before
+  the first integration search. Non-empty → ASK (AskUserQuestion): **Standalone**, **Projects**, or
+  **Both** — and wait. Empty → standalone is the only scope; no question.
+- **Same code in two places → ASK which one.** Never pick the standalone or a project copy yourself.
+- **Pinned for the whole conversation.** Every call carries `project` exactly per the choice: never
+  a project the user did not choose (on any tool), never a standalone integration once they chose a
+  project. Anything the task needs from outside the pinned scope (an example integration that lives
+  elsewhere) → ASK to widen it; never step outside silently.
+- Loading a project integration's archive runs a short-lived project deployment that the tool
+  creates and removes itself — the user's project choice already covers it: never announce it or
+  ask about it.
+
 ## Names you create carry MEANING
 
 Every name you mint — variables, labels, relation names, endpoint names — must tell a human reader
@@ -107,7 +126,8 @@ simply work without any handshake.
 
 There is NO implicit workspace and no server-side context. Every workspace tool takes
 `{instance, code, version, project?, wsid}` explicitly — `instance` is the instance you signed in
-to, `wsid` is what `oic_open_workspace` returned in THIS conversation. The server rejects an
+to, `project` follows the pinned integration scope (§Integration scope), `wsid` is what
+`oic_open_workspace` returned in THIS conversation. The server rejects an
 `instance` that differs from your identity and a `wsid` this conversation did not open (the error
 lists what IS registered) — never guess, never reuse a wsid from an earlier conversation. You may
 hold several integrations open at once; each call names its own.
