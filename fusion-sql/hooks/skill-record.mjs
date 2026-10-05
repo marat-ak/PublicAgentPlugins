@@ -16,14 +16,15 @@ import os from "node:os";
 import path from "node:path";
 
 // Skills whose loads we track. The gate (skill-gate.mjs REQUIRED) uses datamodel-authoring /
-// report-authoring / fusion-sql-review / using-templates; rendering-and-running is recorded
-// harmlessly (future-proofing) and never gates anything.
+// report-authoring / fusion-sql-review / using-templates / data-access-security;
+// rendering-and-running is recorded harmlessly (future-proofing) and never gates anything.
 const KNOWN_SKILLS = [
   "datamodel-authoring",
   "report-authoring",
   "fusion-sql-review",
   "using-templates",
   "rendering-and-running",
+  "data-access-security",
 ];
 
 const markerDir = process.env.FUSION_SKILLGATE_DIR || path.join(os.tmpdir(), "fusion-sql-skillgate");

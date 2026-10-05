@@ -1,6 +1,6 @@
 ---
 name: rendering-and-running
-description: Use to render an authored/uploaded template + data to a real PDF/HTML/RTF/XLSX file, to LOOK at any produced output (Read paths, PDF pages), or to download, browse, run, or upload a catalog object on the live Fusion pod. Covers renderTemplate, the visual verify loop, prepareDataModelTest / prepareReportForPod pod flows, and the fusion-pod MCP tools (downloadCatalogObject / listCatalogFolder / runReport / uploadCatalogObject).
+description: Use to render an authored/uploaded template + data to a real PDF/HTML/RTF/XLSX file, to LOOK at any produced output (Read paths, PDF pages), or to download, browse, run, or upload a catalog object on the live Fusion pod. Covers renderTemplate, the visual verify loop, prepareDataModelTest / prepareReportForPod pod flows, the fusion-pod MCP tools (downloadCatalogObject / listCatalogFolder / runReport / uploadCatalogObject), and comparing two reports or data models (compareCatalogObjects / compareCatalogDetail).
 ---
 
 # Rendering, seeing, and running
@@ -35,17 +35,20 @@ substitute an RTF approximation.
 ## 2. The live Fusion pod — `fusion-pod` MCP
 - **`listCatalogFolder(path)`** — browse. Read-only.
 - **`downloadCatalogObject(path)`** — fetch a real `.xdoz`/`.xdmz`. The bytes go to the session file
-  store; you get `{fileId, name, size}` — NOT raw bytes. Inspect via
-  `summarizeReportLayout` / `getFileSummary`, pull one entry with `extractEntry`, or render it by
-  fileId. Read-only.
+  store; you get `{fileId, name, size, instance, instancePath}` — NOT raw bytes. It is filed in that
+  pod's folder under its full catalog path; downloading the same path again replaces that entry (new
+  fileId). Inspect via `summarizeReportLayout` / `getFileSummary`, pull one entry with
+  `extractEntry`, or render it by fileId. Read-only.
 - **`runReport(path, format?, parameters?)`** — execute on the real pod. Output lands in the store →
-  `{fileId, path, contentType}`; **Read the `path`** to see the data XML / rendered PDF. Non-mutating;
-  the STRONGEST verification.
+  `{fileId, path, contentType, instance, instancePath}`; **Read the `path`** to see the data XML /
+  rendered PDF. Non-mutating; the STRONGEST verification.
 - **`runSql(sql, binds?, maxRows?)`** — run a SELECT/WITH directly on the pod (through the
   pre-deployed generic SQL report); rows come back INLINE as JSON `{columns, rows, rowCount,
-  truncated}` (default 200 rows, cap 5000; >256 KB also lands in a session file `{fileId, path}`).
+  truncated, instance}` (default 200 rows, cap 5000; >256 KB also lands in a session file `{fileId,
+  path, instancePath}` in that pod's folder).
   Use it for grain COUNT-probes, to sanity-run a grounded query before building a data model, and
-  for small lookups. List every `:name` in `binds` (DATE binds need `format`). DML is refused.
+  for small lookups — every SQL run here passes the data-access step (**data-access-security**). List
+  every `:name` in `binds` (DATE binds need `format`). DML is refused.
   Errors carry `oraError` + `errorPosition` (0-based char offset) — fix the SQL and retry.
 - **Live metadata, search → describe** (see `datamodel-authoring` for when):
   **`searchFlexfields(table? | flexfieldCode? | name?)`** → compact flexfield list;
@@ -63,7 +66,17 @@ substitute an RTF approximation.
   Pass the session artifact's `fileId` (bytes attach on our side); `base64` only for bytes you actually
   hold; NEVER a fileId inside `base64`. **Uploads do NOT overwrite an existing path** ("already
   exists") — never re-upload to the same path after a fix; use a FRESH per-run subfolder (the prepare
-  tools hand you fresh paths).
+  tools hand you fresh paths). The uploaded file is also filed in that pod's folder under the upload
+  path (`instance`, `instancePath`).
+- **`listSessionFolders(folder?)`** — this conversation's `working` folder plus one folder per pod
+  (its domain), every entry with its full catalog path and fileId, whichever identity is bound now.
+- **`compareCatalogObjects(left, right)` → `compareCatalogDetail(compareId, ref)`** — THE way to
+  compare two data models or two reports (never diff them yourself). Download both sides first
+  (`identity_select` between pods / users), then name each side by `{fileId}` or `{instance,
+  instancePath}`. The summary gives one row per changed element (`dataModel > dataSet[EMP_DS] > sql`,
+  added / removed / changed, `whitespaceOnly` for text) plus changed archive files; the detail gives
+  attribute values and a line diff of the SQL / PL/SQL / template text. `needs-load` = download that
+  side; `stale` = its folder entry was replaced — compare again.
 
 Pod caveats: WAF-throttled — keep calls sequential; a `403 text/html "Access Denied"` is a rate ban,
 not permissions.

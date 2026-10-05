@@ -19,9 +19,10 @@ text, map XSLT).
 
 ## The .iar archive — loaded by `oic_open_integration` (single: `oic_load_iar {instance, code, version, project?}`)
 `oic_open_integration` (the default one-call start — **workspace** skill) loads the integration archive
-into the cache of this conversation for that instance together with the workspace + blueprint;
-`oic_load_iar` is the archive-only partial load (no file, no disk, nothing to unzip). Every reader below
-then works cache-only over it, each taking the SAME four params `{instance, code, version, project?}`.
+into this conversation's folder of that instance (at the integration's path) together with the
+workspace + blueprint; `oic_load_iar` is the archive-only partial load (no file, no disk, nothing to
+unzip). Every reader below then works cache-only over it, each taking the SAME four params
+`{instance, code, version, project?}` — `instance` names the folder, whatever is signed in now.
 Re-download after an edit with `oic_reload_iar` (same params).
 
 Zip layout INSIDE the archive (what the readers parse — for orientation, not for you to open):

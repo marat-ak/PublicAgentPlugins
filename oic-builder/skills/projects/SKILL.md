@@ -1,6 +1,6 @@
 ---
 name: projects
-description: Use when working with OIC projects — listing projects and their integrations, and copying existing integrations into a project (oic_copy_integrations_to_project — by reference, no export/import).
+description: Use when working with OIC projects — listing projects and their integrations, copying existing integrations into a project (oic_copy_integrations_to_project — by reference, no export/import), and pointing to the connection copy/import tools for a project's connections.
 ---
 
 # Projects (grouping integrations under an OIC project)
@@ -32,6 +32,11 @@ The designer's "Add to project" = `POST /projects/{projectId}/integrations/copy`
   `oic_list_integrations {project}`.
 - NOT a move and NOT a clone-with-rename: the copy keeps the same code/version, now under the project. If a
   same-code integration already exists in the project you get 409 (no overwrite).
+
+## Connections in a project
+To give a project its own copies of connections, copy them from standalone (or another project) with
+`oic_copy_connections`, or import an uploaded export with `oic_import_connections` — both in the **discovery**
+skill (§Exporting, importing and copying connections). An id may exist in a project and standalone at once.
 
 ## Import an UPLOADED archive into a tenant — `oic_import_integration`
 When the user attaches an `.iar`/`.car`, `oic_import_integration {instance, fileId | file, targetProject?}`

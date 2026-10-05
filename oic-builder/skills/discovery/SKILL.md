@@ -1,6 +1,6 @@
 ---
 name: discovery
-description: Use for capability questions about the tenant across three shapes — FIND ("which integrations read email / talk to service Y / use adapter X?"), IMPACT ("what breaks if this connection changes?"), DIRECTION ("do we read or write system Z?"), plus the exhaustive inventory ("every system we talk to"). Search connections with the ONE call (oic_find_connections), expand to the integrations using each hit, blueprint only to confirm a shortlist.
+description: Use for capability questions about the tenant across three shapes — FIND ("which integrations read email / talk to service Y / use adapter X?"), IMPACT ("what breaks if this connection changes?"), DIRECTION ("do we read or write system Z?"), plus the exhaustive inventory ("every system we talk to"). Search connections with the ONE call (oic_find_connections), expand to the integrations using each hit, blueprint only to confirm a shortlist. Also: CREATING a connection (search first, describe the adapter, ask, create without secrets), and EXPORTING / IMPORTING / COPYING connections between scopes or instances (oic_export_connections / oic_import_connections / oic_copy_connections).
 ---
 
 # Finding integrations, systems, and impact by connection
@@ -110,3 +110,69 @@ connection count. **Scale seam:** when the finalist set would be tenant-wide (di
 systems), the per-operation inspection is expensive — deliver the bounded inventory FIRST, then ASK to
 scope or sample before running it. A role/method-based approximation is permitted ONLY as an
 explicitly-labeled, caveated ESTIMATE, never as the silent answer.
+
+## Creating a connection
+
+Reuse beats a duplicate: search `oic_find_connections` for the system first and offer what exists. Create
+only on the user's choice. Then:
+
+1. **Describe** the adapter — `oic_list_adapters {instance, adapter}`: allowed roles, policies, and (when this
+   scope already has one) the property + per-policy definitions. Everything the user must choose comes from
+   this metadata, never from memory — the same steps serve an adapter you have never seen.
+2. **Ask** (AskUserQuestion) for identifier, name, role, **standalone or which project**, security policy and
+   the non-secret values. Nothing is defaulted.
+3. **Create** — `oic_create_connection`. Secrets are never yours to carry: leave them out (a secret in the
+   input is refused). A `rejected` result returns the definitions — show the errors, re-ask, retry. `exists`
+   means the identifier is taken — reuse or rename, never overwrite.
+4. **Hand off** — tell the user exactly which secrets (`mustCompleteInConsole.secrets`) and missing values to
+   enter in the OIC console, that the connection test runs there afterwards, and repeat any `warnings`.
+
+## Exporting, importing and copying connections
+
+Three tools over ONE read path and the SAME create path as `oic_create_connection`. Every scope is an explicit
+argument — `from` / `to` = `"standalone"` or a project id, the user's choice (ask; never inferred) — and the
+ids are named (`"*"` = every connection of the scope, only when the user means all of them).
+
+- **Export** — `oic_export_connections {instance, from, ids, zip?}`: the user wants the connections as a FILE
+  (backup, review, moving them to another instance). `zip:true` = one archive in the import format; without it
+  one `.json` per connection. Offer each file's download link (`downloadHint`). `needsSecrets` / `needsUploads`
+  name what an import elsewhere will need entered in the console.
+- **Import** — `oic_import_connections {instance, to, fileId, ids?, onExists:"skip"}`: the user UPLOADED an
+  export (the zip, or one connection `.json`) and wants those connections in the signed-in instance. A file
+  the user edited to hold real passwords sets them — say so before importing.
+- **Copy** — `oic_copy_connections {instance, from, to, ids}`: between two scopes of the SAME signed-in
+  instance (standalone ↔ project, project ↔ project). Across instances = export on one, import on the other
+  (each needs its own sign-in).
+
+**One connection vs many.** Import and copy are mutations; how you confirm depends on the size:
+- **One connection** (one id to copy, or an upload holding one connection): once the user has asked for it
+  and the target scope is settled, call the tool and report the status it returns — `state`, the `host` it
+  points to, and what `needsConsole` lists. There is no plan and no file.
+- **Several, or `"*"`, or a multi-connection upload**: the first call is a PLAN — it reads and counts but
+  creates nothing. Show the user the plan (how many, how many are already in the target and will be
+  skipped, the time estimate) and ASK two things together: go ahead? and do they want a per-connection
+  results file? Never assume either answer. On a yes, call the same tool with ONLY
+  `{instance, planId, resultFile}` (their answer). Each call works for about a minute and a half and
+  returns progress; keep calling with the same `planId` until `status` is `done`, telling the user the
+  progress between calls. Re-calling is always safe: finished connections are never redone and existing
+  ids are never overwritten. A plan the user leaves unanswered expires — plan again rather than reuse an
+  old one. If they skipped the results file and later want the details, call once more with the same
+  `planId` and `resultFile:true` (nothing runs again).
+- A large **export** (more than one call can safely read) also comes back as a plan: ask, then call with
+  `{instance, planId}` until `done` — the export file arrives with the last call.
+
+Values never enter the conversation: results carry counts, states, property NAMES, file ids and — for a
+single connection — the HOST it points to; show it so the user can review where the connection points. The
+exported files sit in the conversation's tree (`<instance>/export/…`, an uploaded one under `upload/<file>/…`);
+search them only for what the user asks about, and never repeat a secret.
+
+States: `created`, `exists` (the id is taken in the target scope — skipped, NEVER overwritten; replacing it is
+the user's console decision), `rejected` (the adapter is missing on the target, or a value the target's
+definitions refuse — give the reason), `failed` (an Oracle error — report it). An upload that is not a clean
+export (unexpected entries, oversize, bad JSON) is refused WHOLE — report the listed entries.
+
+**Hand off**: per created connection, the secrets to enter (OIC never returns a secret, so exported and copied
+connections arrive without theirs), the certificate / keystore uploads, and the missing required values —
+then the user tests each connection in the console. For one connection that list is in the status; for a bulk
+run it is in the results file (offer its download link; read it via its `path` or `oic_grep` over
+`<instance>/export/results/…`), or, without one, give the counts and offer the file.

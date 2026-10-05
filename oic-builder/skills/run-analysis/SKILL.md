@@ -17,7 +17,7 @@ govern everything below:
 Every runtime call here takes `{instance}` — `oic_activity_flow {instance, instanceId, …}` and the
 `oic_load_flowactivity` / `oic_get_flowactivity` / `*_external_payload` family; the design-time reads
 take `{instance, code, version, project?}` (`oic_get_blueprint`, `oic_describe_activity`).
-`oic_list_instances` (run search) is instance-free. Name it on every call (instructions.md §Session
+`oic_list_instances` (run search) is instance-free (its `sweep:true` mode takes `{instance}`). Name it on every call (instructions.md §Session
 lifecycle).
 
 ## 1. Build the mental model from the BLUEPRINT, not the run
@@ -50,9 +50,18 @@ don't decide, ASK).
 The moment a question spans more than one run — "the last 10 runs", "which run processed file X", "what
 filter did each run send", "did the error start today", "compare the file counts" — stop using the
 per-run ladder in a loop. Each single-run call is a full model round-trip; ten runs × four calls is the
-cost this section removes. Three cache-scoped tools, all `{instance}`-bound:
+cost this section removes. Three tools, all naming `{instance}`: the load runs against the signed-in
+instance; search and extract read that instance's folder (signed in to it or not):
 
-1. `oic_runs_load {instance, code, timewindow?, status?, version?, project?, limit?}` — OR
+0. A question over EVERY run of a period (more than one page — counts, "all failures last week") is
+   PLAN → ASK → FETCH. `oic_list_instances {instance, sweep:true, startdate, enddate, code, …}` (UTC, both
+   ends explicit) only COUNTS and returns a plan. A plan with `needsConfirmation` is a cost the user has
+   not agreed to: ask with AskUserQuestion before fetching — state the run total (beside the schedule's
+   expected runs when given), the call count and time estimate, and offer: fetch all / only a status
+   (`byStatus` shows what that saves) / a narrower range / counts only. Fetch only on their choice:
+   `oic_list_instances {instance, planId}` writes the full list to a session file; read the file, then
+   feed chosen ids to step 1. A plan without `needsConfirmation` is fetched directly.
+1. `oic_runs_load {instance, code, timewindow? | startdate+enddate, status?, version?, project?, limit?}` — OR
    `{instance, instanceIds:[…]}` (never both). ONE call lists the runs server-side (same filters as
    `oic_list_instances`, newest first, ≤ 50) and downloads their streams IN PARALLEL (bounded pool,
    automatic backoff on throttling). Returns one compact row per run — outcome, status, start, duration,

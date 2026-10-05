@@ -1,16 +1,20 @@
 #!/usr/bin/env node
-// PreToolUse hook (matcher matches the MUTATING authoring build tools — see REQUIRED below; the
-// hooks.json matcher alternation must mirror its tool names): the deterministic backstop to the
-// thin-kernel router. DENY the build tool until every skill it requires was loaded THIS session
-// (recorded by skill-record.mjs), returning a clear "load X first" reason so the model loads the
-// skill(s) and retries. Gates ONLY mutating build tools — NEVER read-only/inspection tools
-// (getDataModel, getDataStructure, summarizeReportLayout, …), converters, prepare*/upload*, or
-// renderTemplate/runReport.
+// PreToolUse hook (matcher matches the MUTATING authoring build tools + the SQL executors — see
+// REQUIRED below; the hooks.json matcher alternation must mirror its tool names): the deterministic
+// backstop to the thin-kernel router. DENY the tool until every skill it requires was loaded THIS
+// session (recorded by skill-record.mjs), returning a clear "load X first" reason so the model loads
+// the skill(s) and retries. Gates ONLY mutating build tools and the SQL executors — NEVER
+// read-only/inspection tools (getDataModel, getDataStructure, summarizeReportLayout, …), converters,
+// prepare*/upload*, or renderTemplate/runReport.
 //
 //   datamodel-mutating tools  -> datamodel-authoring (structural discipline: fileId chain, surgical
 //                                edits, grouping shapes); the SQL-carrying ones (createDataModelFile,
 //                                setDatasetSql) ALSO require fusion-sql-review (grounding workflow +
-//                                the aggregation ladder)
+//                                the aggregation ladder) and data-access-security (secured CTEs)
+//   SQL executors             -> data-access-security: pod runSql and the CloudBeaver run_sql it is
+//                                substituted by (model-issued calls only — an engine `useTool`
+//                                continuation hop, e.g. the flexfield search/describe tools, runs
+//                                inside the wrapper and never reaches PreToolUse)
 //   report/layout-mutating    -> report-authoring
 //   instantiateTemplate       -> using-templates
 //
@@ -25,10 +29,11 @@ import os from "node:os";
 import path from "node:path";
 
 const DM = "datamodel-authoring", SQL = "fusion-sql-review", RPT = "report-authoring", TPL = "using-templates";
+const DAS = "data-access-security";
 const REQUIRED = [
-  // data model — mutating tools; SQL-carrying ones also re-read the SQL discipline
-  { tool: "createDataModelFile", skills: [DM, SQL] },
-  { tool: "setDatasetSql", skills: [DM, SQL] },
+  // data model — mutating tools; SQL-carrying ones also re-read the SQL discipline + data access
+  { tool: "createDataModelFile", skills: [DM, SQL, DAS] },
+  { tool: "setDatasetSql", skills: [DM, SQL, DAS] },
   { tool: "updateDataModelFile", skills: [DM] },
   { tool: "addStructureElement", skills: [DM] },
   { tool: "moveStructureElement", skills: [DM] },
@@ -52,6 +57,9 @@ const REQUIRED = [
   { tool: "createSubtemplateFile", skills: [RPT] },
   // template instantiation
   { tool: "instantiateTemplate", skills: [TPL] },
+  // SQL executors — every SQL the model runs passes the data-access step
+  { tool: "runSql", skills: [DAS] },
+  { tool: "run_sql", skills: [DAS] },
 ];
 
 const markerDir = process.env.FUSION_SKILLGATE_DIR || path.join(os.tmpdir(), "fusion-sql-skillgate");
@@ -102,8 +110,9 @@ if (!canPersist(markerDir)) proceed();       // can't track markers here -> fail
 deny(
   `Load the ${missing.map((s) => `\`${s}\``).join(" and ")} skill${missing.length > 1 ? "s" : ""} ` +
   `FIRST (one Skill-tool call each), then retry ${match.tool}. The build procedure, grouping-shape ` +
-  `rules, SQL discipline (incl. the aggregation ladder), and render-verified recipes are required and ` +
-  `are NOT in the always-on instructions — building from memory produces the wrong shape (e.g. a ` +
-  `second summary SELECT instead of one ROLLUP query). If a skill will not load after you call it, ` +
-  `STOP and tell the user; do not build from memory.`
+  `rules, SQL discipline (incl. the aggregation ladder and the data-access secured CTEs), and ` +
+  `render-verified recipes are required and are NOT in the always-on instructions — working from ` +
+  `memory produces the wrong shape (e.g. a second summary SELECT instead of one ROLLUP query) or ` +
+  `unsecured SQL. If a skill will not load after you call it, STOP and tell the user; do not build ` +
+  `from memory.`
 );

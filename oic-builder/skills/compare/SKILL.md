@@ -9,9 +9,11 @@ The compare works on the integrations' ARCHIVES (.iar / project .car) held in th
 on live blueprints. Both sides must be loaded first; the compare itself is cache-only and instant.
 
 Each side is one of two sources:
-- **LIVE** `{code, version, project?}` — must be loaded first with
-  `oic_load_iar {instance, code, version, project?}` (a tenant download is never triggered from the
-  compare). Live sides must live in the SAME instance.
+- **INSTANCE** `{instance, code, version, project?}` — an integration loaded into that instance's
+  folder with `oic_load_iar {instance, code, version, project?}` (a download needs that instance signed
+  in; the compare never downloads). Each side names its OWN instance, so the two sides may come from
+  DIFFERENT instances (test vs dev1): load each while signed in to it, then compare — the compare
+  itself reads the folders and needs no sign-in or re-binding.
 - **UPLOADED ARCHIVE** `{fileId}` (the id of the .iar/.car the USER attached) or `{file}` (its file
   name once it is in this conversation). **No load step and no sign-in**: pass the two fileIds and the
   compare fetches and caches them itself, then answers. The result names each side's `file`, `code` and
@@ -21,21 +23,25 @@ Two uploads CAN share a file name — the same integration exported from two ten
 `CODE_VERSION.iar` both times, which is exactly the "test vs dev1" comparison. Both are kept; name
 those sides by `{fileId}` (a by-name call then answers with an ambiguity error listing both ids).
 
-So upload↔upload, upload↔live and live↔live all run through the same `oic_compare_integrations`. Pass
-`instance` only when a side is live. `oic_compare_detail {compareId, ref}` needs nothing else — the
-compare remembers both sides.
+So upload↔upload, upload↔instance and instance↔instance (same or different instances) all run through
+the same `oic_compare_integrations`; there is no top-level `instance` — it rides inside each instance
+side. The result's `left`/`right` carry each side's `instance` + `path` (or `file`/`fileId`).
+`oic_compare_detail {compareId, ref}` needs nothing else — the compare remembers both sides.
 
 ## The ladder (always in this order)
 
-1. **Identify both sides explicitly** — `{code, version, project?}` for a live one, `{fileId}`/`{file}`
-   for an uploaded archive. Two versions of one code, two different integrations, or an uploaded archive
-   against what is live. Never guess a version: list with `oic_list_integrations {codeFilter, project?}` (pinned scope) and
+1. **Identify both sides explicitly** — `{instance, code, version, project?}` for an instance side,
+   `{fileId}`/`{file}` for an uploaded archive. Two versions of one code, two different integrations, the
+   same integration in two instances, or an uploaded archive against what is in an instance. Never guess
+   a version or an instance: list with `oic_list_integrations {codeFilter, project?}` (pinned scope) and
    confirm with the user when several exist.
-2. **Load the LIVE sides** with `oic_load_iar {instance, code, version, project?}` — the archive-only
-   partial load is exactly what a compare needs (a side you also want to inspect/edit: `oic_open_integration`
-   loads its archive too). An uploaded side needs no load — the compare resolves it. A `needs-load` answer names the live side still missing —
-   load it, do not retry blindly. A dead fileId errors with "re-upload": ask the user to attach it again.
-3. **Summary**: `oic_compare_integrations {left, right}` (+ `instance` when a side is live) → `compareId`, `counts`, `project`
+2. **Load the instance sides** with `oic_load_iar {instance, code, version, project?}`, each while signed
+   in to its instance — the archive-only partial load is exactly what a compare needs (a side you also
+   want to inspect/edit: `oic_open_integration` loads its archive too). A side already loaded earlier in
+   the conversation needs no reload. An uploaded side needs no load — the compare resolves it. A
+   `needs-load` answer names the instance side still missing (its instance + path) — load it, do not
+   retry blindly. A dead fileId errors with "re-upload": ask the user to attach it again.
+3. **Summary**: `oic_compare_integrations {left, right}` → `compareId`, `counts`, `project`
    (name/version fields; connections added / removed / rebound) and `changes[]` — ONE row per activity
    with its OWN change: `ref` (d1, d2 …), `status` added|removed|modified, the designer `path`
    (`GLOBAL_TRY > Scope > Route > activity`), the identity on each side `{id, type, name}` and counts
@@ -74,5 +80,6 @@ compare remembers both sides.
 - Ids compare by position + type + name, not by node id: an activity moved to another branch shows as
   removed there and added here.
 - Complex maps (templates, for-each-group) may surface a restructure as removed + added targets.
-- Cross-instance compare (test vs dev1) is not available — LIVE sides must be in the bound instance. An
-  uploaded archive belongs to no instance, so it can be compared against either one.
+- Cross-instance (test vs dev1): both sides must be loaded, each while signed in to its own instance;
+  after that the compare works whatever is signed in. Name each side's instance when you explain the
+  result. An uploaded archive belongs to no instance, so it can be compared against any of them.

@@ -8,8 +8,9 @@ description: Use when analyzing, modifying, or generating an Oracle BI Publisher
 You can **analyze, modify, and generate** BIP data models — real, downloadable artifacts via the
 authoring tools. Do NOT say "I can't create files" or merely describe tables — produce the actual
 `.xdmz`. Ground every table/column/join with the schema tools + real corpus before writing any SQL
-(the full SQL build workflow — ground → validate → grain-check → clarify → adopt/adapt/derive — is in
-the **fusion-sql-review** skill; load it too when authoring a model's dataset SQL).
+(the full SQL build workflow — ground → validate → grain-check → clarify → adopt/adapt/derive → secure —
+is in the **fusion-sql-review** skill, the secure step in **data-access-security**; load both when
+authoring a model's dataset SQL).
 
 ## Uploaded files — inspect before you act
 When the user ATTACHES files you get a note with `fileId`s.
@@ -21,7 +22,7 @@ When the user ATTACHES files you get a note with `fileId`s.
 3. Decide from the request:
    - **Analyze / explain** → describe in business terms what the model returns (datasets, parameters,
      triggers, bursting) from the summary (+ `getDataset` where needed). No file output.
-   - **Modify** → write the new grounded SQL, then apply it (below). Each edit returns a NEW `fileId`.
+   - **Modify** → write the new grounded SQL, secured per **data-access-security**, then apply it (below). Each edit returns a NEW `fileId`.
    Multiple files / a `.zip` bundle are fine — operate across them by `fileId`.
 
 ## Editing a data model — EVERY part is surgical
@@ -114,7 +115,8 @@ When the user asks to build one ("build me a data model for …"):
    **Found SEVERAL candidates → a `fusion-ask` block with the candidate API names as options** (e.g.
    TicketContact_c vs TicketToContact_c vs Ticket_c) — only a single unambiguous hit proceeds
    without confirmation.
-3. Build a **`DataModelSpec`** (datasets with the grounded SQL; parameters; output structure; event
+3. Build a **`DataModelSpec`** (datasets with the grounded SQL, secured per **data-access-security** —
+   LOV `sql` too; parameters; output structure; event
    triggers and bursting if the request needs them) and call **`createDataModelFile(spec)`**.
    - **LOVs at CREATE time:** declare dropdowns directly in the spec — `spec.valueSets:[{id, sql | 
      values}]` plus `parameter.valueSet: "<id>"` on the parameter that uses it (and `parameter.format`
@@ -162,7 +164,8 @@ The model is authored against real Oracle, but the BIP data-model parser/designe
 Oracle SQL. Apply these preemptively:
 - **`:=` assignment inside a `WITH FUNCTION` body is rejected.** Inline `WITH FUNCTION … RETURN …` is
   allowed, but replace every `var := expr;` in its body with **`SELECT expr INTO var FROM dual;`**.
-- **A dataset whose SQL STARTS with a CTE (`WITH …`) breaks grouping in the designer.** Wrap it:
+- **A dataset whose SQL STARTS with a CTE (`WITH …`) breaks grouping in the designer** — secured SQL
+  always does (its secured CTEs lead). Wrap it:
   **`SELECT * FROM (WITH … SELECT …)`** so the outer statement is a plain SELECT.
 - **If that wrapped SQL also contains an inline `WITH FUNCTION`, the OUTER select needs the hint
   `/*+ with_plsql */`** — i.e. `SELECT /*+ with_plsql */ * FROM (WITH FUNCTION … SELECT …)`.

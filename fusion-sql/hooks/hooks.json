@@ -11,7 +11,7 @@
         ]
       },
       {
-        "matcher": "mcp__[A-Za-z0-9_-]+__(createDataModelFile|setDatasetSql|updateDataModelFile|addStructureElement|moveStructureElement|removeStructureElement|editStructure|editParameters|editLexicals|editDatasets|editTriggers|editValueSets|editBursting|editProperties|editValidations|createReportFile|updateReportFile|addReportLayout|setReportLayout|modifyReportLayout|editLayout|createSubtemplateFile|instantiateTemplate)",
+        "matcher": "mcp__[A-Za-z0-9_-]+__(createDataModelFile|setDatasetSql|updateDataModelFile|addStructureElement|moveStructureElement|removeStructureElement|editStructure|editParameters|editLexicals|editDatasets|editTriggers|editValueSets|editBursting|editProperties|editValidations|createReportFile|updateReportFile|addReportLayout|setReportLayout|modifyReportLayout|editLayout|createSubtemplateFile|instantiateTemplate|runSql|run_sql)",
         "hooks": [
           {
             "type": "command",

@@ -1,6 +1,6 @@
 ---
 name: fusion-sql-review
-description: Use before emitting or running ANY Fusion SQL (a final answer, a data model's dataset SQL, a run_sql/explain_plan probe, SQL in prose or in a hand-off prompt), whenever findSimilarQueries returned ambiguous:true, and whenever the required output involves ANY aggregation (totals, subtotals, counts, summaries, per-X blocks, pivots). Provides the end-to-end SQL build workflow (ground -> validate -> grain-check -> clarify -> adopt/adapt/derive), the AGGREGATION LADDER (SQL -> group levels -> template) with its mandatory visible Aggregation check, the domain cue-table + ask/combine templates, Financials sub-ledger traps, a pre-flight grounding/scoping checklist, and the modern-Oracle-SQL construct menu.
+description: Use before emitting or running ANY Fusion SQL (a final answer, a data model's dataset SQL, a run_sql/explain_plan probe, SQL in prose or in a hand-off prompt), whenever findSimilarQueries returned ambiguous:true, and whenever the required output involves ANY aggregation (totals, subtotals, counts, summaries, per-X blocks, pivots). Provides the end-to-end SQL build workflow (ground -> validate -> grain-check -> clarify -> adopt/adapt/derive -> secure), the AGGREGATION LADDER (SQL -> group levels -> template) with its mandatory visible Aggregation check, the domain cue-table + ask/combine templates, Financials sub-ledger traps, a pre-flight grounding/scoping checklist, and the modern-Oracle-SQL construct menu.
 ---
 
 # Fusion SQL: build workflow + disambiguation + pre-flight review
@@ -51,9 +51,10 @@ playbook for BOTH a bare SQL request and the dataset SQL inside a data model.
       cosmetic bind/column adjustments.
    2. **Adapt** — the closest match does most of the job → start FROM its SQL, modify, and tell the
       user what you changed and why. Any term/filter the exemplar has that you dropped (a receipts
-      bucket, a security predicate, a date-effectivity clause) must be adopted or explicitly flagged.
+      bucket, a security predicate, a date-effectivity clause) must be adopted or explicitly flagged;
+      its URDA / FND_GRANTS security is adopted as the secured CTEs (4c), never as joins.
    3. **Derive** — no single match is close → compose from the mechanics of several matches; keep
-      the effective-date / security filters the real reports use.
+      the effective-date filters the real reports use (data security comes from 4c).
    4. **From scratch** — nothing grounds → say so explicitly before writing.
    **When you adopt/adapt a BIG report, GET ITS REAL SQL FIRST.** `findSimilarQueries` omits the SQL
    of large exemplars (`cleanSqlOmitted:true` + `sqlChars` + the match's `id`) — the mechanics text is
@@ -64,7 +65,7 @@ playbook for BOTH a bare SQL request and the dataset SQL inside a data model.
    **Dropping a table the exemplar joins requires a STATED, SPECIFIC reason** — read the real SQL and
    for EACH omitted table say why it is safe to drop (it serves a grain you excluded: site/address,
    GL-account breakdown, a receipts UNION branch; OR it only supplies display labels). NEVER drop a
-   table that carries load-bearing logic — a security predicate, an effective-date (`_F` date range),
+   table that carries load-bearing logic — a security predicate (URDA / FND_GRANTS → the 4c CTEs), an effective-date (`_F` date range),
    a dedup guard (`latest_rec_flag='Y'`, `account_class='REC'`, `complete_flag='Y'`, a greatest-n
    filter) — unless you can show the remaining query doesn't need it (e.g. the driver is already
    one-row-per-grain). Deciding what to drop from the mechanics SUMMARY instead of the real query is
@@ -92,6 +93,15 @@ playbook for BOTH a bare SQL request and the dataset SQL inside a data model.
    before proposing ANY aggregation mechanism — in a plan or a build — emit one line per
    aggregation need: `<need> → rung N (<mechanism>)`, plus a one-clause reason whenever the pick is
    below rung 1. One line per need is the whole ceremony — no essays. This list survives terse mode.
+4c. **DATA-ACCESS STEP — every SQL you emit, the 2b probes included** (load **data-access-security**):
+   every table/view whose payload carries `dataSecurity.form` direct or via_join is replaced by its
+   secured CTE — the PLAN from `getDataAccessPredicate` (object + privilege NAMES per entry), one
+   `getSecurityPredicate` call per `fetch` pair on the user's pod (Oracle's own condition for the
+   running user, pasted verbatim into the plan's `{PRED:n}`), one CTE per table-instance alias, all in
+   ONE leading `WITH`; `none: true` → the table directly; `disallowed` → never in secured SQL (use a
+   used alternative or tell the user); no pod session → needs-input, never unsecured silently. Skipped
+   only when the user asked for unsecured SQL. Its `Data access:` lines (table.column → object /
+   privilege) join the Filter check.
 5. **Explain briefly, then give the final SQL in a single ```sql fenced block.** (Totals/subtotals
    are part of the OUTPUT shape — the 4b Aggregation ladder decides where they live, and its
    Aggregation check precedes the sql block alongside the Filter check.)
@@ -165,6 +175,10 @@ UNION as the request needs). If you cannot tell whether it is one term or two pa
 
 ### 3. Scoping is explicit where it matters
 - [ ] **Multi-org**: does the query need an `ORG_ID` / business-unit filter?
+- [ ] **Data access**: every table/view with `dataSecurity.form` direct / via_join is read through its
+      secured CTE whose conditions came from `getSecurityPredicate` on the user's pod (or the user asked
+      for unsecured SQL); no `disallowed` table in secured SQL; the `Data access:` lines (object /
+      privilege named) are in the Filter check; a data model states the condition is the author's.
 - [ ] **Currency**: are amounts summed across possibly-mixed currencies? Note it or add a currency
       dimension / conversion.
 - [ ] **Status/date semantics**: is the intended status flag and date type (creation vs transaction vs
