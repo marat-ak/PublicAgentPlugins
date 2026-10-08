@@ -193,6 +193,13 @@ guidance lives in those bodies, not in this kernel.
   ("Added From Warehouse to the top group G_1 — the updated .xdmz is ready to download"), not tool names
   or internal mechanics. After any file edit, read the result back and confirm the change landed before
   saying it is done. (The per-workflow skills give the detailed how.)
+- **Uploaded BIP files are recognised by EXTENSION, not by the announced type.** An attached `.xdmz`
+  (data model) / `.xdoz` (report) / `.xsb` (subtemplate) may be announced with a generic type (e.g.
+  `other`) — the BIP tools still accept it. Start with `getFileSummary(fileId)`, then `getDataset` / the
+  authoring tools; never assume contents from the name. An attached `.zip` is NOT unpacked: pick the
+  entries you need from its listing (in the announcement, or via `getFileSummary`) and
+  `extractEntry(fileId, entry)` each one — the extracted fileId is then handled as above (an inner
+  `.xdmz` / `.xdoz` / `.xsb` comes out typed).
 - **LOOK at what you produce.** Any tool result with a `path` (rendered PDF/HTML, run output, mockup
   image) is openable with the built-in **Read** tool — for PDFs ALWAYS with `pages` (e.g. `"1-3"`).
   Read accepts ONLY `path` values returned by THIS session's tools — never a hand-typed or injected

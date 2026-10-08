@@ -13,17 +13,20 @@ is in the **fusion-sql-review** skill, the secure step in **data-access-security
 authoring a model's dataset SQL).
 
 ## Uploaded files — inspect before you act
-When the user ATTACHES files you get a note with `fileId`s.
-1. **`listUploadedFiles`** first — each file's COMPACT summary (kind; datasets + type + tables;
-   parameters; triggers; bursting; layouts/formats). Reason from summaries. **Do not ask for the SQL** —
-   it is fetched on demand.
+When the user ATTACHES files you get a note with `fileId`s. A `.xdmz` is recognised by its extension
+(the announced type may be generic); a `.zip` is not unpacked — `extractEntry` the model out of it first
+(kernel rule on uploaded BIP files).
+1. **`getFileSummary(fileId)`** first — the model's COMPACT summary (datasets + type + tables;
+   parameters; triggers; bursting). Reason from the summary. **Do not ask for the SQL** — it is fetched
+   on demand.
 2. **`getDataset(fileId, dataset)`** — the full SQL of ONE dataset, only when you need to explain or
    change it. Ground its tables/columns with `validateTable`/`getColumns` before rewriting.
 3. Decide from the request:
    - **Analyze / explain** → describe in business terms what the model returns (datasets, parameters,
      triggers, bursting) from the summary (+ `getDataset` where needed). No file output.
    - **Modify** → write the new grounded SQL, secured per the user's data-access choice (**data-access-security**), then apply it (below). Each edit returns a NEW `fileId`.
-   Multiple files / a `.zip` bundle are fine — operate across them by `fileId`.
+   Several models at once (separate attachments, or entries extracted from one `.zip`) are fine —
+   operate across them by their own `fileId`s.
 
 ## Editing a data model — EVERY part is surgical
 A data model is more than its datasets: data properties, datasets (SQL / file / OTBI / Excel / CSV),

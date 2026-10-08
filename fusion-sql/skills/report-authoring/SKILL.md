@@ -251,8 +251,8 @@ of named blocks (`<?template:NAME?>`). Wiring rules:
 ## Locale model
 ONE `<template>` label/url can be backed by several physical locale files (`X_en.rtf`, `X_fr.rtf`; XPT
 uses `en_US`). BIP resolves by the user's locale. `addLayout` with an existing label adds that locale's
-file; `replaceLayout` / `modifyReportLayout` touch only the requested locale (default `en`). Uploaded
-`.rtf` and `.xsb` classify as their own types.
+file; `replaceLayout` / `modifyReportLayout` touch only the requested locale (default `en`). An uploaded
+bare `.rtf` or `.xsb` is its own target (its own fileId), not a locale inside a report.
 
 Report the business outcome, not the tooling, and verify (`summarizeReportLayout` on the result) before
 claiming a change landed. To let the user actually see the output, hand off to **rendering-and-running**.
