@@ -38,7 +38,7 @@ inspected read-only and then decide to edit, release that wsid and open again wi
 - `oic_unlock {instance, code, version, project?}` → force-releases the edit lock. 200 = released, 412 = wasn't locked (fine). For clearing your OWN stale lock at the START of a session (instructions.md §Session lifecycle step 2) and for crash recovery when you have no wsid — to release WHEN DONE see "Releasing when done".
 - `oic_verify {instance, code, version, project?}` → opens a FRESH workspace, returns `{hasErrors, hasWarnings, problems[]}`, deletes that throwaway. The authoritative verdict. Problems carry the node `id` when node-specific.
 - `oic_release_workspace {instance, code, version, project?, wsid}` → releases the workspace for a human (see "Releasing when done").
-- Read tools (`oic_load_blueprint` needs `{…, wsid}` — already done by `oic_open_integration`; `oic_get_blueprint`, `oic_blueprint_view`, `oic_get_node`, `oic_get_map_xslt`, `oic_get_map_namespaces` need `{instance, code, version, project?}` — cache-only, no wsid) → cross-integration inspection mid-build = `oic_open_integration` each integration (default `lock:false`) and name it on every read.
+- Read tools (`oic_load_blueprint` needs `{…, wsid}` — already done by `oic_open_integration`; `oic_get_map_namespaces` needs `{…, wsid, mapId}` — a LIVE mapper read of that workspace; `oic_get_blueprint`, `oic_blueprint_view`, `oic_get_node`, `oic_get_map_xslt` need `{instance, code, version, project?}` — cache-only, no wsid) → cross-integration inspection mid-build = `oic_open_integration` each integration (default `lock:false`) and name it on every read.
 
 ## Lock upgrade
 Inspected with `lock:false` and now need to edit? `oic_release_workspace` that wsid, then

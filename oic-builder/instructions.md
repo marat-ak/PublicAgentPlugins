@@ -45,17 +45,25 @@ silently. Destructive steps not explicitly requested are always in this class.
 
 An integration lives **standalone** or **inside a project**, and the SAME code|version can exist in
 both (adding one to a project copies it under the same code|version) — two different integrations.
-The `project` argument is the whole switch: omitted = standalone, `project:<id>` = that project's
-copy. No tool infers it; `oic_list_integrations` without `project` lists standalone ones only.
+No tool infers the scope, and the server remembers none of it between calls — every call states it:
 
+- **Search tools take `scope` (required).** `oic_list_integrations`, `oic_find_connections`,
+  `oic_connection_usage`, `oic_list_lookups`: `"standalone"` = only what lives outside every project;
+  a project id = only that project; `"all"` = standalone + every project, each result tagged with its
+  `project` (null = standalone).
+- **Tools on ONE known integration or object** (load, open, verify, get, clone, …) take `project`:
+  omitted = the standalone one, `project:<id>` = that project's copy. Take it from the search
+  result's `project` tag, never from a guess.
 - **Choose before searching.** When the user has not named the scope, call `oic_list_projects` before
-  the first integration search. Non-empty → ASK (AskUserQuestion): **Standalone**, **Projects**, or
-  **Both** — and wait. Empty → standalone is the only scope; no question.
+  the first search. Non-empty → ASK (AskUserQuestion): **Standalone**, **Projects**, or **Both** — and
+  wait. Empty → standalone is the only scope; no question. The answer maps onto `scope`:
+  Standalone → `"standalone"`; Projects → a project id, one call per project in the choice (the ones
+  the user named, or each project when they meant all of them — ask when unclear); Both → `"all"`.
 - **Same code in two places → ASK which one.** Never pick the standalone or a project copy yourself.
-- **Pinned for the whole conversation.** Every call carries `project` exactly per the choice: never
-  a project the user did not choose (on any tool), never a standalone integration once they chose a
-  project. Anything the task needs from outside the pinned scope (an example integration that lives
-  elsewhere) → ASK to widen it; never step outside silently.
+- **Pinned for the whole conversation.** Every call carries `scope` / `project` exactly per the
+  choice: never a project the user did not choose (on any tool), never a standalone integration once
+  they chose a project. Anything the task needs from outside the pinned scope (an example integration
+  that lives elsewhere) → ASK to widen it; never step outside silently.
 - Loading a project integration's archive runs a short-lived project deployment that the tool
   creates and removes itself — the user's project choice already covers it: never announce it or
   ask about it.
@@ -298,11 +306,12 @@ the operation, STOP and say so — do not improvise against the API.
 - **adapter-invokes** — per-adapter wizard page notes + downstream payload references.
 - **structural-nodes** — labels/assignments/routers/foreach/scope/stitch/move + expression authoring.
 - **adapter-wizard** — the generic `oic_wizard_*` path to create/edit ANY adapter endpoint.
+- **schedule-to-rest** — a SCHEDULED integration must be started by a REST call instead: the user chooses an eligible REST connection (trigger or trigger+invoke), `oic_convert_schedule_to_rest` replaces the schedule trigger with a minimal default REST trigger, then configure that endpoint with the wizard.
 - **verification** — evidence levels, the round-trip protocol, known benign noise.
 - **source-material** — reading .iar exports + live blueprints of source integrations.
 - **run-analysis** — debug/analyze WHY a RUN behaved as it did (failed / looped N times / was slow / a node's output): blueprint-first, then the bounded `oic_activity_flow` overview→search→drill→payload ladder — never the full stream. ANY question over MORE THAN ONE run ("the last N runs", "which run did X", "how did a value differ across runs") goes through the batch tools `oic_runs_load` → `oic_runs_search` / `oic_runs_extract` in ONE call per step — never a loop of single-run calls.
 - **fix-placement** — a defect's cause is known and you are choosing WHERE to fix it: derive the location from the flow's obligation chain (detector vs violator, owner, disqualifiers, when to ASK) — never from where the error surfaced or where the edit is smallest. Invoke BEFORE proposing any fix.
-- **projects** — listing OIC projects, copying integrations into a project, importing an uploaded archive into a tenant (`oic_import_integration` — a mutation: clash → ask → `replace:true`).
+- **projects** — listing OIC projects, CLONING an integration (`oic_clone_integration` — a new version of the same integration, or a new integration under a new code/name: missing code/name/version → ask), copying integrations into a project, importing an uploaded archive into a tenant (`oic_import_integration` — a mutation: clash → ask → `replace:true`).
 - **compare** — what CHANGED / DIFFERS between two integrations, two versions of one, or an UPLOADED archive vs what is live (review a new version, audit a copy, explain a regression): load both sides → `oic_compare_integrations` summary → `oic_compare_detail` facts by ref — explained in designer terms, never +/- text.
 
 ## Reporting

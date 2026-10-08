@@ -52,7 +52,8 @@ playbook for BOTH a bare SQL request and the dataset SQL inside a data model.
    2. **Adapt** — the closest match does most of the job → start FROM its SQL, modify, and tell the
       user what you changed and why. Any term/filter the exemplar has that you dropped (a receipts
       bucket, a security predicate, a date-effectivity clause) must be adopted or explicitly flagged;
-      its URDA / FND_GRANTS security is adopted as the secured CTEs (4c), never as joins.
+      its URDA / FND_GRANTS security is never copied as joins: secured SQL adopts it as the secured
+      CTEs (4c); plain SQL drops it.
    3. **Derive** — no single match is close → compose from the mechanics of several matches; keep
       the effective-date filters the real reports use (data security comes from 4c).
    4. **From scratch** — nothing grounds → say so explicitly before writing.
@@ -65,7 +66,7 @@ playbook for BOTH a bare SQL request and the dataset SQL inside a data model.
    **Dropping a table the exemplar joins requires a STATED, SPECIFIC reason** — read the real SQL and
    for EACH omitted table say why it is safe to drop (it serves a grain you excluded: site/address,
    GL-account breakdown, a receipts UNION branch; OR it only supplies display labels). NEVER drop a
-   table that carries load-bearing logic — a security predicate (URDA / FND_GRANTS → the 4c CTEs), an effective-date (`_F` date range),
+   table that carries load-bearing logic — a security predicate (URDA / FND_GRANTS → the 4c CTEs in secured SQL; plain SQL drops it, as above), an effective-date (`_F` date range),
    a dedup guard (`latest_rec_flag='Y'`, `account_class='REC'`, `complete_flag='Y'`, a greatest-n
    filter) — unless you can show the remaining query doesn't need it (e.g. the driver is already
    one-row-per-grain). Deciding what to drop from the mechanics SUMMARY instead of the real query is
@@ -93,15 +94,17 @@ playbook for BOTH a bare SQL request and the dataset SQL inside a data model.
    before proposing ANY aggregation mechanism — in a plan or a build — emit one line per
    aggregation need: `<need> → rung N (<mechanism>)`, plus a one-clause reason whenever the pick is
    below rung 1. One line per need is the whole ceremony — no essays. This list survives terse mode.
-4c. **DATA-ACCESS STEP — every SQL you emit, the 2b probes included** (load **data-access-security**):
-   every table/view whose payload carries `dataSecurity.form` direct or via_join is replaced by its
-   secured CTE — the PLAN from `getDataAccessPredicate` (object + privilege NAMES per entry), one
-   `getSecurityPredicate` call per `fetch` pair on the user's pod (Oracle's own condition for the
-   running user, pasted verbatim into the plan's `{PRED:n}`), one CTE per table-instance alias, all in
-   ONE leading `WITH`; `none: true` → the table directly; `disallowed` → never in secured SQL (use a
-   used alternative or tell the user); no pod session → needs-input, never unsecured silently. Skipped
-   only when the user asked for unsecured SQL. Its `Data access:` lines (table.column → object /
-   privilege) join the Filter check.
+4c. **DATA-ACCESS STEP — for the SQL the kernel's data-access rule secures** (load **data-access-security**):
+   ONE `getDataAccessPredicate({instance, tables})` call with every table instance of the statement
+   (`instance` = the pod host a runSql / run_sql reply reports) → one secured CTE per secured table + the
+   `rewrite` map + the distinct `pairs`; all ctes in ONE leading `WITH` with their
+   `{PRED:<object>|<privilege>}` slots LEFT IN PLACE, the rewrite applied to every FROM / JOIN / subquery /
+   UNION arm, secured dimensions LEFT JOINed; the statement is run or delivered through ONE
+   `runSecuredSql` call (the server fills Oracle's own condition for the running user — you never see
+   it); `unsecured` → the table directly; `blocked` → ask the user (reason + candidates), never a guess;
+   `masked` → the masked twin column only; an `auth-required` reply → sign in and call again, never
+   unsecured silently. Plain SQL under that rule skips the step. Its `Data access:`
+   lines (table[.column] → object / privilege [grade, keying table | keying area <subject area>]) join the Filter check.
 5. **Explain briefly, then give the final SQL in a single ```sql fenced block.** (Totals/subtotals
    are part of the OUTPUT shape — the 4b Aggregation ladder decides where they live, and its
    Aggregation check precedes the sql block alongside the Filter check.)
@@ -175,10 +178,13 @@ UNION as the request needs). If you cannot tell whether it is one term or two pa
 
 ### 3. Scoping is explicit where it matters
 - [ ] **Multi-org**: does the query need an `ORG_ID` / business-unit filter?
-- [ ] **Data access**: every table/view with `dataSecurity.form` direct / via_join is read through its
-      secured CTE whose conditions came from `getSecurityPredicate` on the user's pod (or the user asked
-      for unsecured SQL); no `disallowed` table in secured SQL; the `Data access:` lines (object /
-      privilege named) are in the Filter check; a data model states the condition is the author's.
+- [ ] **Data access**: every table instance the plan secured is read through its `<alias>_sec` CTE (the
+      `rewrite` applied in every FROM / JOIN / subquery / UNION arm) whose `{PRED:…}` slots are left in place
+      for `runSecuredSql` to fill — never filled by hand (or the SQL is plain per the kernel's
+      data-access rule); no
+      `blocked` table in secured SQL; masked columns read through their twin; the `Data access:` lines
+      (object / privilege, grade, keying table or area) are in the Filter check; `none` access worded "no access
+      to <object> for <privilege>", never "no data"; a data model states the condition is the author's.
 - [ ] **Currency**: are amounts summed across possibly-mixed currencies? Note it or add a currency
       dimension / conversion.
 - [ ] **Status/date semantics**: is the intended status flag and date type (creation vs transaction vs

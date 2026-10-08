@@ -1,32 +1,41 @@
 #!/usr/bin/env node
 // PreToolUse hook (matcher matches the MUTATING authoring build tools + the SQL executors — see
-// REQUIRED below; the hooks.json matcher alternation must mirror its tool names): the deterministic
-// backstop to the thin-kernel router. DENY the tool until every skill it requires was loaded THIS
-// session (recorded by skill-record.mjs), returning a clear "load X first" reason so the model loads
-// the skill(s) and retries. Gates ONLY mutating build tools and the SQL executors — NEVER
-// read-only/inspection tools (getDataModel, getDataStructure, summarizeReportLayout, …), converters,
-// prepare*/upload*, or renderTemplate/runReport.
+// REQUIRED and SQL_EXECUTORS below; the hooks.json matcher alternation must mirror their tool names).
+// Two rules, both on MODEL-issued calls only (an engine `useTool` continuation hop — runSecuredSql's
+// own runSql / run_sql step, the flexfield search/describe tools — runs inside the wrapper and never
+// reaches PreToolUse). NEVER touches read-only/inspection tools (getDataModel, getDataStructure,
+// summarizeReportLayout, …), converters, prepare*/upload*, or renderTemplate/runReport.
 //
+// 1. SKILL LOADS — the deterministic backstop to the thin-kernel router: DENY a build tool until every
+//    skill it requires was loaded THIS session (recorded by skill-record.mjs), with a clear "load X
+//    first" reason so the model loads the skill(s) and retries.
 //   datamodel-mutating tools  -> datamodel-authoring (structural discipline: fileId chain, surgical
 //                                edits, grouping shapes); the SQL-carrying ones (createDataModelFile,
 //                                setDatasetSql) ALSO require fusion-sql-review (grounding workflow +
-//                                the aggregation ladder) and data-access-security (secured CTEs)
-//   SQL executors             -> data-access-security: pod runSql and the CloudBeaver run_sql it is
-//                                substituted by (model-issued calls only — an engine `useTool`
-//                                continuation hop, e.g. the flexfield search/describe tools, runs
-//                                inside the wrapper and never reaches PreToolUse)
+//                                the aggregation ladder) and data-access-security (the data-access
+//                                choice of authored SQL)
 //   report/layout-mutating    -> report-authoring
 //   instantiateTemplate       -> using-templates
+//   FAIL-OPEN by design: a QUALITY backstop (the engine's readGate/askGate are security gates and fail
+//   closed). If markers cannot be persisted (unwritable dir) or the hook errors, we ALLOW — a hook bug
+//   must never brick a legitimate build, and the kernel's skill router remains the primary mechanism.
+//   Deny happens ONLY when we can positively confirm the dir is writable AND the required marker is absent.
 //
-// FAIL-OPEN by design: this is a QUALITY backstop, not a security gate (the engine's readGate/askGate
-// are the security gates and fail closed). If markers cannot be persisted (unwritable dir) or the
-// hook errors, we ALLOW — a hook bug must never brick a legitimate build, and Part 1 (the vacuum: the
-// how-to simply isn't in the kernel) remains the primary mechanism. Deny happens ONLY when we can
-// positively confirm the dir is writable AND the required marker is absent.
+// 2. ACCESS MODE on the SQL executors (pod runSql and the CloudBeaver run_sql it is substituted by):
+//    SQL the model writes itself carries no data-access condition, so it runs only in the access modes
+//    named in PLAIN_SQL_MODES (the plugin's .claude-plugin/modes.json declares the modes; the engine
+//    exports the turn's mode as AGENT_MODE). In every other mode the model's runSql / run_sql is DENIED
+//    — secured SQL goes through runSecuredSql — except the instance probe (`select 1 from dual`: reads
+//    no data, reports the pod `instance` the data-access plan needs). The mode's tool allow-list cannot
+//    carry this rule: runSecuredSql's continuation needs runSql mounted, and the CloudBeaver run_sql is
+//    a caller tool outside the manifest. A SECURITY backstop, so it fails CLOSED: with modes declared, a
+//    turn without AGENT_MODE, or an event the hook cannot read, is denied. No skill is required for
+//    plain SQL (developer analysis runs it as written).
 
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
+import { fileURLToPath } from "node:url";
 
 const DM = "datamodel-authoring", SQL = "fusion-sql-review", RPT = "report-authoring", TPL = "using-templates";
 const DAS = "data-access-security";
@@ -57,10 +66,19 @@ const REQUIRED = [
   { tool: "createSubtemplateFile", skills: [RPT] },
   // template instantiation
   { tool: "instantiateTemplate", skills: [TPL] },
-  // SQL executors — every SQL the model runs passes the data-access step
-  { tool: "runSql", skills: [DAS] },
-  { tool: "run_sql", skills: [DAS] },
 ];
+
+// Rule 2 (access mode). PLAIN_SQL_MODES = the mode names of modes.json whose model may run SQL it wrote.
+const MODES_FILE = fileURLToPath(new URL("../.claude-plugin/modes.json", import.meta.url));
+const PLAIN_SQL_MODES = new Set(["developer"]);
+const SQL_EXECUTORS = new Set(["runSql", "run_sql"]);
+const INSTANCE_PROBE = /^select\s+1\s+from\s+dual(\s+fetch\s+first\s+\d+\s+rows?\s+only)?\s*;?$/i;
+/** The turn's mode when it may NOT run plain SQL ("" = modes declared but no AGENT_MODE); null = it may. */
+const restrictedMode = () => {
+  if (!fs.existsSync(MODES_FILE)) return null;                // no modes declared: SQL runs as written
+  const mode = String(process.env.AGENT_MODE ?? "");
+  return PLAIN_SQL_MODES.has(mode) ? null : mode;
+};
 
 const markerDir = process.env.FUSION_SKILLGATE_DIR || path.join(os.tmpdir(), "fusion-sql-skillgate");
 const sanitize = (s) => String(s).replace(/[^A-Za-z0-9._-]/g, "_");
@@ -83,18 +101,41 @@ function canPersist(dir) {
   } catch { return false; }
 }
 
+const sqlDenyReason = (mode) => mode
+  ? `In the "${mode}" access mode SQL runs only with the user's data-access conditions: write it with ` +
+    `the data-access plan's {PRED:<object>|<privilege>} slots left in place and run it through ONE ` +
+    `runSecuredSql call. runSql / run_sql run only the instance probe \`select 1 from dual\`.`
+  : `SQL cannot run: this plugin declares access modes but the engine exported no AGENT_MODE for this ` +
+    `turn, so the caller's access mode is unknown. Tell the user their data cannot be read right now; ` +
+    `do not retry.`;
+/** An event the hook cannot read: rule 1 fails open, rule 2 fails closed (the tool is unknown, and in a
+ *  restricted mode every SQL executor is denied). */
+const unreadable = () => {
+  const mode = restrictedMode();
+  if (mode === null) proceed();
+  deny(sqlDenyReason(mode));
+};
+
 let raw = "";
 try {
   for await (const chunk of process.stdin) raw += chunk;
-} catch { proceed(); }
+} catch { unreadable(); }
 
 let evt;
-try { evt = JSON.parse(raw || "{}"); } catch { proceed(); }
+try { evt = JSON.parse(raw || "{}"); } catch { unreadable(); }
 
 const toolName = String(evt?.tool_name ?? "");
 const sep = toolName.lastIndexOf("__");
 const baseName = sep >= 0 ? toolName.slice(sep + 2) : toolName; // mcp__<server>__<tool> -> <tool>
-// EXACT base-name match, not endsWith (removeStructureElement endsWith moveStructureElement).
+
+// rule 2 — the SQL executors: the access mode decides; no skill is required
+if (SQL_EXECUTORS.has(baseName)) {
+  const mode = restrictedMode();
+  if (mode === null || INSTANCE_PROBE.test(String(evt?.tool_input?.sql ?? "").trim())) proceed();
+  deny(sqlDenyReason(mode));
+}
+
+// rule 1 — skill loads. EXACT base-name match, not endsWith (removeStructureElement endsWith moveStructureElement).
 const match = REQUIRED.find((r) => r.tool === baseName);
 if (!match || !evt?.session_id) proceed(); // not one of the gated tools -> no opinion
 

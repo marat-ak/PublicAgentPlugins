@@ -15,7 +15,7 @@ If the task requires SPECIFIC ids, creation ORDER determines them — plan the o
 | Tool | Notes |
 |---|---|
 | `oic_add_label {name, anchor, rpi}` | container for assignments |
-| `oic_add_assignment {anchor, variableName, textExpression, xpathExpression?, namespaces?, variableType?}` | XPath 1.0 core / 2.0-via-`fn:` per the maps skill §the `fn:` law. No `if/then/else` (XSLT, not a function). namespaces = ARRAY of `{prefix, namespace}` — prefix names are FREE here (sent with URIs), unlike maps. dvm lookups need the `dvm:` prefix pair. |
+| `oic_add_assignment {anchor, variableName, textExpression, xpathExpression?, namespaces?, variableType?}` | XPath 1.0 core / 2.0-via-`fn:` per the maps skill §the `fn:` law. No `if/then/else` (XSLT, not a function). namespaces = ARRAY of `{prefix, namespace}` — where every prefix may come from (and when to STOP) is the maps skill's PREFIX SOURCE LAW, for this and every expression tool below. dvm lookups need the `dvm:` prefix pair. |
 | `oic_add_router {name, anchor, rpi}` | auto-creates its FIRST empty route (next `sc*` id) |
 | `oic_add_route {routerId, otherwise?, expressionName?, textExpression?, xpathExpression?, namespaces?}` | `otherwise:true` = default branch (server generates xpath — never send your own `true`) |
 | `oic_set_route_condition {routeId, textExpression, xpathExpression?, expressionName?, namespaces?}` | set/replace condition; re-running it also refreshes a stale route verdict |

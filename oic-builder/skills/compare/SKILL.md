@@ -33,7 +33,7 @@ side. The result's `left`/`right` carry each side's `instance` + `path` (or `fil
 1. **Identify both sides explicitly** — `{instance, code, version, project?}` for an instance side,
    `{fileId}`/`{file}` for an uploaded archive. Two versions of one code, two different integrations, the
    same integration in two instances, or an uploaded archive against what is in an instance. Never guess
-   a version or an instance: list with `oic_list_integrations {codeFilter, project?}` (pinned scope) and
+   a version or an instance: list with `oic_list_integrations {scope, search:[<code>]}` (the pinned scope) and
    confirm with the user when several exist.
 2. **Load the instance sides** with `oic_load_iar {instance, code, version, project?}`, each while signed
    in to its instance — the archive-only partial load is exactly what a compare needs (a side you also

@@ -52,6 +52,7 @@ stagefiles are POSTed at save with the generated artifact. `oic_wizard_save` is 
   echoes booleans; never treat `value` as state.
 - `expressionBuilderObject` (Filename, FileReferenceName…): state = `expression` (+userFriendlyXpath,
   namespacePairs). Driver echoes all three companions. Literals double-quoted inside the expression.
+  Any prefix you WRITE into an expression field: the maps skill's PREFIX SOURCE LAW.
 - `comboBoxObject`: `options` = allowed values; `readOnly:true` fields still echo fine.
 
 ## ⚖ SAMPLE FIDELITY LAW (hard rule)

@@ -16,7 +16,7 @@ description: Use before claiming ANY build result is verified — the levels-of-
 Report at the highest level you actually reached, quoting outputs.
 
 ## Round-trip protocol (for verifying a NEW/changed recipe)
-1. Clone the integration to a NEW version (`oic_create_new_version`) — the reference version stays intact
+1. Clone the integration to a NEW version (`oic_clone_integration {instance, code, version, project?, toCode: <same code>}`) — the reference version stays intact
    as the baseline; all rebuilding happens on the clone.
 2. On the clone: DELETE the reference node (`oic_delete_node` with the workspace triple `{instance, code, version, project?, wsid}`), commit.
 3. Rebuild it via the TOOL under test, commit.

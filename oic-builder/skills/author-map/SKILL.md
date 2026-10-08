@@ -20,13 +20,14 @@ conditional emission. You author the XSLT.
    unless typed.
 3. **Find a precedent** — `oic_corpus_find` / `oic_corpus_flow` / `oic_corpus_node_shape`: a corpus of
    real integrations; a close example de-risks structure and function choice. Corpus XSLT bodies carry FOREIGN
-   prefixes — treat any example as intent-reference only; prefixes always per the maps skill's NAMESPACE LAW.
+   prefixes — treat any example as intent-reference only; prefixes always per the maps skill's PREFIX SOURCE LAW + NAMESPACE LAW.
 4. **Write the body**: `<xsl:param name="X"/>` for every referenced payload/variable + one
    `<xsl:template match="/">` producing the target root. XSLT 2.0 available (`for-each-group`,
    `current-group()`, `replace`); mapper functions: `dvm:lookupValue`, `oraext:encodeReferenceToBase64`,
-   `xp20:*` (catalog is auto-sent by the save tool). Prefixes: the NAMESPACE LAW — the server's
-   `addNamespacesToXSLT` table only; never author a declaration the table did not return, never inline
-   (the maps skill, NAMESPACE LAW §3-6).
+   `xp20:*` (catalog is auto-sent by the save tool). Prefixes: the NAMESPACE LAW — ONLY the server's
+   table from `oic_get_map_namespaces {instance, code, version, project?, wsid, mapId}`, read in the
+   workspace you save in; never author a declaration the table did not return, never inline
+   (the maps skill, NAMESPACE LAW §1-6).
 5. **Save** with `oic_set_map_xslt {instance, code, version, project?, wsid, mapId, spliceBody|xslt, extraSources:[…]}` — extraSources entry per
    param (source registration; otherwise params are silently stripped).
 6. **Check** (discipline: the verification skill): save result `errorsCount:0` AND `sourcesReferencedCount`

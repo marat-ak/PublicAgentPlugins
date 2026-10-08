@@ -6,10 +6,10 @@ description: Use when porting a map body from another integration or an .iar exp
 # Porting a map body from another integration (prefix remap)
 
 Use when a task says "make map mX equal to map from integration Y / this .xsl file".
-The source doc's prefixes are INVALID here (see the maps skill, THE NAMESPACE LAW). Port = remap by URI.
+The source doc's prefixes are INVALID here (the maps skill, THE PREFIX SOURCE LAW + THE NAMESPACE LAW). Port = remap by URI.
 
 ## Algorithm (mechanical — never regex-scrape a header for prefixes, never mint your own)
-1. Get THIS map's server prefix table: `oic_get_map_namespaces {instance, code, version, project?, mapId}` → `namespaces: [{prefix, ns}]`.
+1. Get THIS map's server prefix table: `oic_get_map_namespaces {instance, code, version, project?, wsid, mapId}` (live, in the workspace you save in) → `namespaces: [{prefix, ns}]`.
    Invert → `uri→prefix`. Tool fails → STOP and report; never substitute the table from the archive, a
    sibling map's header, or memory (the maps skill, NAMESPACE LAW §6).
 2. `oic_get_map_xslt {instance, code, version, project?, mapId}` → FRESH doc. Keep everything through `</oracle-xsl-mapper:schema>` UNTOUCHED

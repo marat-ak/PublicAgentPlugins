@@ -58,6 +58,7 @@ script is needed.)
 `oic_open_integration {instance, code, version, project?}` (lock defaults to false; = archive + read-only workspace + blueprint in one call — the singles `oic_open_workspace {…, lock:false}` + `oic_load_blueprint {…, wsid}` only for a partial load), then `oic_get_blueprint` / `oic_get_node` / `oic_blueprint_view {instance, code, version, project?}`.
 Gives: node tree + ids, route `expressionXpath` (conditions), assignment expressions+namespaces, foreach
 xpaths, notification fields, invoke connection ids. Blueprint node reads are the write-shape reference.
+Copying any of it: namespace URIs carry over, prefixes never do (the maps skill, PREFIX SOURCE LAW).
 
 ## Correlating
 `refUri: "processor_N"` on a blueprint node ↔ `resources/processor_N/` in the .iar. Auto-map of an

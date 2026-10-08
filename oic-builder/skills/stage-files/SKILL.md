@@ -18,7 +18,7 @@ of tool:
 
 Expression fields: literals are quoted INSIDE the expression string (a filename or directory literal is
 written wrapped in quotes within the expression); variables plain (`$<variableName>`); `namespacePairs`
-= the prefix→URI pairs the expression uses.
+= the prefix→URI pairs the expression uses — prefixes per the maps skill's PREFIX SOURCE LAW.
 Schema page (`nxsdSchemaOptions`): `nxsdSchemaOptionsJSON`/`XML` = sample-derived (upload via
 `oic_wizard_file`; JSON root element = `request-wrapper`); `nxsdSchemaOptionSelect` = upload XSD (opaque
 uses the fixed opaque XSD); `nxsdSchemaOptionsCreate` = CSV wizard (delimited/nxsd).

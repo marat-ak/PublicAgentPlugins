@@ -22,7 +22,7 @@ When the user ATTACHES files you get a note with `fileId`s.
 3. Decide from the request:
    - **Analyze / explain** → describe in business terms what the model returns (datasets, parameters,
      triggers, bursting) from the summary (+ `getDataset` where needed). No file output.
-   - **Modify** → write the new grounded SQL, secured per **data-access-security**, then apply it (below). Each edit returns a NEW `fileId`.
+   - **Modify** → write the new grounded SQL, secured per the user's data-access choice (**data-access-security**), then apply it (below). Each edit returns a NEW `fileId`.
    Multiple files / a `.zip` bundle are fine — operate across them by `fileId`.
 
 ## Editing a data model — EVERY part is surgical
@@ -110,12 +110,12 @@ When the user asks to build one ("build me a data model for …"):
    CONTEXT_COLUMN_NAME = OBJECT_NAME filter, ATTRIBUTE_NAME → COLUMN_NAME EXTN_ATTRIBUTE_*,
    DATA_TYPE — no display labels). **Never guess an API name into describeCustomObject and never
    hand-write `ADF_*` joins** — 0 rows means search first. Same executor rule as above.
-   **Still nothing → emit a `fusion-ask` block** asking which object/field they mean or its API
+   **Still nothing → ASK (AskUserQuestion)** which object/field they mean or its API
    name — never assume it's a standard column and never invent one.
-   **Found SEVERAL candidates → a `fusion-ask` block with the candidate API names as options** (e.g.
+   **Found SEVERAL candidates → ASK (AskUserQuestion) with the candidate API names as options** (e.g.
    TicketContact_c vs TicketToContact_c vs Ticket_c) — only a single unambiguous hit proceeds
    without confirmation.
-3. Build a **`DataModelSpec`** (datasets with the grounded SQL, secured per **data-access-security** —
+3. Build a **`DataModelSpec`** (datasets with the grounded SQL, secured per the user's data-access choice (**data-access-security**) —
    LOV `sql` too; parameters; output structure; event
    triggers and bursting if the request needs them) and call **`createDataModelFile(spec)`**.
    - **LOVs at CREATE time:** declare dropdowns directly in the spec — `spec.valueSets:[{id, sql | 

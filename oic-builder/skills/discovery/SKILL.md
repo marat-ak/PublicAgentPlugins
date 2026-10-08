@@ -24,7 +24,7 @@ integration-dependency question, and no tool answers it today.
 
 ## The one search call
 
-`oic_find_connections {instance, adapters?, names?, text?}` sweeps every connection ONCE and searches IN MEMORY
+`oic_find_connections {instance, scope, adapters?, names?, text?}` sweeps every connection ONCE and searches IN MEMORY
 across every field — adapter code + display name, connection name, description, endpoint/host URLs — so
 one call carries as many angles as you need. `adapters` matches the adapter kind, `names` the
 connection name, `text` the whole haystack (where a provider's host or API name surfaces a *generic*
@@ -41,7 +41,7 @@ connection, and a match ONLY in the auth/token field is a WEAKER signal than one
 through a generic connector (REST/SOAP/database/…) whose URL targets the provider — so run the
 `adapters` angle AND the `text`/URL angle together, or you silently miss the other shape. Turn "the
 provider I have in mind" into the real code with `oic_list_adapters {instance, filter?}` (same regex over the
-tenant's live adapter catalog) BEFORE `oic_find_connections {instance, adapters:[...]}`; never type a code from
+tenant's live adapter catalog) BEFORE `oic_find_connections {instance, scope, adapters:[...]}`; never type a code from
 memory. An EMPTY adapter list does NOT prove the capability is absent — it may exist only as a
 generic-connector-with-URL, so still run the text angle.
 
@@ -53,17 +53,20 @@ concluding absence — a false negative in front of an impact or rotation questi
 
 ## Expand to integrations
 
-For each kept connection, `oic_connection_usage {connectionId}` returns the integrations USING it
+For each kept connection, `oic_connection_usage {connectionId, scope}` returns the integrations USING it
 (code, version, status) plus `usageActive`. Interpret the status: ACTIVATED + active = the integration
 breaks the moment the connection changes; CONFIGURED / inactive = a latent or stale reference, not a
 live break. If several connections matched but the question implies ONE ("our X connection"), confirm
 WHICH is in scope before unioning their usage.
 
-Both `oic_find_connections` and `oic_connection_usage` take `project?`, and the sweep follows the
+Both `oic_find_connections` and `oic_connection_usage` take the required `scope`, set from the
 conversation's pinned integration scope (instructions.md §Integration scope — asked before the first
-search when the tenant has projects): standalone → the global sweep; projects → one sweep per project
-in scope; both → both. An EXHAUSTIVE or inventory question covers the WHOLE pinned scope — every
-project in it — or project-scoped connections and usages are silently missed (see the **projects** skill).
+search when the tenant has projects): standalone → `"standalone"`; projects → one call per chosen
+project id; both → `"all"` (one call; every hit carries its `project`, null = standalone). The same
+connection id can exist in several places as DIFFERENT connections — expand a hit in its own place:
+`scope` = its `project`, or `"standalone"` when that is null. An EXHAUSTIVE or inventory question covers
+the WHOLE pinned scope — every project in it — or project-scoped connections and usages are silently
+missed (see the **projects** skill).
 
 ## By question shape
 
@@ -75,8 +78,8 @@ scale seam (finalists are a handful); skip Inventory grouping for a targeted FIN
 
 ### Inventory — "every system we talk to"
 
-The no-term call `oic_find_connections {instance}` IS the exhaustive primitive — it returns EVERY connection;
-that full set (swept across the whole pinned scope) is your raw material. Group connections into SYSTEMS by
+The no-term call `oic_find_connections {instance, scope}` IS the exhaustive primitive — it returns EVERY connection
+of that scope; that full set (across the whole pinned scope) is your raw material. Group connections into SYSTEMS by
 resolved host, NOT by connection count: judge each by its API/resource URL field, not its name, and
 union both shapes (dedicated adapter and generic-connector) that resolve to the same host onto ONE
 system. EXCLUDE or explicitly FLAG auth/IdP-only hosts (token endpoints, identity providers) — they are

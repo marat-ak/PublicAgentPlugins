@@ -1,0 +1,49 @@
+{
+  "rolePrefix": "mode-",
+  "default": "end-user",
+  "modes": [
+    {
+      "name": "developer",
+      "instructions": null,
+      "tools": "*"
+    },
+    {
+      "name": "end-user",
+      "instructions": "instructions.end-user.md",
+      "tools": {
+        "fusion-schema": [
+          "findSimilarQueries",
+          "getReportQuery",
+          "listQueriesForSubjectArea",
+          "searchTables",
+          "getTable",
+          "validateTable",
+          "getColumns",
+          "validateColumns",
+          "getIndexes",
+          "getRelatedTables",
+          "getTableGrain",
+          "getTableUsages",
+          "findPlsqlApi",
+          "getFlexfields",
+          "getCustomObjects",
+          "searchOtbi",
+          "describeOtbiFolder",
+          "getSecuredQueryPlan"
+        ],
+        "fusion-pod": [
+          "runSecuredSql",
+          "spliceSecuredSql",
+          "deliverSecuredSql",
+          "runSql",
+          "searchFlexfields",
+          "describeFlexfield",
+          "searchCustomObjects",
+          "describeCustomObject"
+        ],
+        "files": "*",
+        "identity": "*"
+      }
+    }
+  ]
+}

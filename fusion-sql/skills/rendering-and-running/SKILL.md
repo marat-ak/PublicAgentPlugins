@@ -47,7 +47,8 @@ substitute an RTF approximation.
   truncated, instance}` (default 200 rows, cap 5000; >256 KB also lands in a session file `{fileId,
   path, instancePath}` in that pod's folder).
   Use it for grain COUNT-probes, to sanity-run a grounded query before building a data model, and
-  for small lookups — every SQL run here passes the data-access step (**data-access-security**). List
+  for small lookups — it runs the SQL as written (plain); SQL the kernel's data-access rule secures
+  runs through `runSecuredSql` instead (**data-access-security**). List
   every `:name` in `binds` (DATE binds need `format`). DML is refused.
   Errors carry `oraError` + `errorPosition` (0-based char offset) — fix the SQL and retry.
 - **Live metadata, search → describe** (see `datamodel-authoring` for when):

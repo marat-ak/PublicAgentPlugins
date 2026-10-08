@@ -1,14 +1,34 @@
 ---
 name: maps
-description: Use for ANY map (XSLT / TRANSFORMER node) configuration — THE NAMESPACE LAW, the map-builder law (only existing sources/targets), saving with oic_set_map_xslt, validateOnly, the clean-build recipe, adding standalone map nodes, and verifying a map really persisted.
+description: Use for ANY map (XSLT / TRANSFORMER node) configuration, and before writing ANY activity content that carries namespace prefixes (assignments, conditions, for-each, throw, notification, logger, stitch, variables, wizard expression fields) — THE PREFIX SOURCE LAW (all activities), THE NAMESPACE LAW, the map-builder law (only existing sources/targets), saving with oic_set_map_xslt, validateOnly, the clean-build recipe, adding standalone map nodes, and verifying a map really persisted.
 ---
 
 # Maps (XSLT / TRANSFORMER nodes)
 
 Every map tool here takes the workspace triple `{instance, code, version, project?, wsid}` — the
-workspace YOU opened in this conversation (instructions.md §Session lifecycle). The exceptions are the
-cache reads `oic_get_map_xslt` / `oic_get_map_namespaces` and `oic_verify`, which take
-`{instance, code, version, project?}` and no wsid.
+workspace YOU opened in this conversation (instructions.md §Session lifecycle) — `oic_get_map_namespaces`
+included (it reads the LIVE mapper of that workspace). The exceptions are the cache read
+`oic_get_map_xslt` and `oic_verify`, which take `{instance, code, version, project?}` and no wsid.
+
+## ⚖ THE PREFIX SOURCE LAW — every activity you create or modify (non-overridable)
+Applies to ANY written content that carries namespace prefixes: a map's XSLT, an assignment, a route
+condition, a for-each, a throw, a notification, a logger, a stitch, a global variable, an adapter-wizard
+expression field (`namespacePairs`) — every `{prefix, namespace}` pair and every prefixed path you send.
+1. **A prefix comes ONLY from a FRESH live fetch for the specific activity being written**, made in the
+   workspace you write in. Never from an archive (`oic_get_map_xslt`, `oic_get_iar`, `oic_grep`,
+   `oic_describe_activity`, any `.xsl`/`expr.properties`), a blueprint read of another node or another
+   integration, a sibling activity, a corpus precedent, documentation, or memory — not even when the
+   source is the very activity you are copying.
+2. **Reading archive / blueprint content is fine** — to learn what an activity does, or to copy it into
+   a new integration or another place. Its `prefix→URI` declarations may tell you WHICH namespace URI a
+   path means; the URI carries over, the prefix never does. Re-bind every path to the prefix the live
+   fetch returns for that URI.
+3. **Live prefix sources today:** a map → `oic_get_map_namespaces` (payload AND function prefixes; THE
+   NAMESPACE LAW below). Any other activity → no live tool for PAYLOAD prefixes yet; Oracle/custom
+   FUNCTION prefixes come from `oic_xpath_functions` (live), and W3C `fn:` has no live source outside
+   maps. Content that needs a prefix with no live source → STOP and tell the user the live prefix source
+   for that activity type is not available yet; never mint, copy or reuse one. Content with no prefix at
+   all (literals, simple `$variables`, unprefixed XPath 1.0 core functions) is unaffected.
 
 ## THE NAMESPACE LAW (violating this breaks maps silently)
 Prefixes are **per-map, server-assigned, and unstable across maps**: the fresh wrapper header numbers
@@ -16,9 +36,13 @@ Prefixes are **per-map, server-assigned, and unstable across maps**: the fresh w
 different maps. Therefore:
 
 1. **The prefix table is RETURNED BY THE API — you never derive, guess, or regex-scrape it.**
-   `oic_get_map_namespaces {mapId}` → `{namespaces: [{prefix, ns}], registeredSources, target}` — the
-   complete table the server assigned for THIS map: every upstream payload, utility and function namespace.
-   The designer is a dumb renderer of this table; be the same.
+   `oic_get_map_namespaces {instance, code, version, project?, wsid, mapId}` →
+   `{namespaces: [{prefix, ns}], registeredSources, target}` — the complete table the server's mapper
+   assigned for THIS map in THIS workspace (read live, as the designer does when it opens the map): every
+   upstream payload, the target's inner schemas, utility and function namespaces — including ones the
+   map's saved header does not declare yet (a new map's header holds almost none of them).
+   The designer is a dumb renderer of this table; be the same. No workspace open for the integration →
+   `status:"not-open"`: open it (`oic_open_integration`, `lock:true` if you will save) and re-read.
 2. To reference a payload/variable: find its namespace URI's entry in `namespaces`, use that prefix.
    (The fresh wrapper header from `oic_get_map_xslt` shows only the in-use subset — the TABLE is the authority.)
 3. **WE NEVER AUTHOR NAMESPACE DECLARATIONS.** The ONLY declarations permitted in a doc you save are
@@ -33,11 +57,12 @@ different maps. Therefore:
 4. NEVER copy prefixes or declarations from another map (a sibling map of the same integration included),
    another integration, an archive (`oic_get_iar` / Read / grep of any `.xsl`), an export, documentation,
    or memory. A prefix that "looks the same" in a sibling map binds a different URI here.
-5. Table prefixes are PER-WORKSPACE — a relock renumbers them. Re-fetch after any relock; never reuse
-   a table across locks.
+5. Table prefixes are PER-WORKSPACE — a relock renumbers them. Read the table in the workspace you save
+   in; re-fetch after any relock; never reuse a table across locks.
 6. **Tool failure is a STOP, not a detour.** If `oic_get_map_namespaces` or `oic_get_map_xslt` fails (id
    resolution, error, empty table), STOP and report the failure to the user. NEVER substitute the table
    by reading the archive, a sibling map's header, or memory — none of those is this map's table.
+   (`status:"not-open"` is not a failure — it means open the workspace first, then re-read.)
 
 Why "it works" is not evidence: a self-declared prefix can save with `errorsCount:0` and even run
 correctly at runtime, yet the mapper reports `hasMappings:false` / `targetsMappedCount:0` — the designer
@@ -197,5 +222,5 @@ W3C `fn:` with `fn`=`http://www.w3.org/2005/xpath-functions` declared, or Oracle
 takes `scope`: `extensions` (default) = Oracle `ora`/`oraext`/`xp20` + this instance's CUSTOM `orajs*`
 library (the part you cannot guess); `standard` = the designer's built-ins catalog (String/Date/Node-set/
 Boolean/Conversion/Mathematical/Advanced/Integration Cloud groups, with signatures); `all` = both merged.
-`filter` = case-insensitive substring on name/category/signature/description. (In blueprint expression
-fields the `namespaces` array prefix names are FREE, unlike a map's server-assigned prefixes above.)
+`filter` = case-insensitive substring on name/category/signature/description. (Where any prefix in a
+blueprint expression field may come from — payload or function — is THE PREFIX SOURCE LAW above.)
