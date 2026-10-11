@@ -23,12 +23,26 @@ expression field (`namespacePairs`) — every `{prefix, namespace}` pair and eve
    a new integration or another place. Its `prefix→URI` declarations may tell you WHICH namespace URI a
    path means; the URI carries over, the prefix never does. Re-bind every path to the prefix the live
    fetch returns for that URI.
-3. **Live prefix sources today:** a map → `oic_get_map_namespaces` (payload AND function prefixes; THE
-   NAMESPACE LAW below). Any other activity → no live tool for PAYLOAD prefixes yet; Oracle/custom
-   FUNCTION prefixes come from `oic_xpath_functions` (live), and W3C `fn:` has no live source outside
-   maps. Content that needs a prefix with no live source → STOP and tell the user the live prefix source
-   for that activity type is not available yet; never mint, copy or reuse one. Content with no prefix at
-   all (literals, simple `$variables`, unprefixed XPath 1.0 core functions) is unaffected.
+3. **Two live prefix services — one per kind of content, never crossed:**
+   - **Inside a map** (XSLT) → `oic_get_map_namespaces {…, wsid, mapId}`: the mapper's table (payload AND
+     function prefixes; THE NAMESPACE LAW below).
+   - **Any other expression** (assignment, route condition, for-each, throw, notification, logger, stitch,
+     global variable, adapter-wizard expression field) → `oic_expression_tree {…, wsid, anchor, rpi,
+     elementType}` for the spot a NEW node goes, or `{…, wsid, elementId}` for an EXISTING node: the
+     designer's expression picker — every variable in scope with its PREFIXED path (`/ns0:execute/…` the
+     primary payload, `$Var/pfx:root/…` every other), type, repeat, and `namespaces` = the exact `{prefix,
+     ns}` pairs those paths declare (an assignment's `namespaces` as `{prefix, namespace}`, a wizard
+     field's `namespacePairs`). Drill with `path` + `depth` instead of dumping a tree. Paths and pairs are
+     COPIED from the result — never typed from a namespace URI plus a prefix of your choosing.
+   - **A FUNCTION call in any non-map expression** (`ora:`, `oraext:`, `xp20:`, this instance's custom
+     `orajs*`) → `oic_xpath_functions {…, wsid}` (scope `extensions`): every item carries `prefix` +
+     `namespace` — copy that pair next to the payload pairs. The `standard` built-ins carry no namespace
+     and declare none. A `dvm:` lookup outside a map has no live pair source identified yet — report it
+     to the user instead of guessing a URI.
+   - The two services number the SAME URI differently (one tree gave a payload `ns13`, the mapper's table
+     `ns23`). A prefix read from one is wrong in the other; a prefix from anywhere else is wrong in both.
+     Content with no prefix at all (literals, simple `$variables`, unprefixed XPath 1.0 core functions)
+     is unaffected.
 
 ## THE NAMESPACE LAW (violating this breaks maps silently)
 Prefixes are **per-map, server-assigned, and unstable across maps**: the fresh wrapper header numbers
@@ -37,10 +51,14 @@ different maps. Therefore:
 
 1. **The prefix table is RETURNED BY THE API — you never derive, guess, or regex-scrape it.**
    `oic_get_map_namespaces {instance, code, version, project?, wsid, mapId}` →
-   `{namespaces: [{prefix, ns}], registeredSources, target}` — the complete table the server's mapper
-   assigned for THIS map in THIS workspace (read live, as the designer does when it opens the map): every
-   upstream payload, the target's inner schemas, utility and function namespaces — including ones the
-   map's saved header does not declare yet (a new map's header holds almost none of them).
+   `{namespaces: [{prefix, ns}], registeredSources: [{sourceName, label, adapterId}], target}` — the
+   complete table the server's mapper assigned for THIS map in THIS workspace (read live, exactly as the
+   designer opens the map, with every in-scope payload and variable registered): every upstream payload,
+   the target's inner schemas, utility and function namespaces — including ones the map's saved header
+   does not declare yet (a new map's header holds almost none of them). `registeredSources` = what the
+   map can reference (`/` = the activity's own payload, a name = an upstream payload such as an invoke
+   response, `self`, `tracking_var_N`); a URI you need that is absent from `namespaces` belongs to a
+   payload that is not registered (§3).
    The designer is a dumb renderer of this table; be the same. No workspace open for the integration →
    `status:"not-open"`: open it (`oic_open_integration`, `lock:true` if you will save) and re-read.
 2. To reference a payload/variable: find its namespace URI's entry in `namespaces`, use that prefix.
@@ -220,7 +238,8 @@ W3C `fn:` with `fn`=`http://www.w3.org/2005/xpath-functions` declared, or Oracle
 `oic_xpath_functions`) — else the engine errors "Could not find function"
 (e.g. `fn:ends-with(fn:lower-case($x/ns:f),'<ext>')`). No API declares the version. `oic_xpath_functions`
 takes `scope`: `extensions` (default) = Oracle `ora`/`oraext`/`xp20` + this instance's CUSTOM `orajs*`
-library (the part you cannot guess); `standard` = the designer's built-ins catalog (String/Date/Node-set/
-Boolean/Conversion/Mathematical/Advanced/Integration Cloud groups, with signatures); `all` = both merged.
+library (the part you cannot guess) — each item with its `prefix` + `namespace` pair; `standard` = the
+designer's built-ins catalog (String/Date/Node-set/Boolean/Conversion/Mathematical/Advanced/Integration
+Cloud groups, with signatures, no namespace); `all` = both merged.
 `filter` = case-insensitive substring on name/category/signature/description. (Where any prefix in a
 blueprint expression field may come from — payload or function — is THE PREFIX SOURCE LAW above.)

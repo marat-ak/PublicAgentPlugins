@@ -52,8 +52,12 @@ stagefiles are POSTed at save with the generated artifact. `oic_wizard_save` is 
   echoes booleans; never treat `value` as state.
 - `expressionBuilderObject` (Filename, FileReferenceName…): state = `expression` (+userFriendlyXpath,
   namespacePairs). Driver echoes all three companions. Literals double-quoted inside the expression.
-  Any prefix you WRITE into an expression field: the maps skill's PREFIX SOURCE LAW.
-- `comboBoxObject`: `options` = allowed values; `readOnly:true` fields still echo fine.
+  A payload path and every `{prefix: URI}` pair you WRITE into one come from `oic_expression_tree` at the
+  node's spot (`{anchor, rpi, elementType}` for a new node, `{elementId}` for an existing one) — the maps
+  skill's PREFIX SOURCE LAW; never a map's table, never typed from a URI.
+- `comboBoxObject`: `options` are the ONLY values it takes, sent as the option itself — an option `"true"`
+  is the string `"true"`, never a boolean (the driver refuses a value that is not an option; a mistyped
+  one is answered 400 GENERIC by the server). `readOnly:true` fields still echo fine.
 
 ## ⚖ SAMPLE FIDELITY LAW (hard rule)
 Uploading a sample into a wizard REPLACES that endpoint's ENTIRE schema — a sample rebuilt from memory

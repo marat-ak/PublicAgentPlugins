@@ -15,7 +15,7 @@ If the task requires SPECIFIC ids, creation ORDER determines them — plan the o
 | Tool | Notes |
 |---|---|
 | `oic_add_label {name, anchor, rpi}` | container for assignments |
-| `oic_add_assignment {anchor, variableName, textExpression, xpathExpression?, namespaces?, variableType?}` | XPath 1.0 core / 2.0-via-`fn:` per the maps skill §the `fn:` law. No `if/then/else` (XSLT, not a function). namespaces = ARRAY of `{prefix, namespace}` — where every prefix may come from (and when to STOP) is the maps skill's PREFIX SOURCE LAW, for this and every expression tool below. dvm lookups need the `dvm:` prefix pair. |
+| `oic_add_assignment {anchor, variableName, textExpression, xpathExpression?, namespaces?, variableType?}` | XPath 1.0 core / 2.0-via-`fn:` per the maps skill §the `fn:` law. No `if/then/else` (XSLT, not a function). namespaces = ARRAY of `{prefix, namespace}` — payload pairs from `oic_expression_tree` at this spot, function pairs (`ora`/`oraext`/`xp20`/custom `orajs*`) from `oic_xpath_functions` items' `prefix` + `namespace` (the maps skill's PREFIX SOURCE LAW, for this and every expression tool below). A `dvm:` lookup needs its prefix pair and has no live source outside a map yet — report, don't guess. |
 | `oic_add_router {name, anchor, rpi}` | auto-creates its FIRST empty route (next `sc*` id) |
 | `oic_add_route {routerId, otherwise?, expressionName?, textExpression?, xpathExpression?, namespaces?}` | `otherwise:true` = default branch (server generates xpath — never send your own `true`) |
 | `oic_set_route_condition {routeId, textExpression, xpathExpression?, expressionName?, namespaces?}` | set/replace condition; re-running it also refreshes a stale route verdict |
@@ -27,16 +27,18 @@ If the task requires SPECIFIC ids, creation ORDER determines them — plan the o
 | `oic_add_notification {anchor, rpi, name, from, to, subject, body, attachments?}` | from/to/subject = `{textExpression, xpathExpression?}`; body = HTML string; referenced $vars must exist in scope; `name` REQUIRED |
 | `oic_add_publisher {anchor, rpi, name, eventCode}` | resolves eventType code→revision dynamically (never hardcode revision); creates its request map — configure per the maps skill |
 | `oic_patch_assignment` | edit expr in place. Minimal body {operation,typeDef,expression} = create body minus location (tool handles it; GET-echo → 400). Same expr engine as create (the maps skill §the `fn:` law). |
-| `oic_list_datatypes {instance, code, version, project?, wsid, anchor, rpi?, elementType?}` | **variable catalog at a flow location** — the designer's expression-picker list. Returns `source` (readable vars) + `target` (writable vars), each `{name, ns, root}` → build xpath `$name/ns:root/…` with NO guessing of names/namespaces. Call BEFORE authoring any assignment/route/foreach/notification expression. `elementType` defaults `assignments`. |
+| `oic_expression_tree {instance, code, version, project?, wsid, anchor, rpi, elementType}` (a NEW node's spot) / `{…, wsid, elementId}` (an EXISTING node) + `path?`, `depth?` | **the expression picker at a flow location** — every variable in scope with its PREFIXED path (`/ns0:execute/…` the primary payload, `$Var/pfx:root/…` every other), type, repeat, `targets` (writable vars) and `namespaces` = the `{prefix, ns}` pairs those paths declare. Call it BEFORE authoring any assignment/route/foreach/throw/notification expression, at the spot the node goes (`elementType` = its segment: `assignments`, `routes`, `foreachs`, `notifications`, `throws`…), copy the path and the pairs, drill with `path`. The maps skill's PREFIX SOURCE LAW. |
 
 ## Assignment authoring
 Assignment is a PLAIN blueprint node (NOT a CAF wizard). Create = `POST assignments {location, operation:"Assign",
 typeDef:"simple", expression:{…}}`; edit = same `expression` minus `location` via PATCH. The designer only
-adds catalog READS around it: `listAvailableDatatypesForLocation` (→ `oic_list_datatypes`), `xpathFunctions`
-(→ `oic_xpath_functions`), `webmapper/schematree` (expression-builder tree — no tool, heavy). To author
-generically: `oic_list_datatypes` to find the var + its ns/root, `oic_xpath_functions` for the Oracle/custom
-funcs (default `scope:"extensions"`; `"standard"`/`"all"` add the built-ins catalog, `filter` narrows),
-then `oic_add_assignment`. (Expression-engine rule — 1.0 core vs 2.0-via-prefix — is the maps skill §the `fn:` law.)
+adds catalog READS around it: the expression picker (→ `oic_expression_tree`) and `xpathFunctions`
+(→ `oic_xpath_functions`). To author generically: `oic_expression_tree` at the spot (`elementType:
+"assignments"`) for the variable's prefixed path + the `namespaces` pairs, `oic_xpath_functions` for the
+Oracle/custom funcs AND their `{prefix, namespace}` pair (default `scope:"extensions"`; `"standard"`/`"all"`
+add the built-ins catalog — no namespace, none needed; `filter` narrows), then `oic_add_assignment` with the
+path and every pair copied from those two results. (Expression-engine rule — 1.0 core vs 2.0-via-prefix — is
+the maps skill §the `fn:` law.)
 - **textExpression vs xpathExpression**: designer sends `textExpression` = the friendly label shown on
   the canvas, `xpathExpression` = the canonical xpath of the same value (`$<var>/<ns>:<root>/…`). Runtime
   evaluates the XPATH. The tools default xpath=text — pass a valid xpath as `textExpression` and it works

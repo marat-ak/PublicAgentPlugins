@@ -17,8 +17,12 @@ of tool:
 | ReadWithOutChunk + FileRefProcessingEnabled=true | FileReferenceName (expression field) | read by file reference; no request map |
 
 Expression fields: literals are quoted INSIDE the expression string (a filename or directory literal is
-written wrapped in quotes within the expression); variables plain (`$<variableName>`); `namespacePairs`
-= the prefix→URI pairs the expression uses — prefixes per the maps skill's PREFIX SOURCE LAW.
+written wrapped in quotes within the expression); a payload reference is the PREFIXED path
+`oic_expression_tree {…, wsid, anchor, rpi, elementType:"stagefiles"}` returns for the node's spot (e.g. a
+BIP report's bytes as `$RunToxicPermitReport/tns:runReportResponse/tns:runReportReturn/tns:reportBytes`);
+`namespacePairs` = that result's `namespaces` pairs for the prefixes the expression uses (the maps skill's
+PREFIX SOURCE LAW — never a map's prefixes, never typed from a URI). Combo fields (`Operation`,
+`FileRefProcessingEnabled`) take one of their `options`, sent as the option itself — `"true"`, not `true`.
 Schema page (`nxsdSchemaOptions`): `nxsdSchemaOptionsJSON`/`XML` = sample-derived (upload via
 `oic_wizard_file`; JSON root element = `request-wrapper`); `nxsdSchemaOptionSelect` = upload XSD (opaque
 uses the fixed opaque XSD); `nxsdSchemaOptionsCreate` = CSV wizard (delimited/nxsd).
