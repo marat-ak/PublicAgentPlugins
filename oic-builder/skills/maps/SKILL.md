@@ -37,8 +37,13 @@ expression field (`namespacePairs`) — every `{prefix, namespace}` pair and eve
    - **A FUNCTION call in any non-map expression** (`ora:`, `oraext:`, `xp20:`, this instance's custom
      `orajs*`) → `oic_xpath_functions {…, wsid}` (scope `extensions`): every item carries `prefix` +
      `namespace` — copy that pair next to the payload pairs. The `standard` built-ins carry no namespace
-     and declare none. A `dvm:` lookup outside a map has no live pair source identified yet — report it
-     to the user instead of guessing a URI.
+     and declare none.
+   - **A lookup (DVM) call** — `dvm:lookupValue` is the ONE fixed pair: the designer writes the same `dvm`
+     pair in every non-map expression that calls a lookup (no catalog hands it out). Build the call with
+     `oic_lookup_expression` — it checks the lookup and both columns live, writes the plain lookup name, and
+     returns the call (`xpathExpression` + the canvas label `textExpression`) with that pair; a path you put
+     into it keeps its own pairs (from `oic_expression_tree`). Inside a map the `dvm` pair must still come
+     from that map's table (above), never declared by hand.
    - The two services number the SAME URI differently (one tree gave a payload `ns13`, the mapper's table
      `ns23`). A prefix read from one is wrong in the other; a prefix from anywhere else is wrong in both.
      Content with no prefix at all (literals, simple `$variables`, unprefixed XPath 1.0 core functions)

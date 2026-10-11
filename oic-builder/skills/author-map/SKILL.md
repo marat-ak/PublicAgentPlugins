@@ -45,7 +45,9 @@ conditional emission. You author the XSLT.
   state it — get the exact shape from the requirement or a sample, or ASK, before writing any parse
   expression. (A `substring-before`/`substring-after` chain is right ONLY if the format is exactly a flat
   `;k=v;…`, not as a general answer.)
-- Lookups: `dvm:lookupValue($lookupName, '<sourceColumn>', <key>, '<COLUMN>', '<default>')` — dvm prefix from header.
+- Lookups: build the call with `oic_lookup_expression` (the lookup and both columns checked live; the source
+  value is a path of THIS map); the `dvm` prefix must be in this map's `oic_get_map_namespaces` table — the
+  NAMESPACE LAW, never a header or a hand-written declaration.
 - File handoff between nodes: never pass raw file content. A FileReference xpath is the PREFERRED handoff
   WHERE THE CONSUMING OPERATION SUPPORTS IT (e.g. a stagefile read-by-reference — the stage-files skill
   §Payload references). Where the operation does NOT take a reference (e.g. a stagefile WRITE, which accepts
