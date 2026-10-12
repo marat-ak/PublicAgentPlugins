@@ -27,9 +27,10 @@ page is the SAME loop.
 Every `oic_wizard_*` call carries the SAME `{instance, code, version, project?, wsid}` — one wizard per
 integration per conversation; `oic_wizard_cancel` before creating another for the same integration.
 
-Node-order plumbing is the tool's problem, not yours: invokes/receives get a stub before the wizard;
-stagefiles are POSTed at save with the generated artifact. `oic_wizard_save` is the same call either way
-(edit = rebind in place; no delete, node id + request map survive, downstream never invalidates).
+Node-order plumbing is the tool's problem, not yours: invokes/receives get a stub before the wizard; a
+Stage File (`STAGE_FILE_CONNECTION`) is created as its STAGEFILE node by `oic_wizard_save` at the anchor —
+the server then adds the request map a Write needs (a Read has none). `oic_wizard_save` is the same call
+either way (edit = rebind in place; no delete, node id + request map survive, downstream never invalidates).
 
 ## The loop (identical for both)
 1. Read the returned page: `fields:[{name,type,value,options,hasEvent,required,readOnly}]`.
@@ -50,11 +51,13 @@ stagefiles are POSTed at save with the generated artifact. `oic_wizard_save` is 
 ## Field semantics (from the parsed page model)
 - `checkboxObject`: `value` is the checkbox ID string — the STATE is `checked` (boolean). The driver
   echoes booleans; never treat `value` as state.
-- `expressionBuilderObject` (Filename, FileReferenceName…): state = `expression` (+userFriendlyXpath,
-  namespacePairs). Driver echoes all three companions. Literals double-quoted inside the expression.
-  A payload path and every `{prefix: URI}` pair you WRITE into one come from `oic_expression_tree` at the
-  node's spot (`{anchor, rpi, elementType}` for a new node, `{elementId}` for an existing one) — the maps
-  skill's PREFIX SOURCE LAW; never a map's table, never typed from a URI.
+- `expressionBuilderObject` (Filename, PhysicalDirectory, FileReferenceName…): pass the expression STRING
+  only — literals quoted inside it, a payload path copied from `oic_expression_tree` at the node's spot
+  (`{anchor, rpi, elementType}` for a new node, `{elementId}` for an existing one), a function call with its
+  `oic_xpath_functions` prefix (the maps skill's PREFIX SOURCE LAW). The driver sends the designer's shape:
+  the label and the namespace pairs of every prefix the expression uses, resolved at that spot; an unknown
+  prefix is refused before the call. Never send an object, `::userFriendlyXpath` or `::namespacePairs`.
+  Unchanged fields echo with what the server stored.
 - `comboBoxObject`: `options` are the ONLY values it takes, sent as the option itself — an option `"true"`
   is the string `"true"`, never a boolean (the driver refuses a value that is not an option; a mistyped
   one is answered 400 GENERIC by the server). `readOnly:true` fields still echo fine.
@@ -120,7 +123,8 @@ When a metadata-defined adapter node is MISSING fields, two resolutions:
 No separate recipe — both are the loop above. A **schema edit**: resume on `editNodeId`, obtain the current
 sample per the SAMPLE FIDELITY LAW, splice, generate/save, then its mandatory `.iar` diff proof (law §4) +
 a `oic_set_map_xslt {…, wsid, mapId, validateOnly}` refresh on each dependent map. A **new endpoint**: the same loop from
-defaults, then configure the auto-created request map (the maps skill) before verify. Commit per node.
+defaults, then configure the request map the server created (an invoke, a stage-file Write — the maps
+skill) before verify. Commit per node.
 
 ## Child pages + `submitchild` (dialogs-within-a-page)
 Some wizard pages open a modal SUB-FORM (a "child page") when you click a `linkObject`/`buttonObject`.
@@ -214,8 +218,9 @@ Consequences:
 - Adapter-specific page knowledge lives in the adapter-invokes skill — consult it before driving a
   known-tricky adapter (collocated: leave the operation combo UNSELECTED — selecting binds the wrong op;
   OCI-fn: region→compartment→app→function = chained hasEvent parents).
-- Always run the result checks per build (the stage-files skill: `operationName` matches + auto-map
-  present; fresh `oic_verify`) — a completed wizard is not proof.
+- Always run the result checks per build (the stage-files skill §MANDATORY result check: node type +
+  `operationName`, request map only for a Write, expressions in the archive; fresh `oic_verify`) — a
+  completed wizard is not proof.
 - ⚠ A create that FAILS mid-wizard leaves its stub behind — DELETE the ghost stub before commit, or it
   commits as "Invoke configuration not complete".
 - PREFER edit-in-place over delete/recreate ALWAYS — delete cascades request maps + downstream validity.

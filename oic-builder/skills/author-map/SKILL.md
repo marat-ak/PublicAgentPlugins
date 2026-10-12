@@ -26,10 +26,10 @@ conditional emission. You author the XSLT.
    `current-group()`, `replace`); mapper functions: `dvm:lookupValue`, `oraext:encodeReferenceToBase64`,
    `xp20:*` (catalog is auto-sent by the save tool). Prefixes: the NAMESPACE LAW — ONLY the server's
    table from `oic_get_map_namespaces {instance, code, version, project?, wsid, mapId}`, read in the
-   workspace you save in; never author a declaration the table did not return, never inline
-   (the maps skill, NAMESPACE LAW §1-6).
-5. **Save** with `oic_set_map_xslt {instance, code, version, project?, wsid, mapId, spliceBody|xslt, extraSources:[…]}` — extraSources entry per
-   param (source registration; otherwise params are silently stripped).
+   workspace you save in; every `xsl:param` names one of its `registeredSources` (the maps skill §Sources).
+   You write no declaration — the save declares the body's prefixes from that table.
+5. **Save** with `oic_set_map_xslt {instance, code, version, project?, wsid, mapId, spliceBody}` (indented body;
+   `extraSources` only for a source prepare does not list).
 6. **Check** (discipline: the verification skill): save result `errorsCount:0` AND `sourcesReferencedCount`
    == params you used; `oic_commit {instance, code, version, project?, wsid}`; fresh `oic_verify {instance, code, version, project?}`; refetch shows body intact.
 
@@ -46,8 +46,8 @@ conditional emission. You author the XSLT.
   expression. (A `substring-before`/`substring-after` chain is right ONLY if the format is exactly a flat
   `;k=v;…`, not as a general answer.)
 - Lookups: build the call with `oic_lookup_expression` (the lookup and both columns checked live; the source
-  value is a path of THIS map); the `dvm` prefix must be in this map's `oic_get_map_namespaces` table — the
-  NAMESPACE LAW, never a header or a hand-written declaration.
+  value is a path of THIS map); the save declares `dvm` from this map's `oic_get_map_namespaces` table — a
+  table without `dvm` cannot take the call (STOP and report).
 - File handoff between nodes: never pass raw file content. A FileReference xpath is the PREFERRED handoff
   WHERE THE CONSUMING OPERATION SUPPORTS IT (e.g. a stagefile read-by-reference — the stage-files skill
   §Payload references). Where the operation does NOT take a reference (e.g. a stagefile WRITE, which accepts

@@ -41,6 +41,17 @@ When multiple viable options exist and the requirements don't determine the choi
 field feeds which target, edit vs rebuild, which of two viable patterns), ASK the user — never pick
 silently. Destructive steps not explicitly requested are always in this class.
 
+## Precedent first — copy a working shape
+
+Before designing a pattern (a technique or an adapter you have not configured in this tenant, a multi-node
+recipe), look for an integration in THIS tenant that already does it and copy its SHAPE: which nodes in
+which order, which operations and options, how the payload moves between them. Find candidates the way the
+discovery skill finds capabilities (a connection's usage, an integration search), load one (`oic_load_iar`)
+and `oic_grep` its archive for the adapter or technique (a function name such as
+`decodeBase64ToReference`, a stage-file role such as `READ_FILE_REFERENCE`, an operation). A precedent gives
+the shape only: its names never carry over, and every path and prefix you write comes from the live tools
+for the node you write (the maps skill's PREFIX SOURCE LAW). No precedent → the skills' recipes.
+
 ## Integration scope — standalone or project: the user's choice, pinned
 
 An integration lives **standalone** or **inside a project**, and the SAME code|version can exist in
@@ -283,7 +294,10 @@ nodes you were not asked to touch.
   Narrow ONLY with `glob` over that path (`*.xsl`, `*/run/**`, `<instance>/blueprint/**`, `upload/**`),
   plus `mode: count|files`; page with `offset/limit`.
 - Tool argument schemas: each tool's own description/schema is the authoritative argument reference.
-  Do not guess arguments.
+  Follow it; when a call is refused or fails with an error that names the problem, fix what it names and
+  retry. "Never guess" is strict for namespace PREFIXES (the maps skill's PREFIX SOURCE LAW) and instance
+  facts — an argument shape is neither: do not stop because a shape is "unverified" while the tool's
+  description and its error text say what to send.
 - Escape hatch: `oic_raw_api {instance, method, path, body, contentType?, accept?}` — any
   design-time call with auth+csrf added; path is origin-relative. A path containing
   `/workspace/<wsid>/` is refused unless THIS conversation opened that wsid. Use ONLY when no native

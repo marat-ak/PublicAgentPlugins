@@ -20,17 +20,15 @@ The source doc's prefixes are INVALID here (the maps skill, THE PREFIX SOURCE LA
 4. For every prefix used in the tail (wherever a `prefix:` token can appear):
    - source URI has an entry in the server table → rename that prefix to the SERVER's prefix throughout the
      tail (regex `\b<prefix>:` — longest prefix names first to avoid partial hits).
-   - source URI absent from the table → **WE NEVER GENERATE A NAMESPACE DECLARATION.** The payload is not in
-     this map's model. Register it (`extraSources` on a save / confirm the payload exists upstream), re-run
+   - source URI absent from the table → **WE NEVER GENERATE A NAMESPACE DECLARATION.** The payload is not a
+     source of this map: confirm it exists upstream and is in scope (the maps skill §Sources), re-run
      `oic_get_map_namespaces`, use the server's entry. Still absent → STOP and report.
    - prefix not declared in the source header (typically the target `nstrgmpr`) → leave as-is; the fresh
      wrapper defines the target binding.
-5. Assemble: UNMODIFIED fresh header + fresh schema section + remapped tail. One permitted header change:
-   a table prefix the tail uses that the fresh header lacks → add that `{prefix, ns}` pair VERBATIM from
-   the step-1 table to the `xsl:stylesheet` tag (the maps skill, NAMESPACE LAW §3) — nothing else, never
-   inline.
-6. Save with `oic_set_map_xslt {instance, code, version, project?, wsid, mapId, xslt: <assembled doc>}` + `extraSources` for every `xsl:param` the
-   tail declares (see the maps skill, source registration).
+5. The remapped tail is the BODY; the fresh header stays the server's — no declaration of yours anywhere.
+6. Save with `oic_set_map_xslt {instance, code, version, project?, wsid, mapId, spliceBody: <remapped tail>}` —
+   the save declares every table prefix the tail uses; each `xsl:param` must name one of the map's
+   `registeredSources` (the maps skill §Sources).
 7. Verify per the maps skill §Verifying (refetch + fresh verify; params must survive).
 
 ## Gotchas
