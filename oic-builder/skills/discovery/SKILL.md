@@ -1,6 +1,6 @@
 ---
 name: discovery
-description: Use for capability questions about the tenant across three shapes — FIND ("which integrations read email / talk to service Y / use adapter X?"), IMPACT ("what breaks if this connection changes?"), DIRECTION ("do we read or write system Z?"), plus the exhaustive inventory ("every system we talk to"). Search connections with the ONE call (oic_find_connections), expand to the integrations using each hit, blueprint only to confirm a shortlist. Also: CREATING a connection (search first, describe the adapter, ask, create without secrets), and EXPORTING / IMPORTING / COPYING connections between scopes or instances (oic_export_connections / oic_import_connections / oic_copy_connections).
+description: Use for capability questions about the tenant across three shapes (catalog first: oic_catalog_search, counts/lists/reports via oic_catalog_sql) — FIND ("which integrations read email / talk to service Y / use adapter X?"), IMPACT ("what breaks if this connection changes?"), DIRECTION ("do we read or write system Z?"), plus the exhaustive inventory ("every system we talk to"). Search connections with the ONE call (oic_find_connections), expand to the integrations using each hit, blueprint only to confirm a shortlist. Also: CREATING a connection (search first, describe the adapter, ask, create without secrets), and EXPORTING / IMPORTING / COPYING connections between scopes or instances (oic_export_connections / oic_import_connections / oic_copy_connections).
 ---
 
 # Finding integrations, systems, and impact by connection
@@ -16,6 +16,42 @@ SHORTLIST you already built — never the search primitive.
 `oic_find_connections` and `oic_list_adapters` take `{instance}` — the instance you signed in to, named
 on every call (instructions.md §Session lifecycle). `oic_list_integrations` and `oic_connection_usage`
 are instance-free.
+
+## Catalog first
+
+Before any live sweep, search the instance's local catalog: `oic_catalog_search {instance, query, kind?,
+project?, status?, connection?}` — one call, no sign-in (your KC instance role is the gate), matching
+WORDS in name, description, summary and flow text (live listing matches code only). Check
+`oic_catalog_status {instance}` and tell the user the catalog's age (`exportedAt`) and whether a job is
+running (`runningJob`). Go live (`oic_find_connections`, `oic_search_integrations`,
+`oic_list_integrations`) only when the catalog is `empty`/`not-configured`, stale for the question, or
+the user asks for live state.
+
+The catalog is filled and refreshed from the conversation with `oic_catalog_crawl {instance, scope?,
+full?}` — the user's own OIC sign-in does the work (no stored credential): it lists every integration
+and connection of the instance, downloads only the integrations updated since the catalog's watermark
+(`oic_catalog_status.lastUpdated`; `full:true` re-reads all), stores them node by node and, after a
+complete run, drops what the instance no longer has. Incremental and resumable: an interrupted crawl
+(token expiry) keeps what it wrote and the next call continues. `scope:"projects"`/`"both"` reads
+project integrations through a temporary deployment per project, so the user's OIC role must allow
+creating project deployments; `"standalone"` needs no such role. It runs in the background (minutes
+on a first run; tell the user) — follow it with `oic_catalog_job {instance, jobId}`
+(`oic_catalog_jobs {instance}` lists what is running; `status:"all"` the recent ones) and read
+`counts.errors[]`: every archive that failed is named with its integration/project. `auth-required` =
+sign the user in to THAT instance first (identity loop).
+
+### Counts, lists and reports — `oic_catalog_sql`
+
+"How many / which / per adapter / per pattern / which integrations reference lookup L or library F" are SQL
+over the catalog, not live sweeps. `oic_catalog_sql {instance, describe:true}` ONCE (tables and columns from
+the database, node types, pattern ids, the signature census — never guess a name), then ONE read-only SELECT
+per call (`{instance, sql, maxRows?}`): rows are confined to the instance (no instance filter needed), capped
+(`truncated` = aggregate or page), and a `{state:"sql-error"}` result is yours to fix and retry. The node table
+(`integration_node`: one row per activity with its `sig`, `flow_path`, `props`) joins `integration` on
+(project_id, code, version); `integration_endpoint` / `_map` / `_variable` / `_tracking` / `_schedule` /
+`_lookup_ref` / `_library_ref` / `_pattern` are siblings on the same key. State the catalog's age
+(`oic_catalog_status`) with every answer. A concrete example of ONE activity ("show me a REST invoke with a
+templated URI") is `oic_catalog_examples`, not SQL.
 
 Connection search sees **DIRECT reach only.** An integration that reaches a capability transitively —
 by invoking another integration, or subscribing to its published event — holds no connection of its

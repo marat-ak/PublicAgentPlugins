@@ -10,6 +10,11 @@ All stagefile creation and schema editing goes through `oic_wizard_*` on `STAGE_
 the former `oic_add_stagefile` recipe tool is REMOVED; do not look for it. Facts that apply regardless
 of tool:
 
+**Catalog example first.** `oic_catalog_examples {instance, nodeType: "STAGEFILE", operation?}` (or a `sig` such
+as `STAGEFILE.write.csv.by-filename` / `STAGEFILE.read.xml.by-fileref`) shows this tenant's working stage-file
+nodes: operation, format (opaque/json/xml/csv), by-filename vs by-fileref, the filename/directory/reference
+expressions, append flag, and the map feeding a WRITE. Copy the shape, never the prefixes.
+
 A new Stage File is a STAGEFILE node (`sf*`): `oic_wizard_create {…, connection:"STAGE_FILE_CONNECTION",
 name, anchor, rpi}` opens the wizard without a node, `oic_wizard_save` creates the node at that anchor.
 

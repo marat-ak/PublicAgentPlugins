@@ -1,6 +1,6 @@
 ---
 name: author-map
-description: Use when authoring a map (XSLT) from stated requirements — discover target/source shapes, find a corpus precedent, write the body, save with source registration, and check it landed. The production map flow (porting from another integration is the port-map skill).
+description: Use when authoring a map (XSLT) from stated requirements — discover target/source shapes, find a catalog precedent (oic_catalog_examples), write the body, save with source registration, and check it landed. The production map flow (porting from another integration is the port-map skill).
 ---
 
 # Authoring a map from requirements (the REAL production flow)
@@ -18,9 +18,13 @@ conditional emission. You author the XSLT.
 2. **Discover the SOURCE shapes** — which upstream payloads/variables carry the data: `oic_get_blueprint`
    (what exists upstream), payload structures from their schema samples/wsdls. Variables are simple strings
    unless typed.
-3. **Find a precedent** — `oic_corpus_find` / `oic_corpus_flow` / `oic_corpus_node_shape`: a corpus of
-   real integrations; a close example de-risks structure and function choice. Corpus XSLT bodies carry FOREIGN
-   prefixes — treat any example as intent-reference only; prefixes always per the maps skill's PREFIX SOURCE LAW + NAMESPACE LAW.
+3. **Find a precedent** — `oic_catalog_examples {instance, nodeType: "TRANSFORMER"}` (narrow with `connection`,
+   `adapter` or `pattern`): the tenant's own working maps with target/sources, techniques, lookups and an XSLT
+   excerpt (the full text is `integration_map.xslt` via `oic_catalog_sql`); `oic_catalog_search {instance, query}`
+   finds the integration when words are what you know; `oic_catalog_status` tells the catalog's age. A close
+   example de-risks structure and function choice. For the live map read the precedent with `oic_load_iar` +
+   `oic_get_map_xslt`. A precedent's XSLT body carries FOREIGN prefixes — treat any example as
+   intent-reference only; prefixes always per the maps skill's PREFIX SOURCE LAW + NAMESPACE LAW.
 4. **Write the body**: `<xsl:param name="X"/>` for every referenced payload/variable + one
    `<xsl:template match="/">` producing the target root. XSLT 2.0 available (`for-each-group`,
    `current-group()`, `replace`); mapper functions: `dvm:lookupValue`, `oraext:encodeReferenceToBase64`,

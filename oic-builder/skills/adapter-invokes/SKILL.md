@@ -14,6 +14,11 @@ Structural nodes are the structural-nodes skill; maps are the maps skill.
 Every invoke's wizard auto-creates a request map (TRANSFORMER before the invoke) that YOU must configure
 (the maps skill) — an invoke with an unconfigured map is invalid.
 
+**Catalog example first.** Before the wizard, `oic_catalog_examples {instance, nodeType: "INVOKE", adapter: <code
+or display name>, operation?}` (or a `sig` such as `INVOKE.REST.post.templated`) shows how this tenant's working
+invokes of the same adapter are configured — verb, URI shape, media type, headers, FTP file modes, Fusion
+object/operation — and where they sit in the flow (`flowPath`). Copy the SHAPE, never the prefixes.
+
 ## Prefer EDIT over delete+recreate (artifact-conflict rule)
 To change an existing invoke, EDIT it in place (`oic_wizard_create {instance, code, version, project?, wsid, editNodeId, nodeType:'invokes'}`).
 NEVER churn delete→create of the same invoke in one workspace — it orphans wizard artifacts → later

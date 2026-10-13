@@ -12,6 +12,12 @@ container). Node ids are server-assigned sequentially per type (next free `l*`, 
 If the task requires SPECIFIC ids, creation ORDER determines them — plan the order first.
 `name`/`variableName` values you mint follow the core naming rule (instructions.md).
 
+**Catalog example first.** For the node type you are about to add or modify, `oic_catalog_examples {instance,
+nodeType: ROUTER_ROUTE | FOR | WHILE | ASSIGNMENT | THROW | NOTIFICATION | PUBLISHER | STITCH | TRY | …}` (or a
+`sig` such as `ROUTER_ROUTE.compound`, `ASSIGNMENT.string.function`, `NOTIFICATION.attach`) returns working
+examples with their expressions, variable types, conditions and position in the flow (`flowPath`). Copy the
+shape; their expressions carry FOREIGN prefixes — PREFIX SOURCE LAW (maps skill).
+
 | Tool | Notes |
 |---|---|
 | `oic_add_label {name, anchor, rpi}` | container for assignments |

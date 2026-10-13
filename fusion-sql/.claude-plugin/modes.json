@@ -42,6 +42,7 @@
           "describeCustomObject"
         ],
         "files": "*",
+        "commands": "*",
         "identity": "*"
       }
     }

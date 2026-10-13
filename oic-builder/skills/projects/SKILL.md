@@ -8,7 +8,9 @@ description: Use when working with OIC projects or making a copy of an integrati
 OIC **projects** are a management grouping; project-scoped integrations live under `…/projects/{projectId}/…`.
 
 ## Discover
-- `oic_list_projects` → `[{id, name, status, type}]`. The project id is what every project-scoped call takes.
+- Catalog first: `oic_catalog_search {instance, query, kind: "project"}` (or `project: <id>` to search inside one) answers
+  "which project holds …" without a live call — check `oic_catalog_status` age; the live list below when it is empty/stale.
+- `oic_list_projects` → `{count, total, truncated, items:[{id, name, status, type, builtBy, lastUpdated}]}` (every project, paged to the end). The project id is what every project-scoped call takes.
 - `oic_list_integrations {scope}` — `scope` is required: a project id lists that project's
   integrations, `"standalone"` the standalone (globally-available) ones, `"all"` both, every item tagged
   with its `project` (null = standalone). `search` = plain-text terms, each one OIC's own server-side

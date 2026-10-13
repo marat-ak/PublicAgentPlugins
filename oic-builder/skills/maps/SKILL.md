@@ -10,6 +10,11 @@ workspace YOU opened in this conversation (instructions.md §Session lifecycle) 
 included (it reads the LIVE mapper of that workspace). The exceptions are the cache read
 `oic_get_map_xslt` and `oic_verify`, which take `{instance, code, version, project?}` and no wsid.
 
+**Catalog example first.** `oic_catalog_examples {instance, nodeType: "TRANSFORMER", connection?, adapter?}` shows
+this tenant's maps with target/sources, techniques (for-each, choose, dvm-lookup, grouping…), lookups and an
+XSLT excerpt — the full XSLT is `integration_map.xslt` (`oic_catalog_sql`). Intent-reference only: prefixes per
+the PREFIX SOURCE LAW below.
+
 ## ⚖ THE PREFIX SOURCE LAW — every activity you create or modify (non-overridable)
 Applies to ANY written content that carries namespace prefixes: a map's XSLT, an assignment, a route
 condition, a for-each, a throw, a notification, a logger, a stitch, a global variable, an adapter-wizard
@@ -17,7 +22,7 @@ expression field — every prefixed path and every prefixed function call you wr
 1. **A prefix comes ONLY from a FRESH live fetch for the specific activity being written**, made in the
    workspace you write in. Never from an archive (`oic_get_map_xslt`, `oic_get_iar`, `oic_grep`,
    `oic_describe_activity`, any `.xsl`/`expr.properties`), a blueprint read of another node or another
-   integration, a sibling activity, a corpus precedent, documentation, or memory — not even when the
+   integration, a sibling activity, a catalog precedent, documentation, or memory — not even when the
    source is the very activity you are copying.
 2. **Reading archive / blueprint content is fine** — to learn what an activity does, or to copy it into
    a new integration or another place. Its `prefix→URI` declarations may tell you WHICH namespace URI a

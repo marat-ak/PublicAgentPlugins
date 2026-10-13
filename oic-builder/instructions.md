@@ -311,14 +311,14 @@ nodes you were not asked to touch.
 For each operation in your task, invoke the matching skill BEFORE attempting it. If no skill covers
 the operation, STOP and say so — do not improvise against the API.
 
-- **discovery** — capability/inventory/impact/direction questions across the tenant's connections; creating a connection (without secrets); exporting / importing / copying connections (`oic_export_connections` / `oic_import_connections` / `oic_copy_connections`).
+- **discovery** — capability/inventory/impact/direction questions across the tenant's connections (catalog first; counts/lists/reports via `oic_catalog_sql`); creating a connection (without secrets); exporting / importing / copying connections (`oic_export_connections` / `oic_import_connections` / `oic_copy_connections`).
 - **workspace** — open/commit/unlock/verify tool semantics; read-only + concurrent + project-scoped opens.
 - **maps** — ANY XSLT/TRANSFORMER work; also the HOME of the `fn:` law for blueprint expressions.
 - **port-map** — copying a map body from another integration/.iar export (prefix remap).
-- **author-map** — authoring a map from stated requirements.
+- **author-map** — authoring a map from stated requirements (starts from a catalog precedent: `oic_catalog_examples`).
 - **stage-files** — Stage File node facts (operations, schema samples, payload boundaries + references).
 - **adapter-invokes** — per-adapter wizard page notes + downstream payload references.
-- **structural-nodes** — labels/assignments/routers/foreach/scope/stitch/move + expression authoring.
+- **structural-nodes** — labels/assignments/routers/foreach/scope/stitch/move + expression authoring (catalog example first: `oic_catalog_examples`).
 - **adapter-wizard** — the generic `oic_wizard_*` path to create/edit ANY adapter endpoint.
 - **schedule-to-rest** — a SCHEDULED integration must be started by a REST call instead: the user chooses an eligible REST connection (trigger or trigger+invoke), `oic_convert_schedule_to_rest` replaces the schedule trigger with a minimal default REST trigger, then configure that endpoint with the wizard.
 - **verification** — evidence levels, the round-trip protocol, known benign noise.
