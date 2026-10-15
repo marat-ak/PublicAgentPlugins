@@ -1,6 +1,6 @@
 ---
 name: report-authoring
-description: Use when creating or modifying a BI Publisher report layout — a report (.xdoz), an interactive XPT table, a print/invoice-grade RTF template, or a subtemplate (.xsb). Covers createReportFile / addReportLayout, the surgical modifyReportLayout ops on Word-authored and generated RTF, summarizeReportLayout, subtemplate import/call-template wiring, and the locale model.
+description: Use when creating or modifying a BI Publisher report layout — a report (.xdoz), an interactive XPT table, a print/invoice-grade RTF template, an XSL stylesheet for plain-text / CSV / markdown / feed output, or a subtemplate (.xsb). Covers createReportFile / addReportLayout, the surgical modifyReportLayout ops on Word-authored and generated RTF, summarizeReportLayout, subtemplate import/call-template wiring, and the locale model.
 ---
 
 # Report & layout (.xdoz / RTF / XPT / .xsb) authoring — engine-validated
@@ -26,9 +26,12 @@ notes (what BIP can do that the DSL can't yet — offer these as prose, don't fa
 - Respect `formatAdvice` in results: a technique marked format-exclusive (e.g. xpt-only side-by-side
   chart+repeating-table) is withheld as a recipe when you asked for the other format — switch format
   or pick the alternative it names, don't force it.
+- The corpus is about VISUAL layouts. A capability note calling eText "unsupported" concerns Oracle eText
+  templates only — it does NOT mean text output is impossible: text output is the `xsl` kind (Create,
+  below), written directly.
 
 ## Create
-`createReportFile` / `addReportLayout`. Two layout kinds:
+`createReportFile` / `addReportLayout`. Three layout kinds:
 - **`.xpt` (interactive table / DASHBOARD)** — fully generatable. Binds `/<root>/<group>/<COL>` (e.g.
   `/DATA_DS/G_1/PLAN_NAME`) to the datamodel output tags. A SINGLE `.xpt` layout is a whole dashboard —
   it stacks, top→bottom:
@@ -76,12 +79,32 @@ notes (what BIP can do that the DSL can't yet — offer these as prose, don't fa
   graphic), a `table` (rendered as a compact header+rows panel that fits a cell), `heading`/`paragraph`
   text, or an `image`. This is how you get the dense 2-column dashboard (chart | chart, chart | table) in
   a clean one-page PDF. Set a wide page (`page.widthTwips > heightTwips`, e.g. 15840×12240) for landscape.
+- **`format:"xsl"` (plain TEXT — text / markdown / CSV / fixed-width / flat file / feed; also XML or
+  HTML)** — `{label, format:"xsl", locale?, xsl}`: a complete XSLT stylesheet YOU write, run by BIP's XSL
+  engine over the model's output XML (absolute `/<root>/<group>/<COL>`, same binding as `.xpt`). It is the
+  ONLY kind whose output can be `text` — RTF and `.xpt` templates never allow it — so any ask for text
+  output gets an xsl layout, never RTF/XPT.
+  - Exactly ONE `<xsl:output method="text|xml|html">` is REQUIRED; it sets the template's default output
+    (text→`text`, xml→`txml`, html→`html`). Text: `method="text"`, literal text + newlines via
+    `<xsl:text>` (`&#10;`), values via `<xsl:value-of>`. The build rejects malformed XSLT, a missing or
+    conflicting method, and a non-UTF-8 encoding declaration.
+  - Secure mode, as on the pod: Oracle `xdoxslt:` extension functions are allowed; other Java
+    extensions, `document()` and includes are blocked.
+  - `xml` / `csv` on any template are DATA outputs (the stylesheet is not applied) — a CSV with chosen
+    columns/headers/quoting is a `method="text"` stylesheet run as `text`.
+  - The simplicity contract (below) holds: SQL computes, the stylesheet only prints ready columns.
+  - Verify with `renderTemplate` (it compiles + runs the stylesheet) before upload; running it on the pod
+    needs it to be the report's default template (rendering-and-running §1, §2).
+  - Oracle **eText** templates (fixed-position bank/EFT payment files) are NOT generatable — they stay
+    hand-authored; say so, never present an xsl text file as one.
 
 Example:
 ```
 createReportFile({ name:"Supplier Invoices", dataModelUrl:"…", layout:{ format:"rtf",
   title:"Open Invoices", linesGroup:"/DATA_DS/G_1", columns:[…], page:{ header:…, footer:… } } })
 addReportLayout(fileId, { label:"Invoice", format:"rtf", … })   // add another template/locale
+addReportLayout(fileId, { label:"Text", format:"xsl", xsl:'<xsl:stylesheet version="1.0"
+  xmlns:xsl="http://www.w3.org/1999/XSL/Transform"><xsl:output method="text"/>…' }, makeDefault:true)
 ```
 
 ## Output STRUCTURE first — it drives the data model (analyze BEFORE building the model)
@@ -180,6 +203,8 @@ regenerate-only; RTF you can also `modifyReportLayout`). Offer to render so they
 Titles: use ASCII (an em-dash/curly quote can render as `?`).
 
 ## Choosing the format: `.xpt` vs RTF (decide by DELIVERY channel, then offer)
+Output that is TEXT rather than a visual document (text / markdown / CSV / flat file / feed) is `xsl`
+(Create, above) — the choice below is only between the two VISUAL kinds.
 Both bind to the SAME data-model output tree (`/<root>/<group>/<field>`), so a dashboard can be built in
 EITHER. The choice is the delivery channel, not the data.
 
@@ -212,7 +237,7 @@ Offer conversion when the channel changes ("you want to email this now → I'll 
 
 ## Modify an existing layout
 
-**Iterate LOCALLY until the user approves (RTF).** When modifying a layout AFTER a rendered result was
+**Iterate LOCALLY until the user approves (RTF, XSL).** When modifying a layout AFTER a rendered result was
 already shared: edit → render **locally** (`renderTemplate`, reuse the real data XML `dataFileId` from
 the earlier pod run) → Read + verify → share the new PDF → repeat until the user **approves**. Do NOT
 upload / `runReport` on the pod per tweak (uploads never overwrite → fresh path each time,
@@ -226,10 +251,11 @@ time).
   rescaled, loop tags relocated) · `setDocvarCode`. Targets a `.xdoz` (template picked by label +
   locale) or a bare uploaded `.rtf`. Returns a NEW fileId; everything untouched is preserved
   byte-for-byte. It never throws on not-found — **check the `applied` result**.
-- **XPT — regenerate, not surgical.** To change an XPT, rebuild the layout (`addReportLayout` /
-  `setReportLayout`) rather than splicing.
+- **XPT / XSL — regenerate, not surgical.** To change an XPT or an xsl stylesheet, rebuild the layout
+  (`addReportLayout` / `setReportLayout`) rather than splicing.
 - **Inspect first** with `summarizeReportLayout` (dataModel url; per-template label/type/default/format;
-  per-XPT bound fields + flat/grouped; per-RTF raw `<?…?>` tags + a semantic map). `getFileSummary` on
+  per-XPT bound fields + flat/grouped; per-RTF raw `<?…?>` tags + a semantic map; per-XSL the declared
+  output method + bound XPaths). `getFileSummary` on
   an `.xsb` returns the semantic map of its inner template.
 
 Example:
@@ -249,8 +275,8 @@ of named blocks (`<?template:NAME?>`). Wiring rules:
   (choose/when).
 
 ## Locale model
-ONE `<template>` label/url can be backed by several physical locale files (`X_en.rtf`, `X_fr.rtf`; XPT
-uses `en_US`). BIP resolves by the user's locale. `addLayout` with an existing label adds that locale's
+ONE `<template>` label/url can be backed by several physical locale files (`X_en.rtf`, `X_fr.rtf`,
+`X_en.xsl`; XPT uses `en_US`). BIP resolves by the user's locale. `addLayout` with an existing label adds that locale's
 file; `replaceLayout` / `modifyReportLayout` touch only the requested locale (default `en`). An uploaded
 bare `.rtf` or `.xsb` is its own target (its own fileId), not a locale inside a report.
 

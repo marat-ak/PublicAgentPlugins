@@ -1,6 +1,6 @@
 ---
 name: rendering-and-running
-description: Use to render an authored/uploaded template + data to a real PDF/HTML/RTF/XLSX file, to LOOK at any produced output (Read paths, PDF pages), or to download, browse, run, or upload a catalog object on the live Fusion pod. Covers renderTemplate, the visual verify loop, prepareDataModelTest / prepareReportForPod pod flows, the fusion-pod MCP tools (downloadCatalogObject / listCatalogFolder / runReport / uploadCatalogObject), and comparing two reports or data models (compareCatalogObjects / compareCatalogDetail).
+description: Use to render an authored/uploaded template + data to a real PDF/HTML/RTF/XLSX/text file, to LOOK at any produced output (Read paths, PDF pages), or to download, browse, run, or upload a catalog object on the live Fusion pod. Covers renderTemplate, the visual verify loop, prepareDataModelTest / prepareReportForPod pod flows, the fusion-pod MCP tools (downloadCatalogObject / listCatalogFolder / runReport / uploadCatalogObject), and comparing two reports or data models (compareCatalogObjects / compareCatalogDetail).
 ---
 
 # Rendering, seeing, and running
@@ -24,11 +24,14 @@ outputs) include a **`path`** field. Open it with the built-in **Read** tool —
   nodes; re-check group paths (`summarizeReportLayout`) against the data XML before re-rendering.
 - Fix → re-render → Read again. Iterate until it matches; only then report success.
 
-## 1. Local render — `renderTemplate` (bip-render engine, RTF only)
+## 1. Local render — `renderTemplate` (bip-render engine, RTF + XSL)
 `renderTemplate({ fileId, label?, locale?, xml? | dataFileId, format?, subtemplateFileIds? })` renders
 an RTF template (from a `.xdoz` by label/locale, or a bare `.rtf`) + XML data to
 **pdf / html / rtf / xlsx / xml / csv**. Returns `{ fileId, path, warning?, downloadHint }` → Read the
 `path` (rule 0), then share ONE download link for the final version.
+An **xsl** template (report-authoring) is compiled and run by BIP's own XSL engine in secure mode, as on
+the pod, to **text / txml / html** (default: its declared output method). A compile/XPath error comes
+back as `error` — this render is the stylesheet's only pre-upload check, so always run it.
 `.xpt` (interactive) layouts do NOT render locally — pod only (below). Say so; never silently
 substitute an RTF approximation.
 
@@ -41,7 +44,11 @@ substitute an RTF approximation.
   `extractEntry`, or render it by fileId. Read-only.
 - **`runReport(path, format?, parameters?)`** — execute on the real pod. Output lands in the store →
   `{fileId, path, contentType, instance, instancePath}`; **Read the `path`** to see the data XML /
-  rendered PDF. Non-mutating; the STRONGEST verification.
+  rendered PDF. Non-mutating; the STRONGEST verification. `format` must be one of the report's DEFAULT
+  template's output formats: `text` exists only on an xsl template, so make the xsl layout the default
+  (`makeDefault` / `setDefaultTemplate`) before `runReport format:"text"` (saved as `.txt`; `txml` as
+  `.xml`). The pod's "Invalid format requested: <fmt>" = the default template doesn't offer that format —
+  fix the template, never drop the requested format.
 - **`runSql(sql, binds?, maxRows?)`** — run a SELECT/WITH directly on the pod (through the
   pre-deployed generic SQL report); rows come back INLINE as JSON `{columns, rows, rowCount,
   truncated, instance}` (default 200 rows, cap 5000; >256 KB also lands in a session file `{fileId,
@@ -103,11 +110,11 @@ Never set a report's dataModelUrl by hand and never upload a report+DM pair with
    rebound, params}`.
 2. Upload BOTH by fileId to those exact paths (step-by-step mode: CONFIRM first; skip the DM upload
    if this very fileId was already uploaded to that exact path in this session).
-3. `runReport(reportPodPath, format:"pdf", parameters)` → **Read the render (pages!) and verify** per
-   rule 0.
+3. `runReport(reportPodPath, format:"pdf", parameters)` (xsl default template: its `text` / `txml` /
+   `html`) → **Read the render (pages!) and verify** per rule 0.
 
-## 6. Pod down ≠ dead end: RTF ALWAYS renders locally
-An RTF layout renders locally regardless of the pod. If the pod is unavailable or failing (401, WAF
+## 6. Pod down ≠ dead end: RTF and XSL ALWAYS render locally
+An RTF or xsl layout renders locally regardless of the pod. If the pod is unavailable or failing (401, WAF
 ban, not configured), do **NOT** stop and do NOT ask permission to render — deliver anyway:
 - Have real data XML from an earlier pod run → render locally with it (full-fidelity result).
 - No real data → render locally with generated sample data, name it `…SAMPLE-DATA.pdf` and SAY it is
@@ -115,8 +122,9 @@ ban, not configured), do **NOT** stop and do NOT ask permission to render — de
 `.xpt` is the one thing that cannot render locally — pod down + `.xpt` → report the blocker and ask
 (never silently substitute an RTF approximation). Never silently change the deliverable.
 
-## 7. Modifying after you've SHARED it — RTF iterates LOCALLY until approved
-Once you've shared a rendered PDF and the user asks to change the layout, and the template is **RTF**:
+## 7. Modifying after you've SHARED it — RTF / XSL iterate LOCALLY until approved
+Once you've shared a rendered output and the user asks to change the layout, and the template is **RTF**
+or **xsl**:
 edit → `renderTemplate` **LOCALLY** (reuse the real data XML via `dataFileId` from the earlier pod
 run — full fidelity, §6) → **Read + verify** (§0) → share the new PDF → repeat until the user
 **APPROVES**. Do NOT re-upload / re-run on the pod per tweak: pod uploads never overwrite (a fresh
@@ -128,5 +136,5 @@ those still modify on the pod.)
 ## The loop
 Author (grounded) → render locally → **Read + verify visually** → fix/iterate → live delivery →
 prepare* → upload (confirm first only in step-by-step mode) → runReport → **Read + verify again** →
-report the business outcome + ONE final download link. Pod dead + RTF → local render per rule 6, still
+report the business outcome + ONE final download link. Pod dead + RTF/XSL → local render per rule 6, still
 delivered. Never claim "works"/"matches" without having LOOKED at the output this turn.
