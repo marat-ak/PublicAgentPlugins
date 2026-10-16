@@ -20,6 +20,13 @@
       "description": "OIC design-time integration builder operating exclusively through the oic MCP tools. Builds and modifies Oracle Integration Cloud integrations — adapter endpoints via the generic wizard, XSLT maps under the namespace law, structural nodes — with a hard no-memory rule and fresh-verify discipline.",
       "category": "development",
       "author": { "name": "Marat Akselrod", "url": "https://github.com/marat-ak" }
+    },
+    {
+      "name": "fusion-ai-builder",
+      "source": "./fusion-ai-builder",
+      "description": "Oracle Fusion AI Agent Studio design-time builder operating exclusively through the fai MCP tools. Builds, runs, tests and packages Studio artifacts (workflows, agentic apps and their dependencies) with Oracle's vendored aistudio skill as the format authority and fai_validate as the truth. Never publishes.",
+      "category": "development",
+      "author": { "name": "Marat Akselrod", "url": "https://github.com/marat-ak" }
     }
   ]
 }
