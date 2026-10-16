@@ -3,6 +3,6 @@
   "version": "0.2.0",
   "description": "Oracle Fusion AI Agent Studio builder operating exclusively through the fai MCP tools. Builds, runs, tests and packages every Studio artifact type (workflows, agentic apps, agents, business objects, tools, topics, deeplinks, policies, policy templates, function templates, document schemas, approval processes, connectors) with Oracle's vendored aistudio CLI and references as the format authority, a curated examples corpus as the pattern authority, and fai_validate as the truth; moves artifacts and their dependencies to and from a pod on explicit ask. Never publishes.",
   "author": { "name": "Marat Akselrod", "url": "https://github.com/marat-ak" },
-  "homepage": "https://github.com/marat-ak/fusion-ai-agent",
+  "homepage": "https://github.com/marat-ak/PublicAgentPlugins",
   "keywords": ["oracle", "fusion", "ai-agent-studio", "agentic-apps", "workflows", "design-time", "mcp"]
 }

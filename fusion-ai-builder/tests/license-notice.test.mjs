@@ -1,6 +1,5 @@
-// The plugin bundle is the plugin dir (PLUGIN_BUNDLE tar / dev mount). The vendored Oracle skill must
-// carry Oracle's UPL notice inside it (equality with the repo LICENSES copy is asserted by mcp/test/license-notices.test.mjs,
-// since the plugin tests run with only the plugin dir mounted).
+// An agent loads exactly this plugin dir (setup serves an archive of it at a pinned commit). The vendored
+// Oracle skill must carry Oracle's UPL notice inside it, so the notice travels with every copy of the plugin.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
