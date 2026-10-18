@@ -51,12 +51,12 @@ where it or a reference it points to conflicts with this plugin's text, THIS PLU
   `do-add-action`, `do-modify-app-config`, `do-create-bo`, `do-create-tool`, `do-create-agent`, …).
   `fai_file_write` is the raw escape hatch: only when neither covers the change — say so in the report.
 - **Change part of an existing field in place — never resend it whole** (a prompt, CODE source,
-  README, `aiAppOutputSpecification`, `modelConfiguration`, an AGENT `specification`,
-  `chatChannelInput`): `fai_wf_field_edit` — `edits:[{old, new}]` (exact text, each `old` once) or
-  `merge:{…}` (null removes a key). `fai_cli` node patches replace objects whole, refuse a partial
-  one (`partial-object-patch`) and keep patched inputs' declared types. `fai_workflow_node_struct`:
-  `convergenceTargetId` by node code, an input's type, removing an input; `fai_workflow_triggers`:
-  REST trigger inputs; `fai_workflow_variables`: variable declarations.
+  README, `aiAppOutputSpecification`, `modelConfiguration`, an AGENT `specification`, `chatChannelInput`):
+  `fai_wf_field_edit` — `edits:[{old, new}]` (exact text, each `old` once) or `merge:{…}` (null removes a key).
+  `fai_cli` node patches replace objects whole, refuse a partial one (`partial-object-patch`) and keep patched
+  inputs' declared types. `fai_workflow_node_struct`: `convergenceTargetId` by node code, an input's type,
+  removing an input; `fai_workflow_triggers`: REST trigger inputs; `fai_workflow_variables`: variable declarations;
+  `fai_workflow_followup`: the workflow's follow-up questions (`followupEnabledFlag` + `followupPrompt`).
 - `args` = camelCase keys → `--kebab-case` flags (`{file:'src/workflows/x.wf', nodeCode:'A1'}`);
   objects, arrays and expression strings become `@file` for you — never shell-quote or pre-stringify.
 - Artifact paths are relative to the workspace root: `src/<kindDir>/<code>.<ext>` per Oracle's

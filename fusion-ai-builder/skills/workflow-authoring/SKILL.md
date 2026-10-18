@@ -185,8 +185,15 @@ it inside a `CONDITION`-guarded loop so re-entry skips the prompt. `HUMAN` has n
 HTML in its template cannot post values back — only links navigate.
 
 Declared but unused anywhere in shipped content — do not build on them: tool-level
-`userInputRequiredFlag` / `specification.uiInput`, workflow `followupEnabledFlag` +
-`followupPrompt`, `waitFlag`, `chatExpThirdPartyDetails`.
+`userInputRequiredFlag` / `specification.uiInput`, `waitFlag`, `chatExpThirdPartyDetails`.
+
+Follow-up questions (Studio "Follow-up Questions") = workflow-level `followupEnabledFlag` +
+`followupPrompt`, set with `fai_workflow_followup {op:'set', enabled, prompt}` (no CLI command
+writes them; never `fai_file_write`). The prompt generates the questions from the conversation and
+returns only a JSON array `[{"question": "..."}]`; it may read `{{$context.$system.$chatHistory}}`,
+`{{$context.$system.$inputMessage}}` and declared `{{$context.$variables.<name>}}`
+(`ORA_DEAL_ADVISOR_WORKFLOW` gates on a JOB variable and returns `[]` when it is empty). Enabling
+needs a prompt; disabling keeps it.
 
 ## Guards and errors
 
