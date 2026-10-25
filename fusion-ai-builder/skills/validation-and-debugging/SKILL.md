@@ -1,6 +1,6 @@
 ---
 name: validation-and-debugging
-description: Use when fai_validate or a validate-* command reports errors or warnings (any of the 14 artifact types), when an imported or fetched artifact fails validation, or when you need to understand an existing workflow's structure and real execution path. Running and the debugger itself: run-and-debug.
+description: Use when fai_validate or a validate-* command reports errors or warnings (any of the 14 artifact types), when an imported or fetched artifact fails validation, or when you need to understand an existing workflow's structure and real execution path. Running and the debugger itself: run-and-debug; the chat debugger panel the user runs: chat-debugger.
 ---
 
 # Validation and debugging

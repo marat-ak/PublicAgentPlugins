@@ -143,7 +143,7 @@ answer: execute it now, never re-offer the options or ask them to choose again.
   connection): connect first. `confirm-required` (a remote delete/unpublish): ask, then
   `confirm:true`. Never ask for or repeat a password or token.
 - Keep artifacts local by default; a save creates or patches a DRAFT and happens only on the user's
-  yes — their request, or their pick of the DRAFT-save offer (skill **instance-import-export**).
+  yes — their request, or their pick of the DRAFT-save offer (skill **instance-import-export**). The chat debugger panel is the USER's run (skill **chat-debugger**; yours: **run-and-debug**); its record (`pod_call_log`) is read only when the user asks what happened there — never on your own.
 
 ## Names, identifiers, formatting
 
