@@ -180,11 +180,19 @@ test('chat-debugger: a breakpoint stop is an ordinary `stop` carrying the last e
   assert.doesNotMatch(flat, /the other may be a stop at a `debugParams\.breakPoints` entry/);
 });
 
-test('chat-debugger: panel messages — the tool by name, open (same values) before every message, accepted is not delivered, refusals verbatim', () => {
+test('chat-debugger: panel messages — the tool by name, only to a panel opened earlier, never open + message back to back, accepted is not delivered, refusals verbatim', () => {
   assert.match(flat, /`ui_side_panel_message` \(full name `mcp__ui__ui_side_panel_message`\)/);
   assert.match(flat, /`ui_side_panel_message \{id:"ai-chat-debug", message:\{type, …\}\}` — every value is a string/);
-  assert.match(flat, /the engine cannot tell, so an accepted message is not a delivered one\. Before every message open the panel with the SAME `workflow` and `version` \(`ui_open_side_panel`\): the same values never reload it/);
-  assert.match(flat, /A refusal → report it verbatim; never reshape a value to fit/);
+  assert.match(flat, /Send messages only to a panel already opened earlier in this conversation — never open it right before a message: a message sent right after an open can be dropped/);
+  assert.match(flat, /A loaded panel stays loaded while hidden; only a conversation switch or a page reload unloads it/);
+  assert.match(flat, /An accepted message \(`\{accepted:true, id, label, message, delivery\}`\) is not a delivered one/);
+  assert.match(flat, /re-open it with `ui_open_side_panel` and send the message in a LATER turn, after the user confirms it loaded — never open and message back to back/);
+  for (const code of ['unknown-panel', 'unknown-message-type', 'undeclared-field', 'missing-field', 'value-too-long', 'pattern-mismatch']) {
+    assert.ok(flat.includes(`\`${code}\``), `refusal code ${code} missing`);
+  }
+  assert.match(flat, /→ report verbatim; never reshape a value to fit/);
+  assert.doesNotMatch(flat, /Before every message open the panel|Then open \(same values\) and send/);
+  assert.match(flat, /Opening the panel and sending it a message back to back \(the message can be dropped\)/);
 });
 
 test('chat-debugger: after a DRAFT save of the panel\'s workflow — ask about the export, then reset (the why as a one-line fact)', () => {

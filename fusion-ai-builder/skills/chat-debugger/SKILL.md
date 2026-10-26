@@ -71,13 +71,18 @@ their counterpart is the record's node frames — an empty sidecar answer never 
 
 ## Panel messages — reset, export, breakpoints
 
-- A message reaches the panel only while it is loaded in the user's chat page; the engine cannot
-  tell, so an accepted message is not a delivered one. Before every message open the panel with the
-  SAME `workflow` and `version` (`ui_open_side_panel`): the same values never reload it, so this is
-  safe and loads it when it is gone.
+- Send messages only to a panel already opened earlier in this conversation — never open it right
+  before a message: a message sent right after an open can be dropped (the panel may not be loaded
+  yet). A loaded panel stays loaded while hidden; only a conversation switch or a page reload
+  unloads it, and then there is no debug chat left to export or reset.
+- An accepted message (`{accepted:true, id, label, message, delivery}`) is not a delivered one: the
+  engine cannot see the page. The user says nothing happened (page reloaded, panel gone) → re-open
+  it with `ui_open_side_panel` and send the message in a LATER turn, after the user confirms it
+  loaded — never open and message back to back.
 - `ui_side_panel_message {id:"ai-chat-debug", message:{type, …}}` — every value is a string; the
-  setup declares each type and the pattern of each value. A refusal → report it verbatim; never
-  reshape a value to fit.
+  setup declares each type and the pattern of each value. Refusals (`unknown-panel`,
+  `unknown-message-type`, `undeclared-field`, `missing-field`, `value-too-long` over 512 characters,
+  `pattern-mismatch`) → report verbatim; never reshape a value to fit.
 
 ### After a DRAFT save
 
@@ -87,7 +92,7 @@ their counterpart is the record's node frames — an empty sidecar answer never 
 - Opening the panel with the same values never reloads it (a repeated open must not wipe a debug
   chat in progress), and a re-test of the saved DRAFT needs a fresh pod conversation.
 - So: `AskUserQuestion` — export the debug conversation before the panel starts fresh? ("Export,
-  then reset" / "Reset without export"). Then open (same values) and send
+  then reset" / "Reset without export"). Then send the open panel
   `{type:"reset", export:"true"}` or `{type:"reset", export:"false"}`. Tell the user the panel starts
   a new conversation on the saved DRAFT (an export lands in their browser's downloads); they retry
   there and ask you what happened.
@@ -268,7 +273,7 @@ not node by node.
 - Reading the record unasked, or "checking" it right after opening the panel.
 - Opening `DRAFT` while the pod's DRAFT is older than the workspace, without saying so.
 - Passing `pod` or an instance; reshaping a code to match the pattern.
-- Sending a panel message without opening the panel first with the same values; calling an
+- Opening the panel and sending it a message back to back (the message can be dropped); calling an
   accepted message delivered.
 - Leaving the panel on its old conversation after a DRAFT save, or resetting without asking about
   the export first.
