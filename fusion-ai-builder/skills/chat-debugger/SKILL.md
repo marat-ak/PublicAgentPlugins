@@ -31,8 +31,12 @@ their counterpart is the record's node frames — an empty sidecar answer never 
 - `ui_open_side_panel {id:"ai-chat-debug", params:{workflow, version}}`:
   - `workflow` = the `workflowCode` of the workflow being built in this conversation, read from
     its `.wf` (never the file name or display name). Several candidates (sub-workflows, an app's
-    workflows) and the user's words do not pick one → `AskUserQuestion` with the codes; none in
-    this conversation → ask the user for the code.
+    workflows) and the user's words do not pick one → `AskUserQuestion` with the codes.
+  - A workflow that is not in this conversation (the user names one on the pod by its title) →
+    its code from the pod's workflow list: `fai_pod_workflows {ws, query}` on a workspace connected
+    to the signed-in instance — skill **pod-operations** §Find a workflow by name or code. Ask the
+    user for the code only when that list has no match; `search-workflows` is a suggestions agent,
+    not a lookup — its empty answer proves nothing.
   - `version` = `DRAFT` (the copy being built); `PUBLISHED` only when the user says published,
     live, or what end users get.
   - Never pass `pod`: the engine fills it with this conversation's proxy and refuses a supplied one.
@@ -215,6 +219,8 @@ not node by node.
 - Reading the record unasked, or "checking" it right after opening the panel.
 - Opening `DRAFT` while the pod's DRAFT is older than the workspace, without saying so.
 - Passing `pod` or an instance; reshaping a code to match the pattern.
+- Asking the user for a workflow code, or saying workflows cannot be listed, before looking the name
+  up with `fai_pod_workflows`.
 - Calling a reply without an outcome frame a success; filling in what lies between the windows.
 - Counting a `NODE_START` and its `NODE_END` as two runs of a node.
 - Calling a value that ends in `.....` malformed — Oracle cut it.

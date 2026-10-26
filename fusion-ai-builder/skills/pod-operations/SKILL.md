@@ -1,6 +1,6 @@
 ---
 name: pod-operations
-description: Use when the user explicitly asks to connect to a Fusion pod or work against one (fetch or save DRAFTs, search pod business objects / deep links / connectors, remote lists, runs and tests, server-side generation), or when a fai tool answers pod-required, auth-required or confirm-required.
+description: Use when the user explicitly asks to connect to a Fusion pod or work against one (fetch or save DRAFTs, find a pod workflow by name or code, search pod business objects / deep links / connectors, remote lists, runs and tests, server-side generation), or when a fai tool answers pod-required, auth-required or confirm-required.
 ---
 
 # Pod operations (explicit, scoped, never publishing)
@@ -35,20 +35,47 @@ Format authority for what needs a pod: `skills/aistudio/references/prompts/artif
 
 | Need | Tool | Skill |
 |---|---|---|
+| Find a workflow by name or code (the pod's workflow list) | `fai_pod_workflows {ws, query}` | this skill, below |
 | Pull an artifact + its dependencies | `fai_pod_fetch` | **instance-import-export** |
 | Save a DRAFT (+ dependencies) | `fai_pod_save` | **instance-import-export** |
 | Run a workflow (multi-turn: one `conversationId`), read the run | `fai_workflow_run` | **run-and-debug** |
 | Tests, recordings, model catalogs | `fai_cli` (`run-workflow-test`, …) | **run-and-debug** |
 | Live BO discovery | `fai_cli` `list-supported-business-objects {query, family, product}`, `get-business-object-functions` | **business-objects-and-tools** |
 | Deep links, KM connectors, connector definitions | `fai_cli` `list-deep-links`, `list-km-connectors`, `search-connector-definitions` | **deeplinks**, **connectors** |
-
-Never search a pod for a workflow, BO, tool or agent by free text: `search-business-objects`,
-`search-deeplink-tools`, `search-external-rest-tools`, `search-document-tools` and `search-agents`
-are denied (they run through the Studio UI's own streaming proxy, which a pod does not serve) and
-`search-workflows` answers only where the pod's suggestions agent is deployed. Ask the user for the
-code, use a `list-*` command with its filters, or the corpus (`fai_bo_search`, `fai_examples_search`).
 | Approval lookups | `fai_cli` `search-approval-users`, `list-approval-*` | **approvals** |
 | Generation from documents | `fai_cli` `do-generate-policy-functions`, `do-generate-function-implementation`, `do-generate-document-schema` (documents via `fai_file_put`) | **agents-topics-policies**, **document-schemas** |
+
+No free-text search for a BO, tool or agent on a pod: `search-business-objects`,
+`search-deeplink-tools`, `search-external-rest-tools`, `search-document-tools` and `search-agents`
+are denied (they run through the Studio UI's own streaming proxy, which a pod does not serve). Use a
+`list-*` command with its filters, the corpus (`fai_bo_search`, `fai_examples_search`), or the user's
+code. Workflows have their own lookup — next section.
+
+## Find a workflow by name or code
+
+The user names a workflow by its title or part of it and you need its `workflowCode` (to fetch,
+run, debug or open it):
+
+1. A workspace connected to the instance the user chose (above).
+2. `fai_pod_workflows {ws, query}` — `query` = a distinctive part of the name or the code (`wizard`,
+   `TRANSACTION`): a case-insensitive substring match on name OR code, newest change first, `DRAFT`
+   and `PUBLISHED` rows (a workflow with both versions gives one row each).
+3. No row → another word of the name, a shorter part, or no `query` at all, paging with
+   `offset` = `paging.nextOffset` while `hasMore`.
+4. One workflow → its `code`. Several plausible (similar names, a customization listed in
+   `customizations[]`) → `AskUserQuestion` with code, name and status. Ask the user for the code
+   only when the list has no match.
+
+- `status` narrows to `DRAFT` or `PUBLISHED`; `includeSeededTemplates:true` only when the user looks
+  for an Oracle seeded template (the list hides them, as Studio does).
+- `search-workflows` is NOT a lookup: it asks the pod's suggestions agent to recommend workflows for
+  a described purpose, and answers empty wherever that agent is not deployed — an empty answer says
+  nothing about whether a workflow exists.
+- `list-policy-workflow-contexts` returns only PUBLISHED workflows (code and name, as Policy Store
+  generation context) — it misses every workflow that has only a DRAFT.
+- A connected workspace can always list the pod's workflows: never tell the user there is no way to
+  list or find them.
+- `boss-error` = the pod's own refusal of the list: report its `status` and `body` verbatim.
 
 ## Rules
 
@@ -80,4 +107,6 @@ code, use a `list-*` command with its filters, or the corpus (`fai_bo_search`, `
 - Asking the user for a host, password, token or CLI setting — there is nowhere to put one; the
   sign-in is the credential and the instance's setup attributes are the settings.
 - Treating `pod-required` / `auth-required` as a result and moving on.
+- Reading an empty `search-workflows` answer as "the workflow does not exist" — look it up with
+  `fai_pod_workflows`.
 - Fetching with `force` over a local edit.
