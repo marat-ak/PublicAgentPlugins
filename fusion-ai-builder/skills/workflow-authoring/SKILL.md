@@ -94,10 +94,11 @@ documentation survives.
 - `{{…}}` with NO inner spaces; no `{{#if}}`/`{{#each}}`/block tags ever; optional content =
   `CONDITION` branch or a `CODE` node producing a safe-to-inject string.
 - Only documented paths: `$context.$nodes.<CODE>.$output…`, `$context.$variables…`,
-  `$context.$triggers.REST.$input.<name>`, `$context.$system.$inputMessage` (+ the built-in list
+  `$context.$triggers.REST.$input.<name>` (other trigger types: the fixed paths in
+  `workflow-vibe.md` §Workflow Trigger Inputs; `SCHEDULE` exposes none), `$context.$system.$inputMessage` (+ the built-in list
   in `workflow-vibe.md` §Built-in `$context` expressions), `$context.$app.*` only when app-backed.
   `$context.$system.$chatHistory` / `$conversationHistory` are NOT allowed — set
-  `metadataPatch.chatHistoryEnabled = true` instead.
+  `metadataPatch.chatHistoryEnabled = true` instead (many shipped workflows read it directly; do not copy that).
 - `CODE` bodies are plain JS with `return`; output lives under
   `$context.$nodes.<CODE>.$output.result` (fixed wrapper `result|timeout|error`, persisted on the node); `LLM`/`AGENT`/`BO_FUNCTION`/`EXTERNAL_REST`
   are editable-schema producers — every field a downstream node references must be declared in the
@@ -121,11 +122,22 @@ documentation survives.
 | Policy lookup, fuzzy matching (category, UOM) | `RAG_DOCUMENT_TOOL` / `VECTOR_DB_READER` | inputs `question` / `indexName`, `query`, `maximumResults`, `filterCriteria` |
 | Loop state | `WHILE`/`LOOP` | evolving state in `dataPipeline.variables` + `SET_FIELDS` before and inside the loop; current item at `$context.$nodes.<LOOP>.$currentItem` |
 | In-chat approval / free text | `HUMAN` | chat-only; INCOMPATIBLE with app-backed workflows (**app-authoring**); see Chat input below |
+| Delay / bounded poll | `WAIT` | timer fields are metadata (`wait.md`); its only shipped use (one workflow) waits 2 minutes for a vector index refresh and loops back once (`loopBackNodeId`, `maxIterations`); a run pauses on it (**run-and-debug**) |
 
 ## Shipped structure (every workflow in the corpus)
 
 - `architecture: "data_pipeline"` and ONE trigger of `type: "REST"`; chat arrives through that
-  same trigger plus `$context.$system.*`. Shipped content has no `CHAT`/`EMAIL`/`SCHEDULE` trigger.
+  same trigger plus `$context.$system.*`. Studio also offers EMAIL (one registered inbound
+  Microsoft/Google mailbox per workflow, polled), SCHEDULE (interval or recurrence; the user needs
+  `ORA_DR_FAI_BATCH_JOB_MANAGER_DUTY`), signal (`EVENTS`) and `CAPABILITY` triggers; shipped content
+  uses none (`deletedTriggerTypes` is always `[]`). They are set in the workflow's Settings →
+  Triggers in Studio and fire only once the workflow is PUBLISHED. No CLI command creates one
+  (`workflow-vibe.md` §Signal subscriptions names Studio UI tools the CLI does not have) and
+  `fai_workflow_triggers` edits REST inputs only — never hand-write a trigger entry; the README names
+  the trigger setup as the user's step.
+- Top-level `emailConfigCode` / `jobRequestId` are server-owned (always `null` in shipped content;
+  no command sets them; probably the inbound mailbox and the schedule job — unverified): preserve
+  them, never invent a value.
 - Trigger inputs are `{id, name, type, scope?}` with `type` `string` (dominant), `boolean`,
   `integer`, `number` or `object` (+ `typeSpecification`). `scope: "JOB"` marks what the calling
   page supplies (ids, language, UI context); unscoped inputs are per-message payload
@@ -142,7 +154,7 @@ documentation survives.
 | Archetype | Shape | Typical size | Signature |
 |---|---|---|---|
 | `generator` | `START → LLM (→ SWITCH/LLM) → END`; all input via REST trigger inputs; no memory | 3–8 nodes | no `BO_FUNCTION`; sentinel outputs ("Enter a different goal") for unsafe input |
-| `pipeline` | deep `WORKFLOW` call graphs, heavy `BO_FUNCTION`/`CODE`, `RETURN` early exits, `PARALLEL` fan-out | tens of nodes per child, many children | questions to the user are TEXT output; the next turn re-enters with `isReplyFlow=true` and `CONDITION` nodes branch on it |
+| `pipeline` | deep `WORKFLOW` call graphs, heavy `BO_FUNCTION`/`CODE`, `RETURN` early exits, `PARALLEL` fan-out | tens of nodes per child, many children | questions to the user are TEXT output; on the next turn an `LLM` over `$system.$inputMessage` + chat history detects the reply, and turn state lives in CONVERSATION variables (guards, resets); a parent passes flags such as `isReplyFlow` to a child as `WORKFLOW` inputs |
 | `conversational` | `HUMAN` and/or `AGENT` nodes collect input mid-run; guard-then-prompt loops | 30–150 nodes | `CONDITION "feedback exists?" → HUMAN → SET_FIELDS/CODE → loop back`, `maxIterations` |
 | `app-router` | `START → session/context → CODE resolve hint → SWITCH on hint → stage terminals` | varies | `aiAppsCompatibleFlag`, no `HUMAN`; contract in **app-authoring** |
 
@@ -156,7 +168,16 @@ then rarely `RAG_DOCUMENT_TOOL`, `VECTOR_DB_READER`, `TOOL`, `WHILE`, `EMAIL`. D
 - **Variables as the state bag**: declare `dataPipeline.variables[]` up front
   (`fai_workflow_variables`), write them with `SET_FIELDS`. The first node copies
   `$system.$inputContext` → `$variables.UserContext` and `$system.$inputMessage` →
-  `$variables.userInputMessage`; everything downstream reads variables.
+  `$variables.userInputMessage`; everything downstream reads variables. The DECLARATION's `scope`
+  governs (`JOB` = this run, Studio's "User Question"; `CONVERSATION` = every turn of one
+  `conversationId`); the per-entry
+  `scope` some shipped `SET_FIELDS` inputs carry is noise (Oracle: scope belongs to the declaration).
+- **CONVERSATION variables = cross-turn memory of chat and `Query` turns**: a first-turn guard
+  (`{{!$context.$variables.<name>}}` → fetch + `SET_FIELDS`, else reuse) for caches, drafts and
+  accumulated history, and an explicit reset of what must not carry over. Never for app
+  display→submit state (**widgets-and-forms** §Carrying state). Unverified until a live run shows
+  it: persistence across Agentic App turns, sharing with a child `WORKFLOW` (shipped parents pass
+  state to children as `WORKFLOW` inputs), size limits.
 - **CODE shapes, LLMs get prebuilt prompt strings** (`EXTRACT_*_PROMPT` / `GET_*_PROMPT` pairs).
   About half of shipped `LLM` nodes return structured output via `outputSpecification`; the rest
   are parsed by a `CODE` `JSON.parse`.
@@ -165,6 +186,18 @@ then rarely `RAG_DOCUMENT_TOOL`, `VECTOR_DB_READER`, `TOOL`, `WHILE`, `EMAIL`. D
   `provider`, `model`, `modelProperties`) — copy a shipped block, never invent a code.
 - **Channel awareness**: read a channel marker from context (`ORA_SMS`/`ORA_WHATSAPP`), append
   "plain text only" to the system message and route to `_TEXT` agent variants without markup.
+- **Scheduled batch** (`ORA_ACCOUNT_INTELLIGENCE_SCHEDULER_AGENT`, `ORA_MEETING_PREPARATION_SCHEDULER`,
+  `ORA_OPPORTUNITY_SUMMARIZATION_SCHEDULER_AGENT_TEAM`): still REST-triggered, with an `action` /
+  `config` object input (mode `FULL`/`INCREMENTAL`, batch size, limits, a look-ahead in days); the
+  workflow selects its own work set through a BO, chunks it in `CODE` and runs a `LOOP`/`WHILE` over
+  the worker. The timing comes from a Studio SCHEDULE trigger or an outside caller; nothing in the
+  workflow reads a schedule, and a SCHEDULE run carries no inputs — a batch it starts cannot depend
+  on REST inputs for its work set.
+- **Runtime prompt store** (Expenses only: `ORA_FIN_EXPENSES_GETAGENTINITPARAMS.getAgentInitParams`
+  keyed by `{{$context.$workflow.$name}}`): `BO_FUNCTION` → `CODE`
+  `prompts.find(p => p.promptType === 'MAIN')?.prompt || <default kept in the CODE>` → `LLM`, so the
+  prompt text changes server-side without a new version. No generic store exists — use the pattern
+  only where the product exposes such an API.
 
 ## Chat input (standalone workflows)
 
@@ -178,7 +211,8 @@ then rarely `RAG_DOCUMENT_TOOL`, `VECTOR_DB_READER`, `TOOL`, `WHILE`, `EMAIL`. D
 | `HUMAN` node | `$context.$nodes.<CODE>.$feedbackRecieved` (sic — the misspelling IS the API; shipped code also checks `$feedbackReceived`), `$actionPerformed == 'APPROVED'` | `channelType: "CHAT"`, `feedbackEnabledFlag`, `approvalEnabledFlag`, `loopBackNodeId`, `maxIterations`, `chatChannelInput.messageTemplate.message` (HTML allowed), `requestChangeMessage`, `maxIterationsExceededTemplate` |
 | Selection | numbered list + the typed number parsed by `CODE` (`/^\d+$/` → index, else name match) or by an `LLM` ("2", "two", "1 and 3") | or the pills tag (**widgets-and-forms**) |
 | Files | `TOOL` `ORA_MULTI_FILE_PROCESSOR_TOOL` with `parseFiles`, `makeRawFilesAvailable`, input `conversationId` | `$output.<fileName>` = text; raw content map under `ORA_CHAT_ATTACHMENTS_RAW_FILECONTENT` |
-| Email as input | REST input `emailJson` (`subject`, `body_plain`, `body_html`, `attachments[]`); `CODE` normalizes, `LLM` classifies | reply threading via ids + `isReply` |
+| Email as input | REST input `emailJson` | §Email below |
+| Voice | no live audio: `LLM` inputs are text (`systemPrompt`, `prompt`); the app's mic is browser speech-to-text that sends text | a recorded audio/video FILE is "multimedia" in Oracle's file FAQ (≤ 25 MB, read by the default models on chat upload or by `DOCUMENT_PROCESSOR`, never by the RAG document tool), but the chat picker's default types list none — verify on the pod before promising it; audio OUTPUT = podcast templates (**app-authoring**) |
 
 `HUMAN` modes: free text (feedback only), approve-only gate, approve + request change. Always put
 it inside a `CONDITION`-guarded loop so re-entry skips the prompt. `HUMAN` has no typed form input;
@@ -194,6 +228,26 @@ returns only a JSON array `[{"question": "..."}]`; it may read `{{$context.$syst
 `{{$context.$system.$inputMessage}}` and declared `{{$context.$variables.<name>}}`
 (`ORA_DEAL_ADVISOR_WORKFLOW` gates on a JOB variable and returns `[]` when it is empty). Enabling
 needs a prompt; disabling keeps it.
+
+## Email
+
+- **Intake** (`ORA_FIN_EXM_EXPENSE_EMAIL_PROCESSING_ASSISTANT`): REST input `emailJson` (a JSON
+  string: `subject`, `body_plain`, `body_html`, `attachments[]`) plus the ids the caller knows →
+  `CODE` parse (HTML → text when there is no plain body, `hasAttachments`) → `LLM` triage
+  (auto-reply, out-of-office and reaction mails end the run; the rest route by intent) → `CODE` strips
+  banners, `LLM` strips greetings/signatures → a reply (prefix + known sender) finds its record by
+  the thread's reference ids, else by details an `LLM` extracts from the quoted notification, with
+  an explicit "ambiguous" flag when neither is unique → BO write → child workflows. Do not copy its
+  defects: prompts naming camelCase fields of a snake_case payload, a user message built from the
+  plain body only (HTML-only mail loses its text), `LLM` outputs parsed in `CODE` in one place and
+  read as `$output.<field>` in another, `Re:` as the only reply marker.
+- An `EMAIL` trigger (fires per new mail in the workflow's registered inbound mailbox) has fixed
+  paths `$context.$triggers.EMAIL.$input.subject` / `fromAddress` / `content` / `headers` /
+  `attachments`; no shipped workflow uses one.
+- **Outbound**: an `EMAIL` node (`email.md`), an email tool (`do-create-tool {toolType:'email'}`,
+  delivery `HCM_EMAIL` / `HCM_ALERTS`), a `HUMAN` node's EMAIL channel (`human-approval.md`; every
+  shipped `HUMAN` uses `CHAT`), the workflow's `errorHandlers` EMAIL entry (on most workflows,
+  almost always blank). `do-modify-email-account` sets an approval process's account only.
 
 ## Guards and errors
 

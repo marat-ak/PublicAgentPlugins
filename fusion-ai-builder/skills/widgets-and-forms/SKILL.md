@@ -262,14 +262,19 @@ branch's own dual path (`llmGUI`-path layouts `["ORA_LAYOUT_CARD","ORA_LAYOUT_RE
 
 ## Carrying state from display turn to submit turn
 
-The app never resumes a workflow; the submit turn must find everything in the form or re-derive it.
+The app never resumes a workflow; the submit turn finds everything in what the app sends or
+re-derives it.
 
-| Strategy | How | Frequency |
+| Source | How | Shipped use |
 |---|---|---|
-| Encoded form id | `<formKind>~~<id1>~~<id2>` / `<prefix>-$-<id>?<entity>` / `<action>_<recordId>`, decoded with `split`/regex; the form id can BE the `SWITCH` case | most common |
-| Hidden `system` fields | scalars (ids, flags) or whole objects (current record, selected lines); values as JSON strings are safest | common |
-| Re-derived each turn | `$OraAppContext` → `CODE` parse → `SET_FIELDS` variables; a draft can live in app context and be written back via `ora.Invoke` | multi-step drafts |
-| Conversation-scope variables | `SET_FIELDS` with CONVERSATION scope when the app context is absent (test chat) | fallback only |
+| What the app re-sends on every call | `$OraAppContext` / `$OraUserContext` (also readable as declared `JOB`-scope REST inputs, like `OraAction`) → `CODE` parse → `SET_FIELDS`; a draft can live in app context and be written back via `ora.Invoke` | the most common source |
+| Encoded form / action id | `<formKind>~~<id1>~~<id2>` / `<prefix>-$-<id>?<entity>` / `<action>_<recordId>`, decoded with `split`/regex; the form id can BE the `SWITCH` case | the most common round-trip carrier |
+| The action payload | `ora.Invoke` payload → `$OraAction`; with `agentCommand` + `sendPayloadAsContext` it must carry the instruction AND every id | actions |
+| Hidden `system` fields | scalars (ids, flags) or whole objects (current record, selected lines); values as JSON strings are safest | rare |
+
+CONVERSATION variables never carry display→submit state in shipped content; they are the memory
+of chat and `Query` turns (**workflow-authoring** §Recurring patterns). Where a workflow has both,
+it reads the payload or form first and a variable only as a cache.
 
 State is part of the stage's data node and reaches the widget on both paths: small state (a few
 ids) → the form id; large state (a wizard's accumulated choices) → ONE hidden `system` field whose
@@ -298,6 +303,9 @@ next user message. Shipped content uses it only on `AGENT` prompts ("Append the 
 on a new line after the list"); text channels (SMS/WhatsApp variants) omit it and use plain
 numbered lists. Fallback: numbered list + a `CODE`/LLM parser of the typed number. `HUMAN` nodes
 give Approve/Request-Change buttons and free text (chat only, never app-backed).
+Pills are Oracle's chat surfaces only. When the user says the surface is OUR chat component
+(`xxx-gnimsys-ai-chat`), a selection or decision turn emits a `gnimsys-ui` block instead — skill
+**gnimsys-chat-widgets**.
 
 ## Common mistakes
 
@@ -306,7 +314,7 @@ give Approve/Request-Change buttons and free text (chat only, never app-backed).
   takes the fallback down too).
 - An `llmGUI`-path `LLM` with no `layouts`.
 - Letting the LLM invent option values; changing the form id between turns; hidden state in
-  memory that the next call cannot see.
+  memory that the next call cannot see; form state parked in CONVERSATION variables.
 - Expecting `oraInfoDisplay` to render in the test chat and "fixing" the workflow when it prints
   XML.
 - Seen in shipped content, do not copy: a form id never set; a `CODE` helper defined but never

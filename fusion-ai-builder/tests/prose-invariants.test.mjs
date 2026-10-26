@@ -51,7 +51,7 @@ test('plugin manifest is named fusion-ai-builder', () => {
 test('exactly the planned skills exist (every Studio artifact type and CLI capability has one, plus Oracle\'s own)', () => {
   assert.deepEqual(skillDirs.sort(), [
     'agents-topics-policies', 'aistudio', 'app-authoring', 'approvals', 'business-objects-and-tools', 'chat-debugger', 'connectors',
-    'deeplinks', 'document-schemas', 'import-export', 'instance-import-export', 'pod-operations',
+    'deeplinks', 'document-schemas', 'gnimsys-chat-widgets', 'import-export', 'instance-import-export', 'pod-operations',
     'policy-templates', 'run-and-debug', 'validation-and-debugging', 'widgets-and-forms', 'workflow-authoring',
   ]);
 });

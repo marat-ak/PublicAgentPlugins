@@ -23,6 +23,13 @@ are offline.
   `run-workflow-chat` are denied). `chat:true` is the chat endpoint and runs only the PUBLISHED
   version: a workflow that was never published answers `errorCode` `FAI-40300` there (the answer's
   `hint` says which copy is missing).
+- Run it as its real caller does — the input of Oracle's run profiles: `triggerType:'rest'` +
+  `parameters` = the REST inputs; `'app'` + `parameters:{appHint:'<Stage>', OraAppContext,
+  OraUserContext}` with `message` = the query or the action payload (**app-authoring** §Testing
+  without an app); `'email'` + `parameters:{subject, body, from, to, cc}`; `'schedule'` with
+  `message:''` and no parameters; omitted = a chat turn. Oracle's `rest`, `email` and `schedule`
+  profiles add `singleTurnOnly:true`. A shipped workflow's own profiles show realistic inputs
+  (`fai_example_get {view:'full', select:'json.specification.dtRunProfiles'}`).
 - The answer is the run read from its own event stream: `finishReason` (`stop`, `error`, `paused`),
   `output` (the final answer; on `error` the orchestrator's error record verbatim plus `errorCode`),
   `conversationId`, `nodes` (the executed node occurrences in order, with `outputChars`) and, for
@@ -78,8 +85,9 @@ are offline.
 ## Multi-turn, mode 2 — an interactive conversation through `fai_workflow_run`
 
 Conversation-scope variables live on the SERVER per `conversationId`; a workflow remembers only
-within one conversation. Never encode state into the message text and never invent a state input
-(`wizardState` and the like) — the server keeps it.
+within one conversation (Oracle's own test planner treats routes that need "state established by
+an earlier conversation turn" as multi-turn only). Never encode state into the message text and
+never invent a state input (`wizardState` and the like) — the server keeps it.
 
 1. First turn: `fai_workflow_run {ws, file, message, workflowStatus:'DRAFT'}` — the answer carries
    the `conversationId` this server generated.
@@ -110,7 +118,8 @@ conversation identity across scripted steps, run on the pod, every step asserted
    output:{contains, notContains}}` per user message in the user's words, `expectWait:'<HUMAN>'`
    on the step that pauses, a resume step `{stepId, resume:{waitStepId, action, content?},
    expectNodes, output}` per decision. `stepId` = two lowercase words (`request-move`); no bare
-   numbers in `contains`. The answer carries the test file, the definition path and the
+   numbers in `contains`; when conversation variables matter, a later step relies on a fact given
+   only earlier (Oracle's continuity proof). The answer carries the test file, the definition path and the
    classification per step; a generator rejection comes back as `cli-error` — repair the spec,
    call it again (an existing test file is updated in place).
 2. Run it live: `fai_cli run-workflow-test {testFile, dataSource:'live', workflowStatus:'DRAFT'}`

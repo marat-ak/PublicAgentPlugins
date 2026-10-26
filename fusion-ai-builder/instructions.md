@@ -79,8 +79,9 @@ where it or a reference it points to conflicts with this plugin's text, THIS PLU
 1. **Intake** — classify the artifact (skill **aistudio** §Artifact Routing); decide standalone
    vs app-backed (below); collect REQUIRED inputs (below).
 2. **Discover** — `fai_examples_search` for the closest shipped pattern (`archetype`, `nodeType`,
-   `hint`, `layout`, `boCode` filters), `fai_example_get {view:'graph'|'node:<CODE>'}` to read
-   it; `fai_bo_search` / `fai_bo_get` for business objects and their functions (corpus first; on
+   `hint`, `layout`, `boCode` filters), `fai_example_get {view:'summary'|'graph'|'node:<CODE>'}`
+   to read it (the summary carries inputs, variables and run profiles; `select`/`grep` narrow any
+   view — never read a whole example to find one field); `fai_bo_search` / `fai_bo_get` for business objects and their functions (corpus first; on
    a pod only `list-*` with filters — never a text search, ask for the code). `family`/`product`
    come from `list-workflow-families` / `list-workflow-products --family <F>`; no exact match → ask.
 3. **Build** — `fai_workspace_create {name}` (this conversation's scratch: starts empty, invisible
@@ -97,19 +98,13 @@ where it or a reference it points to conflicts with this plugin's text, THIS PLU
 7. **Deliver** — each file by its `name` (see **Delivering files**), the version, the import
    steps (skill **import-export**), the **Validation** section (Reporting below), then the DRAFT-save offer.
 
-## Standalone vs app-backed — Oracle's boundary, verbatim
+## Standalone vs app-backed
 
-> Standalone workflow intent: the user asks for a workflow, automation, node, or debug flow
-> without mentioning an app. App-backed workflow intent: the user says the workflow is for an
-> app, app agent, app panel, app communication, app template, target agent, `InitDisplay`,
-> `InitActions`, `InitCommunications`, `FillParameters`, `SendCommunication`, AI Apps, Agentic
-> App, or app-compatible workflow. For standalone workflows … do not add app-stage routing or
-> `aiAppsCompatibleFlag`. Only set or change `aiAppsCompatibleFlag` when app intent is explicit.
-> For app-backed workflows, route on `$context.$app.$OraMessageHint` in the graph, usually with
-> a `SWITCH` node. Do not put multiple app-stage branches into one LLM/AGENT prompt.
-
-Do not infer app intent from chat, assistant, advisor, agent or LLM; ambiguous → ask ONE question.
-App-backed builds follow skill **app-authoring** (its intake checkpoint precedes any artifact).
+Oracle's boundary decides (skill **aistudio** §Workflow And App Boundary): app intent only when the
+user names an app, app agent/panel/stage/template or Agentic App — never inferred from chat,
+assistant, advisor, agent or LLM; ambiguous → ask ONE question. Standalone → no app-stage routing,
+no `aiAppsCompatibleFlag`. App-backed builds follow skill **app-authoring** (its intake checkpoint
+precedes any artifact).
 
 ## Required inputs are never defaulted → `AskUserQuestion`
 
@@ -167,16 +162,8 @@ words — never a workspace path: the workspace dies with this conversation). Co
 
 ## Using the fai tools
 
-- Workspace: `fai_workspace_create {name}` / `_list` / `_delete {name, confirm:true}` (ask first) /
-  `_tree {ws}`; files: `fai_file_read {ws, path, offset?, limit? | select?, grep?}` / `fai_file_write`
-  / `fai_file_put {ws, fileId, path?}` (an upload in) / `fai_file_export {ws, path}` (a file or
-  directory to the user); CLI: `fai_cli {ws, command, args?, files?, confirm?, select?, grep?}` /
-  `fai_cli_help {command?, filter?, grep?}`; `fai_validate {ws, path}`; in-place edits (above);
-  packaging: `fai_import {ws, fileId}` / `fai_export {ws, kind, code, version?, withDeps?}`; pod:
-  `fai_pod_connect {ws, instance}` / `_disconnect` / `_status`, `fai_pod_fetch`, `fai_pod_save`,
-  `fai_workflow_run`; corpus: `fai_examples_search`, `fai_example_get`, `fai_example_copy`,
-  `fai_bo_search`, `fai_bo_get`; `fai_health {}`.
-- Each tool's own schema is the authoritative argument reference — do not guess arguments. Tool
+- Each tool's own schema is the authoritative argument reference — do not guess arguments (ask
+  before `fai_workspace_delete`). Tool
   results are JSON; read the WHOLE result: `ok:false` inside a successful `fai_cli` call is a
   FAILURE; corpus tools answering `needs-input` = the index is not built — report, never fabricate.
 - An UPLOADED file arrives as a `fileId`: an artifact or export → `fai_import`; anything else a
@@ -185,36 +172,15 @@ words — never a workspace path: the workspace dies with this conversation). Co
 
 ## Skills — invoke the matching skill BEFORE the operation
 
-For each operation in your task, invoke the matching skill BEFORE attempting it. If no skill covers
-the operation and the Oracle references do not either, STOP and say so.
-
-- **aistudio** — Oracle's own skill (FORMAT authority): artifact routing, the standalone/app
-  boundary, which Oracle reference to read per artifact and node. Invoke it before the first build
-  or change in a conversation, alongside the artifact's skill; the precedence rules above apply.
-- **workflow-authoring** — creating or modifying any `.wf`: node-by-node build loop, expression
-  and schema rules, control-flow invariants, guards and error handling, prompt grounding.
-- **app-authoring** — `.app` artifacts and app-backed workflows: Oracle's intake checkpoint,
-  swimlanes layout, agents/actions/communications, the `$OraMessageHint` router contract.
-- **widgets-and-forms** — any `oraInfoDisplay` output: the `llmGUI` dual path, widget ids ↔
-  `patternId`, `layouts`, `recordWidget` forms, the `oraFormSubmit` round trip, state, chat pills.
-- **business-objects-and-tools** — finding a BO and its function (corpus first), wiring
-  `BO_FUNCTION` nodes, creating `.bo` and `.tool` artifacts, tool subtypes.
-- **agents-topics-policies** — `AGENT` nodes vs `.agent` artifacts, topics, guardrails, policies, functions.
-- **policy-templates** — `.policyTemplate` prompts and function contracts of template-based policies.
-- **approvals** — `.approval` processes (payload, levels, approvers, channels), `HUMAN` approval nodes.
-- **document-schemas** — `.documentSchema` generated from one source document.
-- **deeplinks** — `.dl` artifacts and deep link tools.
-- **connectors** — connector definitions, connector instances, connector tools (staged flow).
-- **import-export** — exporting any artifact as a file (closure, app `requires[]`, ids, version
-  stamp, `ORA_` copies), what Studio Import accepts, uploads, the delivery message.
-- **instance-import-export** — pod ⇄ workspace with dependencies (`fai_pod_fetch`,
-  `fai_pod_save`), the DRAFT-save offer after each validated block, conflicts, moving between instances.
-- **pod-operations** — explicit connect to an instance, `pod-required` / `auth-required` / `confirm-required`,
-  which work needs a pod. Never publish.
-- **run-and-debug** — running workflows (`fai_workflow_run`; multi-turn = the SAME `conversationId`
-  every turn, `resume` for paused runs — never state in the message), tests, masking, reports.
-- **validation-and-debugging** — reading `fai_validate` errors for any artifact type,
-  `get-workflow-node-structure`, repair discipline.
+For each operation in your task, invoke its skill BEFORE attempting it — each skill's description
+(the Skill tool lists them) says when it applies. If no skill covers the operation and the Oracle
+references do not either, STOP and say so. **aistudio** (Oracle's FORMAT authority) is invoked
+before the first build or change in a conversation, alongside the artifact's skill; the precedence
+rules above apply. Ours: **workflow-authoring** · **app-authoring** · **widgets-and-forms** ·
+**gnimsys-chat-widgets** · **business-objects-and-tools** · **agents-topics-policies** · **policy-templates** · **approvals** ·
+**document-schemas** · **deeplinks** · **connectors** · **import-export** ·
+**instance-import-export** · **pod-operations** · **run-and-debug** · **chat-debugger** ·
+**validation-and-debugging**.
 
 ## Delivering files
 

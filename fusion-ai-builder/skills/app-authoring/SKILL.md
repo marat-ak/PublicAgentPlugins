@@ -39,8 +39,8 @@ or continue with this scope?" via `AskUserQuestion`.
   submit is a NEW workflow call carrying a message hint; the workflow routes on it and returns for
   that hint only. Hence `aiAppsCompatibleFlag: true`, `humanApprovalFlag: false` and no `HUMAN`
   nodes — no app-compatible shipped workflow has one.
-- State lives in the form, the action payload, app context, or is re-derived — never in a paused
-  node (**widgets-and-forms** §Carrying state).
+- State lives in what the app re-sends on every call (page inputs, `$OraAppContext`), in the form
+  or the action payload, or is re-derived — never in a paused node (**widgets-and-forms** §Carrying state).
 
 ## Request contract: `$context.$app.*`
 
@@ -133,14 +133,19 @@ switching.
   to keep both, use a new code. `fai_validate` must pass (it is stricter than the pod —
   bare-data-path conditions fail here).
 
-## Testing without an app (Studio test chat)
+## Testing without an app
 
-The test chat sends no hint: the resolver's default case runs and widgets print as raw XML. To
-exercise the submit path there, shipped conversions map a typed keyword (e.g. `submit`, optionally
-with `line=value` overrides) or a pasted `<oraFormSubmit …>` block to `InvokeAction` in the
-resolver, and read stored CONVERSATION-scope variables as the state fallback. Studio run profiles
-(`specification.dtRunProfiles`, `type: "agentic-app"`, `agenticAppMode: initDisplay |
-invokeAction`, `invokeActionPayload`) simulate the app for a real test.
+The Studio test chat sends no hint: the resolver's default case runs and widgets print as raw XML.
+Run a stage the way the app calls it instead: a Studio run profile (`specification.dtRunProfiles`,
+`type: "agentic-app"`, `agenticAppMode` `initDisplay` / `query` / `invokeAction` / `summary` /
+`initActions`, `invokeActionPayload`) or `fai_workflow_run {triggerType:'app',
+parameters:{appHint:'<Stage>', OraAppContext, OraUserContext}, message}` — for `InvokeAction` the
+message is the action payload or the `<oraFormSubmit …>` block (**run-and-debug**); check on the
+run's node inputs how the parameters reached `$context.$app.*`. Shipped profiles hold realistic
+payloads: `fai_example_get {view:'full', select:'json.specification.dtRunProfiles'}`. Do not build
+test-chat shortcuts (a typed keyword routed to `InvokeAction`, CONVERSATION variables standing in
+for form state): app-trigger runs exercise the real path, and shipped form state never lives in
+CONVERSATION variables.
 
 ## App artifact (`.app`) — CLI surface
 
@@ -158,7 +163,17 @@ Serial mutations; the returned app state is the truth.
   `["ORA_LAYOUT_MULTIRECORD","ORA_LAYOUT_RECORD","ORA_LAYOUT_CARD"]`) and that the `displayPrompt`
   uses; a `displayPrompt` is instructions to emit widgets, never a pre-filled widget — for a
   workflow that renders its own: "Preserve workflow-returned oraInfoDisplay blocks exactly. Do not
-  summarize or restructure them." `enableFileUpload: true` when uploads are part of the flow.
+  summarize or restructure them." `enableFileUpload: true` when uploads are part of the flow (Oracle's
+  limit: 5 files per conversation, 50 MB combined; the picker's default types are office documents,
+  text, csv, markdown, html, json, xml, zip and images).
+- Templates (`app-vibe-templates.md`): `type` `ppt | docx | pdf | email | text | podcast`; shipped
+  apps use `email` most, then `pdf` and `ppt`. `podcast` is text-to-speech OUTPUT: each section has
+  a host (`hostId` → `podcastHosts[{id, name, voice}]`), data instructions and optional voice
+  instructions (style, tone, pacing); at runtime the applicable agent writes each section's script.
+  The CLI's voice catalogue: `alloy_neutral_balanced` (default), `echo_male_clear`,
+  `fable_male_storyteller`, `onyx_male_deep`, `nova_female_bright`, `shimmer_female_soft`. No corpus
+  example — whether `voice` stores that id or the bare voice name, and which part field holds the
+  voice instructions, is unverified.
 - Action step types: `agentCommand {sendPayloadAsContext, doNotAutoRefresh, command}`,
   `refreshAgents {agentCodes[], panelTargets[], refreshSummary, refreshPriorityActions}`,
   `switchAppContext {usePayloadAsContext, refreshApp}`, `navigateToAgenticApp {appCode,
