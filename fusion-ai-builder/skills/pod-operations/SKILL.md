@@ -98,7 +98,9 @@ run, debug or open it):
 - A save is a remote mutation: name the artifact and the instance, ask once, then save; report
   "DRAFT `<code>` saved on `<instance>`". The ask is the user's own request or their pick of the
   DRAFT-save offer — skill **instance-import-export** holds that rule (when to offer, what to say).
-  Saving is not delivering — the user still gets an export when they asked for one.
+  Saving is not delivering — the user still gets an export when they asked for one. The chat
+  debugger was opened in this conversation and the save wrote its workflow → skill
+  **chat-debugger** §After a DRAFT save.
 - Publishing, activation, and role grants stay human acts in Studio — say so when asked.
 
 ## Common mistakes

@@ -152,7 +152,8 @@ test('chat-debugger: paused-vs-wait, errorNodeCode and child-workflow frames are
   for (const needle of ['`errorNodeCode` at the frame\'s top level', '`CHILD_NODE_START`', '`parentNodeCode`']) {
     assert.ok(flat.includes(needle), `skill must mark ${needle} as unconfirmed`);
   }
-  assert.match(flat, /which of `paused` \/ `wait` a `HUMAN` or `WAIT` node's wait sends \(a breakpoint stop was seen ending `stop`, above; Oracle's CLI also reads `paused` \+ `pausedNode` at a breakpoint as one — the panel never sends breakpoints\)/);
+  assert.match(flat, /which of `paused` \/ `wait` a `HUMAN` or `WAIT` node's wait sends \(a breakpoint stop was seen ending `stop`, above; Oracle's CLI also reads `paused` \+ `pausedNode` at a breakpoint as one\)/);
+  assert.doesNotMatch(flat, /the panel never sends breakpoints/);
   assert.doesNotMatch(flat, /a breakpoint stop is neither/);
   assert.doesNotMatch(flat, /`errorNodeCode`, when present, names the node/);
   assert.match(flat, /Treating an unconfirmed frame \(`errorNodeCode`, `CHILD_NODE_\*`, which of `paused` \/ `wait`\) as proof/);
@@ -166,9 +167,10 @@ test('chat-debugger: a single-frame gap is only an upper bound; the first node h
   assert.match(flat, /For a single-frame node the gap to the previous frame's `timeStamp` is only an upper bound \(it includes the orchestrator's time between nodes\); the first node has none/);
 });
 
-test('chat-debugger: paused/wait meaning points to the unconfirmed bullet; the panel never sets breakpoints', () => {
+test('chat-debugger: paused/wait meaning points to the unconfirmed bullet; a panel run stops at a breakpoint only after one was set through it', () => {
   assert.match(flat, /`wait` or `paused` \(with `pausedNode`\) — the run stopped and waits; which of the two marks a `HUMAN` or `WAIT` node is unconfirmed \(below\)/);
-  assert.match(flat, /The panel always sends `breakPoints: \[\]`, so its runs never stop at a breakpoint/);
+  assert.match(flat, /A panel run carries the breakpoints set through it \(§Breakpoints; `\[\]` when none\), so it stops at one only after they were set/);
+  assert.doesNotMatch(flat, /The panel always sends `breakPoints: \[\]`/);
   assert.doesNotMatch(flat, /`paused` \(with `pausedNode`\) or `wait` — the run stopped on a `HUMAN` or `WAIT` node/);
 });
 
@@ -176,6 +178,41 @@ test('chat-debugger: a breakpoint stop is an ordinary `stop` carrying the last e
   assert.match(flat, /A BREAKPOINT stop \(a node named in the request's `debugParams\.breakPoints`\) ends the same `stop`, without `pausedNode`/);
   assert.match(flat, /the node frames end before the named node and `message\.output` is the last executed node's output, not the agent's reply/);
   assert.doesNotMatch(flat, /the other may be a stop at a `debugParams\.breakPoints` entry/);
+});
+
+test('chat-debugger: panel messages — the tool by name, open (same values) before every message, accepted is not delivered, refusals verbatim', () => {
+  assert.match(flat, /`ui_side_panel_message` \(full name `mcp__ui__ui_side_panel_message`\)/);
+  assert.match(flat, /`ui_side_panel_message \{id:"ai-chat-debug", message:\{type, …\}\}` — every value is a string/);
+  assert.match(flat, /the engine cannot tell, so an accepted message is not a delivered one\. Before every message open the panel with the SAME `workflow` and `version` \(`ui_open_side_panel`\): the same values never reload it/);
+  assert.match(flat, /A refusal → report it verbatim; never reshape a value to fit/);
+});
+
+test('chat-debugger: after a DRAFT save of the panel\'s workflow — ask about the export, then reset (the why as a one-line fact)', () => {
+  const sec = skill.split(/\r?\n### /).find((s) => /^After a DRAFT save/.test(s));
+  assert.ok(sec, 'section missing');
+  const f = sec.replace(/\s+/g, ' ');
+  assert.match(f, /`fai_pod_save` whose `saved\[\]` lists that workflow's `\.wf` \(as the root, or as a dependency of an app or a parent workflow\), or `fai_cli` `do-save-workflow` of it/);
+  assert.match(f, /Opening the panel with the same values never reloads it \(a repeated open must not wipe a debug chat in progress\), and a re-test of the saved DRAFT needs a fresh pod conversation/);
+  assert.match(f, /`AskUserQuestion` — export the debug conversation before the panel starts fresh\?/);
+  assert.match(f, /`\{type:"reset", export:"true"\}` or `\{type:"reset", export:"false"\}`/);
+  assert.match(flat, /after the save, §After a DRAFT save; the user then retries in the fresh panel conversation/);
+  assert.doesNotMatch(flat, /a new message runs the newly saved DRAFT/);
+  const pod = read('../skills/pod-operations/SKILL.md').replace(/\s+/g, ' ');
+  assert.match(pod, /The chat debugger was opened in this conversation and the save wrote its workflow → skill \*\*chat-debugger\*\* §After a DRAFT save/);
+});
+
+test('chat-debugger: export on request — one JSON in the user\'s browser, never to the agent', () => {
+  assert.match(flat, /`\{type:"export"\}` → the panel downloads ONE JSON file of its whole conversation in the USER's browser/);
+  assert.match(flat, /It never reaches you; what you read is the record \(`pod_call_log`\)/);
+});
+
+test('chat-debugger: breakpoints on request — codes from the workflow, stop BEFORE, fresh conversation after a stop, stopBefore stays the agent\'s path', () => {
+  assert.match(flat, /`\{type:"breakpoints", nodes:"CODE1,CODE2"\}` \(comma-separated, no spaces\); `nodes:""` clears them/);
+  assert.match(flat, /They apply to the panel's NEXT runs \(`debugParams\.breakPoints`\)/);
+  assert.match(flat, /`get-workflow-node-structure` on its `\.wf`; a pod workflow not in the workspace: `fai_pod_workflows` → `fai_pod_fetch` with that `status`\) — never guessed/);
+  assert.match(flat, /A turn stops BEFORE the first named node it reaches and ends `stop` with the last executed node's output, not the agent's reply/);
+  assert.match(flat, /a fresh conversation \(`reset`\) is the safe default before the next test turn/);
+  assert.match(flat, /A run you make and read stops with `fai_workflow_run` `stopBefore` \(skill \*\*run-and-debug\*\*\)/);
 });
 
 test('instructions.md carries the read-only-on-ask rule once and points at the skill', () => {

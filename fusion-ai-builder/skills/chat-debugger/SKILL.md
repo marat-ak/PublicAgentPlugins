@@ -1,6 +1,6 @@
 ---
 name: chat-debugger
-description: Use when the user wants to try, chat with or debug the workflow being built THEMSELVES ("let's debug it", "let me try it", "open the debugger"), or asks what happened in the debugger panel, or why a run there failed, stopped or waited — the chat debugger side panel (ui_open_side_panel) and its record of pod calls (pod_call_log). Runs you make and read yourself belong to run-and-debug.
+description: Use when the user wants to try, chat with or debug the workflow being built THEMSELVES ("let's debug it", "let me try it", "open the debugger"), asks what happened in the debugger panel or why a run there failed, stopped or waited, wants the panel reset, its conversation exported or breakpoints set there, or a DRAFT was saved while the panel was open — the chat debugger side panel (ui_open_side_panel, ui_side_panel_message) and its record of pod calls (pod_call_log). Runs you make and read yourself belong to run-and-debug.
 ---
 
 # Chat debugger — the user runs it, you read what happened
@@ -8,14 +8,17 @@ description: Use when the user wants to try, chat with or debug the workflow bei
 The debugger is a side panel of the chat page: Oracle's chat for ONE workflow, bound to this
 conversation's pod sign-in, where the USER talks to the workflow as an end user does (trace and
 raw frames are visible to them there). Every pod call the panel makes is recorded under this
-conversation. Two tools:
+conversation. Three tools:
 - `ui_open_side_panel` (full name `mcp__ui__ui_open_side_panel`) — opens the panel bound to a
   workflow and version.
+- `ui_side_panel_message` (full name `mcp__ui__ui_side_panel_message`) — sends the loaded panel one
+  of the messages its setup declares: `reset`, `export`, `breakpoints` (below).
 - `pod_call_log` (full name `mcp__pod-proxy__pod_call_log`) — the panel's recorded calls of THIS
   conversation (no conversation argument; survives compaction).
 
-Either tool absent = this agent's setup has no openable debugger or no record: say so (an admin
-enables it in `/setup`); never imitate the panel with other tools.
+A tool absent = this agent's setup has no openable debugger, no panel messages or no record: say
+so (an admin enables it in `/setup`); never imitate the panel with other tools. Without panel
+messages the user exports with the panel's own export and starts a new chat there.
 
 Before the first diagnosis in a conversation, `Read`
 `skills/aistudio/references/prompts/workflow-debug.md` §Proactive Debugging Workflow — the order in
@@ -65,6 +68,52 @@ their counterpart is the record's node frames — an empty sidecar answer never 
     not the one this skill describes.
 - Opening again with other values reloads the panel (a fresh chat); the same values show the loaded
   one. Switching conversations closes the panel; nothing reopens by itself.
+
+## Panel messages — reset, export, breakpoints
+
+- A message reaches the panel only while it is loaded in the user's chat page; the engine cannot
+  tell, so an accepted message is not a delivered one. Before every message open the panel with the
+  SAME `workflow` and `version` (`ui_open_side_panel`): the same values never reload it, so this is
+  safe and loads it when it is gone.
+- `ui_side_panel_message {id:"ai-chat-debug", message:{type, …}}` — every value is a string; the
+  setup declares each type and the pattern of each value. A refusal → report it verbatim; never
+  reshape a value to fit.
+
+### After a DRAFT save
+
+- Trigger: the panel was opened on `DRAFT` in this conversation and a DRAFT of its workflow was saved —
+  `fai_pod_save` whose `saved[]` lists that workflow's `.wf` (as the root, or as a dependency of an
+  app or a parent workflow), or `fai_cli` `do-save-workflow` of it.
+- Opening the panel with the same values never reloads it (a repeated open must not wipe a debug
+  chat in progress), and a re-test of the saved DRAFT needs a fresh pod conversation.
+- So: `AskUserQuestion` — export the debug conversation before the panel starts fresh? ("Export,
+  then reset" / "Reset without export"). Then open (same values) and send
+  `{type:"reset", export:"true"}` or `{type:"reset", export:"false"}`. Tell the user the panel starts
+  a new conversation on the saved DRAFT (an export lands in their browser's downloads); they retry
+  there and ask you what happened.
+
+### Export — on the user's request
+
+`{type:"export"}` → the panel downloads ONE JSON file of its whole conversation in the USER's
+browser: every turn's request (breakpoints included), every raw frame in order, the final answers,
+ids and timestamps, credential values masked. It never reaches you; what you read is the record
+(`pod_call_log`).
+
+### Breakpoints — on the user's request
+
+- `{type:"breakpoints", nodes:"CODE1,CODE2"}` (comma-separated, no spaces); `nodes:""` clears them.
+  They apply to the panel's NEXT runs (`debugParams.breakPoints`) and show in its inspector, where
+  the user can remove them.
+- Codes = node codes of the version the panel runs, at any nesting level
+  (`get-workflow-node-structure` on its `.wf`; a pod workflow not in the workspace:
+  `fai_pod_workflows` → `fai_pod_fetch` with that `status`) — never guessed. The panel runs the pod's copy: a node added after the last save does
+  not exist there.
+- A turn stops BEFORE the first named node it reaches and ends `stop` with the last executed node's
+  output, not the agent's reply; nothing continues a stopped turn. A stopped turn leaves that
+  conversation unverified: a fresh conversation (`reset`) is the safe default before the next test
+  turn — offer it.
+- Panel breakpoints are for the USER's runs. A run you make and read stops with `fai_workflow_run`
+  `stopBefore` (skill **run-and-debug**).
 
 ## Read the record — only when the user asks
 
@@ -161,8 +210,8 @@ not node by node.
   - `stop` — done: `message.output` = the final answer, `message.followUpQuestions` the chips. A
     BREAKPOINT stop (a node named in the request's `debugParams.breakPoints`) ends the same `stop`,
     without `pausedNode`: the node frames end before the named node and `message.output` is the
-    last executed node's output, not the agent's reply. The panel always sends `breakPoints: []`,
-    so its runs never stop at a breakpoint.
+    last executed node's output, not the agent's reply. A panel run carries the breakpoints set
+    through it (§Breakpoints; `[]` when none), so it stops at one only after they were set.
   - `error` — `message.output` = Oracle's error record (its code as `errorCode=FAI-…`).
   - `wait` or `paused` (with `pausedNode`) — the run stopped and waits; which of the two marks a
     `HUMAN` or `WAIT` node is unconfirmed (below). The waiting node's `waitingNodeDetails`: `type`,
@@ -172,8 +221,8 @@ not node by node.
   `conversationId` and `traceId` — a reply cut or ended before the outcome has none.
 - Unconfirmed — not yet seen in a recorded stream; read them as possible, never as proof: which of
   `paused` / `wait` a `HUMAN` or `WAIT` node's wait sends (a breakpoint stop was seen ending
-  `stop`, above; Oracle's CLI also reads `paused` + `pausedNode` at a breakpoint as one — the panel
-  never sends breakpoints); `errorNodeCode` at the frame's top level naming the failing node; inside
+  `stop`, above; Oracle's CLI also reads `paused` + `pausedNode` at a breakpoint as one);
+  `errorNodeCode` at the frame's top level naming the failing node; inside
   sub-workflows and loops, the types `CHILD_NODE_START` / `CHILD_NODE_END` / `CHILD_NODE_EXECUTED`
   and `parentNodeCode` / `loopIndex`.
 - `waitingNodeDetails.callbackToken` — and the same value as `resumeInput.messageInstanceId` in a
@@ -200,8 +249,8 @@ not node by node.
   tools). The run used the pod's copy: when the workspace
   changed since the last save, say which copy you are reading.
 - Propose the fix: node, field, change, and the frame that proves it. Change it only on the user's
-  yes, through the work loop (mutation → `fai_validate` → the DRAFT-save offer); the user then
-  retries in the panel — a new message runs the newly saved DRAFT — and asks again.
+  yes, through the work loop (mutation → `fai_validate` → the DRAFT-save offer); after the save,
+  §After a DRAFT save; the user then retries in the fresh panel conversation and asks again.
 - No tool reads an Oracle job by `jobId`: use it to tie a HITL decision to its run and to name the
   run to the user. To see a node the full reply does not hold, reproduce the turn with
   `fai_workflow_run` in a NEW conversation — never the panel's `conversationId`, which would post
@@ -219,6 +268,11 @@ not node by node.
 - Reading the record unasked, or "checking" it right after opening the panel.
 - Opening `DRAFT` while the pod's DRAFT is older than the workspace, without saying so.
 - Passing `pod` or an instance; reshaping a code to match the pattern.
+- Sending a panel message without opening the panel first with the same values; calling an
+  accepted message delivered.
+- Leaving the panel on its old conversation after a DRAFT save, or resetting without asking about
+  the export first.
+- Breakpoints by guessed codes; panel breakpoints for a run you make yourself (that is `stopBefore`).
 - Asking the user for a workflow code, or saying workflows cannot be listed, before looking the name
   up with `fai_pod_workflows`.
 - Calling a reply without an outcome frame a success; filling in what lies between the windows.
