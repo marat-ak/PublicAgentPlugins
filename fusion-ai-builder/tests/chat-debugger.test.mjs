@@ -217,6 +217,11 @@ test('chat-debugger: export on request — one JSON in the user\'s browser, neve
 test('chat-debugger: breakpoints on request — codes from the workflow, stop BEFORE, fresh conversation after a stop, stopBefore stays the agent\'s path', () => {
   assert.match(flat, /`\{type:"breakpoints", nodes:"CODE1,CODE2"\}` \(comma-separated, no spaces\); `nodes:""` clears them/);
   assert.match(flat, /They apply to the panel's NEXT runs \(`debugParams\.breakPoints`\)/);
+  // the user sets them in the panel too; the agent's message replaces the whole set
+  assert.match(flat, /The user sets and removes breakpoints in the panel too \(one set per workflow and version, kept in that browser tab\)/);
+  assert.match(flat, /Your message REPLACES the whole set, the user's included \(the panel's banner names what it replaced\): to add, send the user's current codes with yours — the last recorded run request's `debugParams\.breakPoints` \(`pod_call_log`; a change since that run is not recorded\) — or ask first/);
+  assert.match(flat, /or to keep the user's breakpoints when they ask you to add some \(§Breakpoints\)/);
+  assert.doesNotMatch(flat, /where the user can remove them/);
   assert.match(flat, /`get-workflow-node-structure` on its `\.wf`; a pod workflow not in the workspace: `fai_pod_workflows` → `fai_pod_fetch` with that `status`\) — never guessed/);
   assert.match(flat, /A turn stops BEFORE the first named node it reaches and ends `stop` with the last executed node's output, not the agent's reply/);
   assert.match(flat, /a fresh conversation \(`reset`\) is the safe default before the next test turn/);
