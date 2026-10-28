@@ -125,7 +125,8 @@ the tool says so — the full log lives in the platform's flow log, not this str
 
 `oic_activity_flow {op:"payload", nodeId}` fetches exactly ONE node's body, only when the question is about a
 VALUE (what was sent/received, why a mapped field was empty). Some nodes have no payload; the tool says so.
-Never bulk-pull payloads.
+Never bulk-pull payloads INTO REASONING — when the USER wants the payloads themselves, that is an EXPORT (below),
+not a loop of `op:"payload"` calls.
 
 **Payload attribution comes before payload reasoning.** An invoke logs up to FOUR bodies, not two: OIC's
 inner prepared payload (almost always XML — Oracle's canonical form) AND the wire payload the adapter
@@ -135,6 +136,18 @@ an XML body does not make it the response; seeing a JSON body does not make it t
 bodies are request and which are response from the stream's position / label / direction markers FIRST,
 then match the error message against the WIRE payload of the correct direction ("could not parse the
 payload" is about the wire REQUEST body, not the inner XML you happened to read).
+
+**`kind`** names which of the two you mean: `wire` = the real bytes sent to / received from the endpoint (real
+media type — JSON stays JSON); `native` = OIC's internal XML. Default `wire`; where a side has no wire payload
+the tool returns the native one and SAYS so (never present that as wire). Nodes carry `kind` + `direction`;
+`oic_runs_load {payloads}`, `oic_runs_extract` and `oic_export_payloads` take `kind`. Inline vs external is
+size-driven and not your concern: every tool resolves both. Wire/native nodes exist only at Debug tracing.
+
+**Payloads for the USER → `oic_export_payloads`.** "Give me the payloads / wire data / messages of these runs"
+is ONE call with conditions — `{instance, instanceIds | code+window/status, node?, kind?}` — that returns one
+zip (`fileId`, `name`, `downloadHint`, `manifest`). Offer the download via `downloadHint`; report from
+`manifest` what fell back wire→native and what was skipped. `status:"pending"` = budget hit, no file: call
+again. Never hand over a `path`, and never build the file list yourself.
 
 ## 7. From finding to FIX
 

@@ -278,6 +278,10 @@ nodes you were not asked to touch.
 - Big outputs: the `oic_get_*` tools (`oic_get_blueprint`, `oic_get_iar`, `oic_get_flowactivity`,
   `oic_get_external_payload`) hand the whole artifact over as session FILES — Read/Grep them
   selectively. An `oic_raw_api` response stays on the server: search it with `oic_grep` (below).
+- Files for the USER: a tool result that carries `fileId` + `downloadHint` is a deliverable — offer the
+  download it names. Never hand the user a `path`, `readRoot` or any `/app/filestore/...` location: those
+  are for YOUR Read/Grep only. When the user asks for payloads / wire data / "the messages of these runs",
+  call `oic_export_payloads` (conditions in, one zip out) — never assemble the files yourself.
 - Remote search: `oic_grep {instances, pattern, …}` is ripgrep over everything LOADED in this
   conversation, seen as ONE path tree: `<instance>/iar/…` (every file of a loaded archive),
   `<instance>/blueprint/….json` (line numbers = the `oic_get_blueprint` file), `<instance>/run/<id>/…`
