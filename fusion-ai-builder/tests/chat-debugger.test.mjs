@@ -1,5 +1,5 @@
 // The chat debugger skill: the user runs the workflow in the side panel, the agent opens it bound
-// (workflow + version, never the engine-filled pod) and reads the recorded pod calls ONLY on ask.
+// (workflow + version + gnimsysUi, never the engine-filled pod) and reads the recorded pod calls ONLY on ask.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
@@ -10,11 +10,33 @@ const flat = skill.replace(/\s+/g, ' ');
 const instructions = read('../instructions.md');
 
 test('chat-debugger: opens the panel bound to the workflow being built, DRAFT unless the user says published, never passes pod', () => {
-  assert.match(flat, /`ui_open_side_panel \{id:"ai-chat-debug", params:\{workflow, version\}\}`/);
+  assert.match(flat, /`ui_open_side_panel \{id:"ai-chat-debug", params:\{workflow, version, gnimsysUi\}\}` — all three on every open, as strings \(the engine defaults none\)/);
+  assert.doesNotMatch(flat, /params:\{workflow, version\}/);
   assert.match(flat, /`version` = `DRAFT`/);
   assert.match(flat, /`PUBLISHED` only when the user says published/);
   assert.match(flat, /Never pass `pod`/);
   assert.match(flat, /`AskUserQuestion` with the codes/);
+});
+
+test('chat-debugger: gnimsysUi — "1" by default, "0" only on the user\'s ask, re-opens keep the value in use, missing/invalid values are refusals', () => {
+  assert.match(flat, /`gnimsysUi` = `"1"` \(gnimsys UI support on\): each run start carries `additional_context` `\{"gnimsysUi":1\}`, which the workflow reads as `\$context\.\$system\.\$inputContext\.gnimsysUi`/);
+  assert.match(flat, /may answer with `gnimsys-ui` blocks \(skill \*\*gnimsys-chat-widgets\*\*\)/);
+  assert.match(flat, /`"0"` only when the user asks for the debugger without gnimsys UI support: nothing is sent and the panel behaves like Oracle's own chat/);
+  assert.match(flat, /Every re-open \(another workflow or version, a panel lost to a page reload\) passes the `gnimsysUi` of this conversation's last open, unless the user asks to switch it/);
+  assert.match(flat, /`pattern-mismatch`, `missing-param`, `value-too-long` → a param is missing or a value is not a workflow code, a version or `"1"`\/`"0"`: take the code from the artifact again and pass all three/);
+  assert.match(flat, /Opening without `gnimsysUi`; `"0"` the user did not ask for; a re-open that drops the value in use/);
+  // the referenced skill exists (the flag drives its blocks)
+  assert.ok(fs.existsSync(new URL('../skills/gnimsys-chat-widgets/SKILL.md', import.meta.url)));
+  // the trigger names the switch
+  assert.match(skill.split(/\r?\n/).find((l) => l.startsWith('description:')), /gnimsys UI support switched on or off/);
+});
+
+test('chat-debugger: switching gnimsysUi reloads the panel — ask about the export first, export then re-open in a LATER turn, never back to back', () => {
+  assert.match(flat, /Switching `gnimsysUi` \(on or off, at the user's ask\) = an open with another value = a reload and a fresh pod conversation/);
+  assert.match(flat, /A panel opened earlier in this conversation → first `AskUserQuestion` — export the debug conversation before the switch\? \("Export, then switch" \/ "Switch without export"\)/);
+  assert.match(flat, /Export → send it `\{type:"export"\}` and re-open with the new value in a LATER turn, after the user confirms the file arrived/);
+  assert.match(flat, /Without export, or no panel opened earlier → open with the new value now/);
+  assert.match(flat, /Switching `gnimsysUi` on an open panel without asking about the export first/);
 });
 
 test('chat-debugger: "opened" is not a confirmation; unbound conversation = the sign-in flow, the user picks the instance', () => {

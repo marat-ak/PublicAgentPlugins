@@ -1,6 +1,6 @@
 ---
 name: chat-debugger
-description: Use when the user wants to try, chat with or debug the workflow being built THEMSELVES ("let's debug it", "let me try it", "open the debugger"), asks what happened in the debugger panel or why a run there failed, stopped or waited, wants the panel reset, its conversation exported or breakpoints set there, or a DRAFT was saved while the panel was open — the chat debugger side panel (ui_open_side_panel, ui_side_panel_message) and its record of pod calls (pod_call_log). Runs you make and read yourself belong to run-and-debug.
+description: Use when the user wants to try, chat with or debug the workflow being built THEMSELVES ("let's debug it", "let me try it", "open the debugger"), asks what happened in the debugger panel or why a run there failed, stopped or waited, wants the panel reset, its conversation exported, breakpoints set there or gnimsys UI support switched on or off, or a DRAFT was saved while the panel was open — the chat debugger side panel (ui_open_side_panel, ui_side_panel_message) and its record of pod calls (pod_call_log). Runs you make and read yourself belong to run-and-debug.
 ---
 
 # Chat debugger — the user runs it, you read what happened
@@ -10,7 +10,7 @@ conversation's pod sign-in, where the USER talks to the workflow as an end user 
 raw frames are visible to them there). Every pod call the panel makes is recorded under this
 conversation. Three tools:
 - `ui_open_side_panel` (full name `mcp__ui__ui_open_side_panel`) — opens the panel bound to a
-  workflow and version.
+  workflow and version, with gnimsys UI support on or off.
 - `ui_side_panel_message` (full name `mcp__ui__ui_side_panel_message`) — sends the loaded panel one
   of the messages its setup declares: `reset`, `export`, `breakpoints` (below).
 - `pod_call_log` (full name `mcp__pod-proxy__pod_call_log`) — the panel's recorded calls of THIS
@@ -31,7 +31,8 @@ their counterpart is the record's node frames — an empty sidecar answer never 
 - The user runs it: "let's debug / try it", "let me chat with it", "open the debugger". A run YOU
   make and read (a message the user hands you, a test, a rerun) is `fai_workflow_run` — skill
   **run-and-debug**. Unclear which → ask once.
-- `ui_open_side_panel {id:"ai-chat-debug", params:{workflow, version}}`:
+- `ui_open_side_panel {id:"ai-chat-debug", params:{workflow, version, gnimsysUi}}` — all three on
+  every open, as strings (the engine defaults none):
   - `workflow` = the `workflowCode` of the workflow being built in this conversation, read from
     its `.wf` (never the file name or display name). Several candidates (sub-workflows, an app's
     workflows) and the user's words do not pick one → `AskUserQuestion` with the codes.
@@ -42,6 +43,13 @@ their counterpart is the record's node frames — an empty sidecar answer never 
     not a lookup — its empty answer proves nothing.
   - `version` = `DRAFT` (the copy being built); `PUBLISHED` only when the user says published,
     live, or what end users get.
+  - `gnimsysUi` = `"1"` (gnimsys UI support on): each run start carries `additional_context`
+    `{"gnimsysUi":1}`, which the workflow reads as `$context.$system.$inputContext.gnimsysUi` and
+    may answer with `gnimsys-ui` blocks (skill **gnimsys-chat-widgets**). `"0"` only when the user
+    asks for the debugger without gnimsys UI support: nothing is sent and the panel behaves like
+    Oracle's own chat.
+  - Every re-open (another workflow or version, a panel lost to a page reload) passes the
+    `gnimsysUi` of this conversation's last open, unless the user asks to switch it.
   - Never pass `pod`: the engine fills it with this conversation's proxy and refuses a supplied one.
 - The panel runs the POD's copy, never the workspace file: `DRAFT` = the DRAFT saved on the
   instance; `PUBLISHED` exists only after a human published it in Studio. Workspace changes since
@@ -62,12 +70,20 @@ their counterpart is the record's node frames — an empty sidecar answer never 
     skill **pod-operations** (the user picks the instance from `identity_targets` — never pick one
     yourself), then open again. With `instance` → that sign-in is pending or no longer usable:
     finish or redo it, then open again.
-  - `pattern-mismatch`, `missing-param`, `value-too-long` → the value is not a workflow code or a
-    version: take it from the artifact again — never reshape a code to fit the pattern.
+  - `pattern-mismatch`, `missing-param`, `value-too-long` → a param is missing or a value is not a
+    workflow code, a version or `"1"`/`"0"`: take the code from the artifact again and pass all
+    three — never reshape a code to fit the pattern.
   - `unknown-panel`, `undeclared-param`, `engine-param` → report verbatim; the setup's panel is
     not the one this skill describes.
 - Opening again with other values reloads the panel (a fresh chat); the same values show the loaded
   one. Switching conversations closes the panel; nothing reopens by itself.
+- Switching `gnimsysUi` (on or off, at the user's ask) = an open with another value = a reload and
+  a fresh pod conversation. A panel opened earlier in this conversation → first `AskUserQuestion`
+  — export the debug conversation before the switch? ("Export, then switch" / "Switch without
+  export"). Export → send it `{type:"export"}` and re-open with the new value in a LATER turn,
+  after the user confirms the file arrived (an accepted message is not a delivered one, and the
+  reload drops the loaded panel). Without export, or no panel opened earlier → open with the new
+  value now.
 
 ## Panel messages — reset, export, breakpoints
 
@@ -278,6 +294,8 @@ not node by node.
 - Reading the record unasked, or "checking" it right after opening the panel.
 - Opening `DRAFT` while the pod's DRAFT is older than the workspace, without saying so.
 - Passing `pod` or an instance; reshaping a code to match the pattern.
+- Opening without `gnimsysUi`; `"0"` the user did not ask for; a re-open that drops the value in use.
+- Switching `gnimsysUi` on an open panel without asking about the export first.
 - Opening the panel and sending it a message back to back (the message can be dropped); calling an
   accepted message delivered.
 - Leaving the panel on its old conversation after a DRAFT save, or resetting without asking about
