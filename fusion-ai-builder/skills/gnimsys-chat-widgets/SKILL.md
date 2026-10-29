@@ -1,6 +1,6 @@
 ---
 name: gnimsys-chat-widgets
-description: Use when a chat workflow talks to the user through OUR chat component (`xxx-gnimsys-ai-chat` — the user says so, never assumed) and a turn needs a selection or a decision — a select with inline options or a Fusion REST datasource, a radio or checkbox list, hidden turn state, Approve/Back/Cancel buttons — emitted as a `gnimsys-ui` block from a CODE node and read back from the `<gnimsysSubmit>` envelope on the next turn. Oracle chat surfaces get pills instead (widgets-and-forms).
+description: Use when a chat workflow talks to the user through OUR chat component (`xxx-gnimsys-ai-chat` — the user says so, never assumed) and a turn needs a selection or a decision — a select with inline options or a server-searched datasource (Business Objects API by default, Fusion REST on request), a radio or checkbox list, hidden turn state, Approve/Back/Cancel buttons — emitted as a `gnimsys-ui` block from a CODE node and read back from the `<gnimsysSubmit>` envelope on the next turn. Oracle chat surfaces get pills instead (widgets-and-forms).
 ---
 
 # gnimsys chat widgets — selection and decision turns in our chat component
@@ -77,21 +77,8 @@ non-submitting button.
   session. Only when the user confirms the page configuration allows it: config
   `datasources.allowInline` true AND a `url` starting with one of `datasources.allowPrefixes`;
   otherwise the field shows "datasource not allowed" and the block can leave only through a
-  `validate: false` button. Never assume it is allowed. The shape is the dashboard datasource
-  verbatim — `{ "type": "rest", "target": "FA", "method": "GET", "url":
-  "/fscmRestApi/resources/…", "headers"?, "body"?, "dataTransform"?: { "type": "map",
-  "expression": "<dotted.path>" } }`, e.g. `"url":
-  "/fscmRestApi/resources/11.13.18.05/itemsV2?q=UPPER(ItemNumber) LIKE '{{query}}%'&onlyData=true"`.
-  `{{query}}` in the url's `q` clause is MANDATORY for a large set — the chat substitutes the typed
-  text (URL-encoded, quoting-safe); a url without it is paged but unsearchable (small lists only).
-  Optional `searchTemplate { "minChars", "debounceMs" }`. Never a `limit` or `offset` in the url —
-  the chat appends them and pages; it fetches the selected value's label itself by
-  `<valueField> IN (…)`, so `valueField` must be a filterable key attribute of the resource.
-  Omit `dataTransform` for the Fusion REST shape (the body's `items` array, or the body when it is
-  an array); `"map"` = the dotted path to the row array. Never `"type": "lodash"`: the chat does
-  not evaluate expressions and shows such a field as unavailable. The page's
-  `widgets[widgetId].fields[fieldId]` overlay wins over it. `dependsOn` (cascading selects) is not
-  in this slice — a dependent list is the next turn's block.
+  `validate: false` button. Never assume it is allowed. Business Objects API (BOSS) by default,
+  Fusion REST only when the user asks for it — next section.
 - `hidden` carries what the next turn needs and the user does not choose: ids picked earlier, the
   step name, a draft — strings; accumulated wizard state as ONE JSON string in one field.
   CONVERSATION variables stay the chat memory; the hidden field is the per-block carrier that
@@ -99,6 +86,84 @@ non-submitting button.
 - `required: true` on the selection field; `value` preselects. Back / Cancel buttons carry
   `validate: false` (a `required` field then submits `null` / `[]`); a destructive or final
   button carries `confirm`.
+
+## The datasource — Business Objects API by default, Fusion REST on request
+
+The dashboard datasource shape: `{ "type": "rest", "target", "method": "GET", "url", "headers"?,
+"body"?, "dataTransform"? }`, with `valueField` + `labelField` (+ optional `searchTemplate
+{ "minChars", "debounceMs" }`) on the field. `target` decides the query language the chat speaks:
+`"BOSS"` = the Business Objects API, every other target = Fusion REST. Write a BOSS datasource
+unless the user asks for Fusion REST.
+
+### BOSS — `"target": "BOSS"` (the default)
+
+The `select` field (inside `fields`; the renderer stringifies the whole block):
+
+```json
+{ "id": "agent", "type": "select", "label": "Agent", "required": true,
+  "dataSource": { "type": "rest", "target": "BOSS", "method": "GET",
+    "url": "/api/boss/data/objects/ora/commonFusionAI/agents/v1/$en/workflows?$filter=status = 'PUBLISHED' and name ~LIKE '%{{query}}%'&$fields=workflowCode,name" },
+  "valueField": "workflowCode", "labelField": "name", "searchTemplate": { "minChars": 2 } }
+```
+
+- `url` = `/api/boss/data/objects/ora/<family>/<product>/v1/$en/<object>?…` — the object's
+  collection.
+- `{{query}}` sits inside the url's `$filter`, within single quotes — `<attr> ~LIKE '%{{query}}%'`,
+  joined to any fixed condition with `and`. The chat substitutes the typed text (single quotes
+  doubled) and URL-encodes the whole `$filter`: write it unencoded. MANDATORY for a large set; a
+  `$filter` without it is paged but unsearchable (small lists only).
+- `$fields` lists at least the `valueField` and the `labelField`.
+- `valueField` must identify ONE row without the url's own filter: the chat fetches the selected
+  value's label by `$filter=(<valueField> = 'k1' or …)` on the url with its whole `$filter`
+  removed — a unique code, never a name or a value unique only inside the filter.
+- Never `$limit` or `$offset` (nor `q`, `limit`, `offset`) in the url — the chat writes `$limit`
+  (the page size) and `$offset` and pages; it never asks for a row count.
+- Omit `dataTransform`: the response is `{items, hasMore}`.
+- The page's `datasources.allowPrefixes` must hold a BOSS prefix — `/api/boss/data/objects/ora/`
+  or one family's `/api/boss/data/objects/ora/<family>/` — confirmed by the user like the rest of
+  the config; none there → say so: the user adds it or asks for Fusion REST.
+- Not yet proven on a pod, and it shapes what you write: a number key is sent unquoted (prefer a
+  string code attribute as `valueField`); `~LIKE` is taken as case-insensitive (ask for a
+  lower-case search in the user's first page test); whether the end user's Visual Builder session
+  may read the object — the README's `## Known issues & limitations` lists it as open until that
+  test.
+
+### Finding the BOSS object and its attribute names
+
+- Corpus: `fai_bo_search {q, resourcePath:'/api/boss/data/objects/'}` → Studio BOs whose functions
+  call a BOSS object; `fai_bo_get {code}` → their resource paths
+  (`…/objects/ora/<family>/<product>/v1/<object>`).
+- Pod (when the user asked for the pod — **pod-operations**): `fai_cli`
+  `list-supported-business-objects {query, family, product}` → `get-business-object-functions
+  {objectCode}` (resource paths) → `get-bo-function-output-specification {objectCode,
+  functionName}` on the object's GET collection function → its attribute names (from a saved
+  response example, else the object's OpenAPI).
+- An object no Studio BO wraps is out of every tool's reach, and no tool runs the datasource url
+  itself: ask the user for the object path and the exact attribute names (value, label, searched
+  attribute). Never derive them from the Fusion REST resource of the same data (another API, its
+  own names), never invent them.
+- A pod read runs as the developer's sign-in: it proves the object and the names, not the end
+  user's access.
+
+### Fusion REST — `"target": "FA"`, only when the user asks for it
+
+- `"url": "/fscmRestApi/resources/…"`, e.g. `"url":
+  "/fscmRestApi/resources/11.13.18.05/itemsV2?q=UPPER(ItemNumber) LIKE '{{query}}%'&onlyData=true"`.
+- `{{query}}` in the url's `q` clause is MANDATORY for a large set — the chat substitutes the typed
+  text (URL-encoded, quoting-safe); a url without it is paged but unsearchable (small lists only).
+- Never a `limit` or `offset` in the url — the chat appends them and pages; it fetches the
+  selected value's label itself by `<valueField> IN (…)`, so `valueField` must be a filterable key
+  attribute of the resource. `$filter` / `$fields` are BOSS syntax, never on an FA url.
+- Omit `dataTransform` for the Fusion REST shape (the body's `items` array, or the body when it is
+  an array).
+
+### Both targets
+
+- `dataTransform` `"map"` = the dotted path to the row array, only for a body that is neither an
+  array nor `{items}`. Never `"type": "lodash"`: the chat does not evaluate expressions and shows
+  such a field as unavailable.
+- The page's `widgets[widgetId].fields[fieldId]` overlay wins over the block's datasource.
+  `dependsOn` (cascading selects) is not in this slice — a dependent list is the next turn's block.
 
 ## Emit it — a `CODE` renderer and a `RETURN` (no model)
 
@@ -218,7 +283,12 @@ organization's subinventories → the transfer. Back returns
   values; the JSON pretty-printed (newlines break the single-line regex).
 - Both `options` and `dataSource` on one `select`, or neither; a `dataSource` without the user
   confirming `datasources.allowInline` and the prefix; a large set without `{{query}}`, or inline
-  `options` for one; a `limit` in the url; `radio` with `multi`.
+  `options` for one; `radio` with `multi`.
+- A Fusion REST (`"target": "FA"`) datasource the user did not ask for. On a BOSS url: `q`,
+  `limit`, `offset`, `$limit` or `$offset`; `{{query}}` outside the `$filter`; `$fields` without
+  the `valueField` or the `labelField`; a `valueField` unique only inside the url's own filter; an
+  object path or attribute name that no tool found and the user did not give. On an FA url:
+  `$filter` or `$fields`; a `limit` or `offset`.
 - A block without `buttons`; a button without `data`, two buttons with the same `data`, a `data`
   key equal to a field id; a
   `SWITCH` missing a button's `data` value as a case; routing on the readable line or the button
