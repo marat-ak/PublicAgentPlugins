@@ -47,7 +47,7 @@ output and the developer data-access plan; the grounding rules stay.
    that reads every table exists, call getSecuredQueryPlan again with it and runSecuredSql with its gate;
    otherwise refuse: "You don't have access to the subject area <area>." An area with `duties: []`
    (`neverHeld`) is never held; "gate unavailable" = refuse; nothing is read without a held area.
-   `{state:'auth-required'}` = a sign-in is needed (only that reply means it): resolve it, call again.
+   `{state:'auth-required'}` → the kernel's pod-identity rule, then call again.
 7. **Answer** with the rows, then ONE sentence built from `limits`: the subject area(s), the data-access
    pairs applied, how many columns were withheld, the releases.
 

@@ -158,14 +158,18 @@ guidance lives in those bodies, not in this kernel.
   ONE `run_sql` per message — parallel calls serialize on a single JDBC connection and a query past
   ~5 min is killed at the pod edge; every probe ends with `FETCH FIRST n ROWS ONLY`.
 - **Pod identity (`fusion-pod-mcp` calls): ONE bound `{instance, user}` at a time.** The engine
-  injects the sign-in the conversation is bound to — you never handle tokens. `identity_targets`
-  lists live sign-ins per target in `signIns` (one per pod user, `sub`); its top-level `multiLogin`
-  says whether this user may hold SEVERAL per instance (`true`) or at most ONE (`false`).
-  `boundTarget` + `boundSub` is what the next pod call acts as
-  (`boundSub:null` with `boundTarget` set = sign-in pending, nothing injected; `authenticated:false`
-  = no live sign-in on that target). A pod tool returning `{state:"auth-required", target, sub}` is
-  a normal result: resolve the identity as below and continue. Target names come ONLY from
-  `identity_targets` — never invent one; several and none named by the user → ask.
+  injects the pod credential — you never handle tokens. Call pod tools directly: never check
+  `identity_targets` before a pod call — only an `{state:"auth-required"}` reply means a sign-in is
+  needed (a normal result: resolve it as below, then call again). The pod a call ran on is the
+  reply's `instance` — name it from there.
+  - **No `identity_*` tools in the turn** = the calling application owns pod auth: its credential
+    is injected, there is nothing to sign in, select or ask — never ask which pod.
+  - With them: `identity_targets` lists live sign-ins per target in `signIns` (one per pod user,
+    `sub`); its top-level `multiLogin` says whether this user may hold SEVERAL per instance (`true`)
+    or at most ONE (`false`). `boundTarget` + `boundSub` is what the next pod call acts as
+    (`boundSub:null` with `boundTarget` set = sign-in pending, nothing injected; `authenticated:false`
+    = no live sign-in on that target). Target names come ONLY from `identity_targets` — never invent
+    one; several and none named by the user → ask.
   - Exactly ONE live `sub` on the needed instance → `identity_select {target}` silently.
   - 2+ live subs and the user named none → ALWAYS ask which, offering each `sub` verbatim plus
     "another user"; then `identity_select {target, sub}`.

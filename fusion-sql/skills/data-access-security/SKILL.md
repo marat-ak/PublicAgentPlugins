@@ -1,6 +1,6 @@
 ---
 name: data-access-security
-description: Use before emitting or running ANY Fusion SQL — a final answer, a data model's dataset or LOV SQL, a runSql / run_sql / explain_plan probe, SQL in prose or in a hand-off — to apply the kernel's data-access rule: the SQL it secures reads only the data the running user may see, the rest runs plain. Covers the pod `instance` the plan needs, the developer PLAN from getDataAccessPredicate (one secured CTE per table + the rewrite map, a grade and the keying — table, or the OTBI subject area with `subjectArea` — on every condition, blocked / unsecured tables), the END-USER plan getSecuredQueryPlan (subject-area gate + column whitelist with filter-only columns, the strictest of candidates, the structural none rule, the no-area policy; the end-user overlay owns that flow), running or delivering the statement with the plan's slots left in place through ONE runSecuredSql call (the server fills Oracle's own condition — FND_DATA_SECURITY, by object + privilege NAME, for the user whose session runs the SQL — the text never enters the conversation; deliver run / dataset / file), sign-in only on an auth-required reply, sensitive tables and masked columns, the three access verdicts (restricted / none / global) and their wording, the "built for the running user" rule for data models, plain (unsecured) SQL, and the mandatory `Data access:` lines of the Filter check.
+description: Use before emitting or running ANY Fusion SQL — a final answer, a data model's dataset or LOV SQL, a runSql / run_sql / explain_plan probe, SQL in prose or in a hand-off — to apply the kernel's data-access rule: the SQL it secures reads only the data the running user may see, the rest runs plain. Covers the pod `instance` the plan needs, the developer PLAN from getDataAccessPredicate (one secured CTE per table + the rewrite map, a grade and the keying — table, or the OTBI subject area with `subjectArea` — on every condition, blocked / unsecured tables), the END-USER plan getSecuredQueryPlan (subject-area gate + column whitelist with filter-only columns, the strictest of candidates, the structural none rule, the no-area policy; the end-user overlay owns that flow), running or delivering the statement with the plan's slots left in place through ONE runSecuredSql call (the server fills Oracle's own condition — FND_DATA_SECURITY, by object + privilege NAME, for the user whose session runs the SQL — the text never enters the conversation; deliver run / dataset / file), sensitive tables and masked columns, the three access verdicts (restricted / none / global) and their wording, the "built for the running user" rule for data models, plain (unsecured) SQL, and the mandatory `Data access:` lines of the Filter check.
 ---
 
 # Data-access security — secured SQL reads only the user's data
@@ -153,9 +153,8 @@ cannot see show empty"); keep an inner join only where the user's question needs
 `runSecuredSql` fills the condition of the user whose session executes this conversation's SQL (the pod
 sign-in; in CloudBeaver the editor connection's user): a secured run returns exactly that user's rows. A **data model authored
 for others** embeds the AUTHOR's condition at authoring time — state it in the deliverable ("data access
-condition built for <user>, regenerate for another author"), never hide it. **Sign-in**: never pre-check
-sign-ins (`identity_targets`) before a secured run — only an `auth-required` REPLY from `runSecuredSql`
-means one is needed (resolve it per the kernel's pod-identity rule, then call again). Never emit the SQL
+condition built for <user>, regenerate for another author"), never hide it. **Sign-in** follows the
+kernel's pod-identity rule — an `auth-required` reply from `runSecuredSql` included. Never emit the SQL
 unsecured as a substitute.
 
 ## Deliverables — the slotted SQL is shown, the executable text is delivered by the tool
