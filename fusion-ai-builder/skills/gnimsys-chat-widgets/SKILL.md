@@ -90,10 +90,15 @@ non-submitting button.
 ## The datasource — Business Objects API by default, Fusion REST on request
 
 The dashboard datasource shape: `{ "type": "rest", "target", "method": "GET", "url", "headers"?,
-"body"?, "dataTransform"? }`, with `valueField` + `labelField` (+ optional `searchTemplate
-{ "minChars", "debounceMs" }`) on the field. `target` decides the query language the chat speaks:
-`"BOSS"` = the Business Objects API, every other target = Fusion REST. Write a BOSS datasource
-unless the user asks for Fusion REST.
+"body"?, "dataTransform"? }`, with `valueField` + `labelField` (+ optional `searchField` and
+`searchTemplate { "minChars", "debounceMs" }`) on the field. `target` decides the query language
+the chat speaks: `"BOSS"` = the Business Objects API, every other target = Fusion REST. Write a
+BOSS datasource unless the user asks for Fusion REST.
+
+The url carries only FIXED filters — never `{{query}}` or any other placeholder: the `RETURN` node
+evaluates every `{{…}}` in its output, so a placeholder reaches the chat empty. The chat builds the
+search clause itself from the typed text on `searchField` (else `labelField`) and ANDs it with the
+url's fixed filter; empty text = the fixed filter only.
 
 ### BOSS — `"target": "BOSS"` (the default)
 
@@ -102,18 +107,16 @@ The `select` field (inside `fields`; the renderer stringifies the whole block):
 ```json
 { "id": "agent", "type": "select", "label": "Agent", "required": true,
   "dataSource": { "type": "rest", "target": "BOSS", "method": "GET",
-    "url": "/api/boss/data/objects/ora/commonFusionAI/agents/v1/$en/workflows?$filter=status = 'PUBLISHED' and name ~LIKE '%{{query}}%'&$fields=workflowCode,name" },
+    "url": "/api/boss/data/objects/ora/commonFusionAI/agents/v1/$en/workflows?$filter=status = 'PUBLISHED'&$fields=workflowCode,name" },
   "valueField": "workflowCode", "labelField": "name", "searchTemplate": { "minChars": 2 } }
 ```
 
 - `url` = `/api/boss/data/objects/ora/<family>/<product>/v1/$en/<object>?…` — the object's
   collection.
-- `{{query}}` sits inside the url's `$filter`, within single quotes — `<attr> ~LIKE '%{{query}}%'`,
-  joined to any fixed condition with `and`. The chat substitutes the typed text (single quotes
-  doubled) and URL-encodes the whole `$filter`: write it unencoded. MANDATORY for a large set; a
-  `$filter` without it is paged but unsearchable (small lists only).
+- `$filter` = the fixed condition only (omit it when there is none). The chat ANDs
+  `<searchField> ~LIKE '%<text>%'` to it and URL-encodes the whole `$filter`: write it unencoded.
 - `$fields` lists at least the `valueField` and the `labelField`.
-- `valueField` must identify ONE row without the url's own filter: the chat fetches the selected
+- `valueField` must identify ONE row without the url's fixed filter: the chat fetches the selected
   value's label by `$filter=(<valueField> = 'k1' or …)` on the url with its whole `$filter`
   removed — a unique code, never a name or a value unique only inside the filter.
 - Never `$limit` or `$offset` (nor `q`, `limit`, `offset`) in the url — the chat writes `$limit`
@@ -148,9 +151,13 @@ The `select` field (inside `fields`; the renderer stringifies the whole block):
 ### Fusion REST — `"target": "FA"`, only when the user asks for it
 
 - `"url": "/fscmRestApi/resources/…"`, e.g. `"url":
-  "/fscmRestApi/resources/11.13.18.05/itemsV2?q=UPPER(ItemNumber) LIKE '{{query}}%'&onlyData=true"`.
-- `{{query}}` in the url's `q` clause is MANDATORY for a large set — the chat substitutes the typed
-  text (URL-encoded, quoting-safe); a url without it is paged but unsearchable (small lists only).
+  "/fscmRestApi/resources/11.13.18.05/itemsV2?onlyData=true"` with `"searchField": "ItemNumber"`.
+- `q` = the fixed condition only (omit it when there is none). The chat ANDs
+  `UPPER(<searchField>) LIKE '%<TEXT>%'` to it — the typed text upper-cased, a case-insensitive
+  contains.
+- The chat sends `REST-Framework-Version: 4` itself — leave it out of `headers`. One written there
+  must be `2` or higher: a lower value is refused and the field shows "datasource failed: … cannot
+  carry the search filter". A BOSS datasource gets no framework header.
 - Never a `limit` or `offset` in the url — the chat appends them and pages; it fetches the
   selected value's label itself by `<valueField> IN (…)`, so `valueField` must be a filterable key
   attribute of the resource. `$filter` / `$fields` are BOSS syntax, never on an FA url.
@@ -282,13 +289,14 @@ organization's subinventories → the transfer. Back returns
 - A model generating, copying or "formatting" the block; option values invented or labels sent as
   values; the JSON pretty-printed (newlines break the single-line regex).
 - Both `options` and `dataSource` on one `select`, or neither; a `dataSource` without the user
-  confirming `datasources.allowInline` and the prefix; a large set without `{{query}}`, or inline
-  `options` for one; `radio` with `multi`.
+  confirming `datasources.allowInline` and the prefix; inline `options` for a large set; `radio`
+  with `multi`.
+- `{{query}}` or any other placeholder in a datasource url — the chat builds the search clause.
 - A Fusion REST (`"target": "FA"`) datasource the user did not ask for. On a BOSS url: `q`,
-  `limit`, `offset`, `$limit` or `$offset`; `{{query}}` outside the `$filter`; `$fields` without
-  the `valueField` or the `labelField`; a `valueField` unique only inside the url's own filter; an
-  object path or attribute name that no tool found and the user did not give. On an FA url:
-  `$filter` or `$fields`; a `limit` or `offset`.
+  `limit`, `offset`, `$limit` or `$offset`; `$fields` without the `valueField` or the
+  `labelField`; a `valueField` unique only inside the url's fixed filter; an object path or
+  attribute name that no tool found and the user did not give. On an FA url: `$filter` or
+  `$fields`; a `limit` or `offset`.
 - A block without `buttons`; a button without `data`, two buttons with the same `data`, a `data`
   key equal to a field id; a
   `SWITCH` missing a button's `data` value as a case; routing on the readable line or the button

@@ -68,21 +68,27 @@ test('gnimsys-chat-widgets: BOSS is the default datasource, Fusion REST only on 
   const ds = dsSection.replace(/\s+/g, ' ');
   assert.match(ds, /`target` decides the query language the chat speaks: `"BOSS"` = the Business Objects API, every other target = Fusion REST/);
   assert.match(ds, /Write a BOSS datasource unless the user asks for Fusion REST/);
-  assert.match(ds, /with `valueField` \+ `labelField` \(\+ optional `searchTemplate \{ "minChars", "debounceMs" \}`\) on the field/);
+  assert.match(ds, /with `valueField` \+ `labelField` \(\+ optional `searchField` and `searchTemplate \{ "minChars", "debounceMs" \}`\) on the field/);
   const boss = dsSection.indexOf('### BOSS — `"target": "BOSS"` (the default)');
   const fa = dsSection.indexOf('### Fusion REST — `"target": "FA"`, only when the user asks for it');
   assert.ok(boss > 0 && fa > boss, 'BOSS subsection must come before the FA one');
   assert.match(skill, /description: .*server-searched datasource \(Business Objects API by default, Fusion REST on request\)/);
 });
 
-test('gnimsys-chat-widgets: the BOSS rules — {{query}} inside $filter, $fields with value+label, valueField unique without the url filter, no paging params', () => {
+test('gnimsys-chat-widgets: no placeholder in a datasource url — fixed filters only, the chat builds the search clause on searchField else labelField', () => {
+  const ds = dsSection.replace(/\s+/g, ' ');
+  assert.match(ds, /The url carries only FIXED filters — never `\{\{query\}\}` or any other placeholder: the `RETURN` node evaluates every `\{\{…\}\}` in its output, so a placeholder reaches the chat empty/);
+  assert.match(ds, /The chat builds the search clause itself from the typed text on `searchField` \(else `labelField`\) and ANDs it with the url's fixed filter; empty text = the fixed filter only/);
+  for (const m of skill.matchAll(/"url":\s*"([^"]*)"/g)) assert.ok(!m[1].includes('{{'), `placeholder in url ${m[1]}`);
+  assert.match(flat, /`\{\{query\}\}` or any other placeholder in a datasource url — the chat builds the search clause/);
+});
+
+test('gnimsys-chat-widgets: the BOSS rules — $filter fixed only, $fields with value+label, valueField unique without the url filter, no paging params', () => {
   const b = sub('BOSS');
   assert.match(b, /`url` = `\/api\/boss\/data\/objects\/ora\/<family>\/<product>\/v1\/\$en\/<object>\?…`/);
-  assert.match(b, /`\{\{query\}\}` sits inside the url's `\$filter`, within single quotes — `<attr> ~LIKE '%\{\{query\}\}%'`/);
-  assert.match(b, /The chat substitutes the typed text \(single quotes doubled\) and URL-encodes the whole `\$filter`: write it unencoded/);
-  assert.match(b, /MANDATORY for a large set; a `\$filter` without it is paged but unsearchable \(small lists only\)/);
+  assert.match(b, /`\$filter` = the fixed condition only \(omit it when there is none\)\. The chat ANDs `<searchField> ~LIKE '%<text>%'` to it and URL-encodes the whole `\$filter`: write it unencoded/);
   assert.match(b, /`\$fields` lists at least the `valueField` and the `labelField`/);
-  assert.match(b, /`valueField` must identify ONE row without the url's own filter: the chat fetches the selected value's label by `\$filter=\(<valueField> = 'k1' or …\)` on the url with its whole `\$filter` removed/);
+  assert.match(b, /`valueField` must identify ONE row without the url's fixed filter: the chat fetches the selected value's label by `\$filter=\(<valueField> = 'k1' or …\)` on the url with its whole `\$filter` removed/);
   assert.match(b, /Never `\$limit` or `\$offset` \(nor `q`, `limit`, `offset`\) in the url — the chat writes `\$limit` \(the page size\) and `\$offset`/);
   assert.match(b, /it never asks for a row count/);
   assert.match(b, /Omit `dataTransform`: the response is `\{items, hasMore\}`/);
@@ -98,14 +104,16 @@ test('gnimsys-chat-widgets: the BOSS example field is the contract\'s worked exa
   assert.ok(!('options' in f), 'a datasource select carries no inline options');
   assert.deepEqual(f.dataSource, {
     type: 'rest', target: 'BOSS', method: 'GET',
-    url: "/api/boss/data/objects/ora/commonFusionAI/agents/v1/$en/workflows?$filter=status = 'PUBLISHED' and name ~LIKE '%{{query}}%'&$fields=workflowCode,name",
+    url: "/api/boss/data/objects/ora/commonFusionAI/agents/v1/$en/workflows?$filter=status = 'PUBLISHED'&$fields=workflowCode,name",
   });
   assert.equal(f.valueField, 'workflowCode');
   assert.equal(f.labelField, 'name');
   const [path, query] = f.dataSource.url.split('?');
   assert.match(path, /^\/api\/boss\/data\/objects\/ora\/[^/]+\/[^/]+\/v1\/\$en\/[^/]+$/);
   const params = Object.fromEntries(query.split('&').map((p) => [p.slice(0, p.indexOf('=')), p.slice(p.indexOf('=') + 1)]));
-  assert.ok(params.$filter.includes("'%{{query}}%'"), '{{query}} sits inside the $filter quotes');
+  assert.ok(!f.dataSource.url.includes('{{'), 'no placeholder in the url');
+  assert.equal(params.$filter, "status = 'PUBLISHED'", 'the $filter is the fixed condition only');
+  assert.ok(!('searchField' in f), 'the label is the searched attribute here');
   assert.deepEqual(params.$fields.split(',').sort(), [f.labelField, f.valueField].sort());
   for (const k of ['q', 'limit', 'offset', '$limit', '$offset']) assert.ok(!(k in params), `no ${k} on a BOSS url`);
   assert.ok(!('dataTransform' in f.dataSource));
@@ -131,9 +139,10 @@ test('gnimsys-chat-widgets: the BOSS object and attribute names come from the co
 
 test('gnimsys-chat-widgets: Fusion REST keeps its rules as the on-request alternative', () => {
   const fa = sub('Fusion REST');
-  assert.match(fa, /e\.g\. `"url": "\/fscmRestApi\/resources\/11\.13\.18\.05\/itemsV2\?q=UPPER\(ItemNumber\) LIKE '\{\{query\}\}%'&onlyData=true"`/);
-  assert.match(fa, /`\{\{query\}\}` in the url's `q` clause is MANDATORY for a large set/);
-  assert.match(fa, /a url without it is paged but unsearchable \(small lists only\)/);
+  assert.match(fa, /e\.g\. `"url": "\/fscmRestApi\/resources\/11\.13\.18\.05\/itemsV2\?onlyData=true"` with `"searchField": "ItemNumber"`/);
+  assert.match(fa, /`q` = the fixed condition only \(omit it when there is none\)\. The chat ANDs `UPPER\(<searchField>\) LIKE '%<TEXT>%'` to it — the typed text upper-cased, a case-insensitive contains/);
+  assert.match(fa, /The chat sends `REST-Framework-Version: 4` itself — leave it out of `headers`\. One written there must be `2` or higher: a lower value is refused and the field shows "datasource failed: … cannot carry the search filter"\. A BOSS datasource gets no framework header/);
+  assert.doesNotMatch(fa, /TODO|TBD/);
   assert.match(fa, /Never a `limit` or `offset` in the url — the chat appends them and pages/);
   assert.match(fa, /`valueField` must be a filterable key attribute of the resource/);
   assert.match(fa, /`\$filter` \/ `\$fields` are BOSS syntax, never on an FA url/);
@@ -145,7 +154,7 @@ test('gnimsys-chat-widgets: Fusion REST keeps its rules as the on-request altern
 test('gnimsys-chat-widgets: the mistakes list names the datasource mistakes per target', () => {
   const mistakes = flat.slice(flat.indexOf('## Common mistakes'));
   assert.match(mistakes, /A Fusion REST \(`"target": "FA"`\) datasource the user did not ask for/);
-  assert.match(mistakes, /On a BOSS url: `q`, `limit`, `offset`, `\$limit` or `\$offset`; `\{\{query\}\}` outside the `\$filter`; `\$fields` without the `valueField` or the `labelField`; a `valueField` unique only inside the url's own filter; an object path or attribute name that no tool found and the user did not give/);
+  assert.match(mistakes, /On a BOSS url: `q`, `limit`, `offset`, `\$limit` or `\$offset`; `\$fields` without the `valueField` or the `labelField`; a `valueField` unique only inside the url's fixed filter; an object path or attribute name that no tool found and the user did not give/);
   assert.match(mistakes, /On an FA url: `\$filter` or `\$fields`; a `limit` or `offset`/);
 });
 
