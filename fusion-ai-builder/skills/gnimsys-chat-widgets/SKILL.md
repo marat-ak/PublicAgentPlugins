@@ -1,6 +1,6 @@
 ---
 name: gnimsys-chat-widgets
-description: Use when a chat workflow talks to the user through OUR chat component (`xxx-gnimsys-ai-chat` — the user says so, never assumed) and a turn needs a selection or a decision — a select with inline options or a server-searched datasource (Business Objects API by default, Fusion REST on request), a radio or checkbox list, hidden turn state, Approve/Back/Cancel buttons — emitted as a `gnimsys-ui` block from a CODE node and read back from the `<gnimsysSubmit>` envelope on the next turn. Oracle chat surfaces get pills instead (widgets-and-forms).
+description: Use when a chat workflow talks to the user through OUR chat component (`xxx-gnimsys-ai-chat` — the user says so, never assumed) and a turn needs a selection or a decision — a select with inline options or a server-searched datasource (Business Objects API by default, Fusion REST or a BI Publisher report on request), its dropdown optionally a table and its submit optionally the whole picked row, a radio or checkbox list, hidden turn state, Approve/Back/Cancel buttons — emitted as a `gnimsys-ui` block from a CODE node and read back from the `<gnimsysSubmit>` envelope on the next turn. Oracle chat surfaces get pills instead (widgets-and-forms).
 ---
 
 # gnimsys chat widgets — selection and decision turns in our chat component
@@ -48,7 +48,7 @@ array for multi / `checkbox`, string for `hidden`), `help`.
 
 | `type` | Options | Value |
 |---|---|---|
-| `select` | EXACTLY ONE of `options: [{ "value", "label" }]` (any length) or `dataSource` + `valueField` + `labelField` | scalar; `"multi": true` → array |
+| `select` | EXACTLY ONE of `options: [{ "value", "label" }]` (any length) or `dataSource` + `valueField` + `labelField`; optional `collectionTemplateTable` and `submit` (section "Table dropdown and whole-row submit") | scalar; `"multi": true` → array; `submit: "item"` → the submit carries the row(s), `value` presets stay keys |
 | `radio` | `options` inline only, optional `description` per option | scalar |
 | `checkbox` | `options` inline only, optional `description` per option | array |
 | `hidden` | — | string, echoed verbatim in the submit |
@@ -75,10 +75,15 @@ non-submitting button.
 - `dataSource` for anything large or searchable — items, serials, lots, suppliers (thousands):
   the chat serves it through a JET DataProvider with SERVER search and paging, with the USER's
   session. Only when the user confirms the page configuration allows it: config
-  `datasources.allowInline` true AND a `url` starting with one of `datasources.allowPrefixes`;
-  otherwise the field shows "datasource not allowed" and the block can leave only through a
-  `validate: false` button. Never assume it is allowed. Business Objects API (BOSS) by default,
-  Fusion REST only when the user asks for it — next section.
+  `datasources.allowInline` true AND a `url` starting with one of `datasources.allowPrefixes` (a
+  report: an entry covering the report service, below); otherwise the field shows "datasource not
+  allowed" and the block can leave only through a `validate: false` button. Never assume it is
+  allowed. Business Objects API (BOSS) by default, Fusion REST only when the user asks for it, a BI
+  Publisher report only when the user names one — next section.
+- A table dropdown (`collectionTemplateTable`) when the user tells rows apart by several attributes
+  (supplier, number, site, city) — not a long concatenated `label`; `submit: "item"` when the next
+  turn needs the picked row's attributes, not only its key. Both optional and independent; a
+  select without them behaves as before.
 - `hidden` carries what the next turn needs and the user does not choose: ids picked earlier, the
   step name, a draft — strings; accumulated wizard state as ONE JSON string in one field.
   CONVERSATION variables stay the chat memory; the hidden field is the per-block carrier that
@@ -87,18 +92,21 @@ non-submitting button.
   `validate: false` (a `required` field then submits `null` / `[]`); a destructive or final
   button carries `confirm`.
 
-## The datasource — Business Objects API by default, Fusion REST on request
+## The datasource — Business Objects API by default, Fusion REST or a BI Publisher report on request
 
-The dashboard datasource shape: `{ "type": "rest", "target", "method": "GET", "url", "headers"?,
-"body"?, "dataTransform"? }`, with `valueField` + `labelField` (+ optional `searchField` and
-`searchTemplate { "minChars", "debounceMs" }`) on the field. `target` decides the query language
-the chat speaks: `"BOSS"` = the Business Objects API, every other target = Fusion REST. Write a
-BOSS datasource unless the user asks for Fusion REST.
+Two shapes, each with `valueField` + `labelField` (+ optional `searchField` and
+`searchTemplate { "minChars", "debounceMs" }`) on the field: the dashboard REST datasource
+`{ "type": "rest", "target", "method": "GET", "url", "headers"?, "body"?, "dataTransform"? }` and a
+BI Publisher report `{ "type": "BIPReport", … }` (its own subsection below). On a REST datasource
+`target` decides the query language the chat speaks: `"BOSS"` = the Business Objects API, every
+other target = Fusion REST. Write a BOSS datasource unless the user asks for Fusion REST or names a
+BI Publisher report.
 
 The url carries only FIXED filters — never `{{query}}` or any other placeholder: the `RETURN` node
 evaluates every `{{…}}` in its output, so a placeholder reaches the chat empty. The chat builds the
 search clause itself from the typed text on `searchField` (else `labelField`) and ANDs it with the
-url's fixed filter; empty text = the fixed filter only.
+url's fixed filter; empty text = the fixed filter only. The same holds for every value in the
+block: no `{{…}}` anywhere — report `parameters` are literal values the renderer writes.
 
 ### BOSS — `"target": "BOSS"` (the default)
 
@@ -164,13 +172,123 @@ The `select` field (inside `fields`; the renderer stringifies the whole block):
 - Omit `dataTransform` for the Fusion REST shape (the body's `items` array, or the body when it is
   an array).
 
-### Both targets
+### Both REST targets
 
 - `dataTransform` `"map"` = the dotted path to the row array, only for a body that is neither an
   array nor `{items}`. Never `"type": "lodash"`: the chat does not evaluate expressions and shows
   such a field as unavailable.
 - The page's `widgets[widgetId].fields[fieldId]` overlay wins over the block's datasource.
   `dependsOn` (cascading selects) is not in this slice — a dependent list is the next turn's block.
+
+### BI Publisher report — `"type": "BIPReport"`, only when the user names the report
+
+The report must exist: its catalog path, its data model's row elements, its columns and its
+parameters come from the user or from a source the user gives (a sample of the report's data
+XML) — never invented, guessed or derived from a table or REST resource of the same data. No tool
+of this agent reads BI Publisher: no `fai_*` tool and no `aistudio` CLI command opens a report, its
+data model or its output. Ask the user for each name that is missing.
+
+A multi select over a report the user named (every name in it from the user), searched by the
+report, its dropdown a table, submitting the picked rows:
+
+```json
+{ "id": "sites", "type": "select", "multi": true, "label": "Supplier sites", "required": true,
+  "dataSource": { "type": "BIPReport", "target": "FA", "reportName": "/Custom/Gnimsys/LOV/SUPPLIER_SITES.xdo",
+    "recordsetSelector": "DATA_DS", "recordSelector": "G_1",
+    "columns": [ { "name": "VENDOR_SITE_ID", "type": 2 }, { "name": "VENDOR_NAME" }, { "name": "VENDOR_NUMBER" },
+                 { "name": "VENDOR_SITE_CODE" }, { "name": "CITY" }, { "name": "SITE_LABEL" } ],
+    "parameters": [ { "name": "P_BU_NAME", "value": "US1 Business Unit" } ],
+    "searchParam": "P_SEARCH" },
+  "valueField": "VENDOR_SITE_ID", "labelField": "SITE_LABEL", "searchTemplate": { "minChars": 2 },
+  "collectionTemplateTable": [ { "field": "VENDOR_NAME", "headerText": "Supplier" }, { "field": "VENDOR_NUMBER", "headerText": "Number" },
+                               { "field": "VENDOR_SITE_CODE", "headerText": "Site" }, { "field": "CITY", "headerText": "City" } ],
+  "submit": "item" }
+```
+
+- `target` is `"FA"` only (the report service is a pod path of the FA endpoint). `reportName` = the
+  absolute catalog path `/…/NAME.xdo`; `recordsetSelector` = the element wrapping the rows (the data
+  model's root, e.g. `DATA_DS`); `recordSelector` = one row's element (the data set's group, e.g.
+  `G_1`).
+- `columns` = `[{ "name", "type"? }]`, at least one, names unique, each the element name the data
+  model writes: `type` `2` = number, `1` or none = text (dates as the report writes them). A row is
+  exactly these columns; an element BI Publisher leaves out (a NULL) is `null`; a row without its
+  `valueField` value, or a number column holding text, fails the run.
+- `valueField`, `labelField` and `searchField` must be declared columns, else the chat refuses the
+  block. `valueField` = a column that identifies one row.
+- `parameters` = fixed literal values `[{ "name", "value" }]`: a string, a number, or an array of
+  them (a multi-value parameter); names unique, never the `searchParam`. A value the workflow
+  knows (an id picked earlier) is written as a literal by the renderer, never as a template.
+- With `searchParam`: each distinct typed text is one report run with that parameter = the text
+  as typed (`""` when nothing is typed — the list shown before typing, and the run that finds a
+  preset `value`'s row); the report does the matching, e.g. its query filters
+  `(:P_SEARCH IS NULL OR UPPER(VENDOR_NAME) LIKE '%'||UPPER(:P_SEARCH)||'%')`. `searchTemplate`
+  applies; `searchField` is refused.
+- Without `searchParam`: the report runs once and the chat filters its rows on `searchField`
+  (else `labelField`, a case-insensitive contains); `searchTemplate` is refused. Only for a report
+  whose whole output is small.
+- BI Publisher returns the whole output in one answer and the chat pages it (`datasources.pageSize`):
+  the report bounds its own row count. A failed run shows on the field as
+  `report <path> failed: <fault text>`.
+- The page's `datasources.allowInline` must be true and `datasources.allowPrefixes` must hold an
+  entry covering `/xmlpserver/services/ExternalReportWSSService`, e.g. `"/xmlpserver/"` — confirmed
+  by the user like the rest of the config; none there → say so. The page's overlay may carry a
+  report datasource too; the block's `collectionTemplateTable` and `submit` stay as written.
+- Not yet proven on a pod — the README's `## Known issues & limitations` lists each as open until
+  the user's first page test: the `runReport` call through the page's Visual Builder FA service
+  connection and through the chat debugger; Visual Builder reading the `application/soap+xml`
+  answer as text; the real BI Publisher fault and `reportBytes` shapes; how BI Publisher treats
+  the empty `searchParam` value; the report's real output volume.
+
+## Table dropdown and whole-row submit — `collectionTemplateTable`, `submit`
+
+Both are optional `select` keys.
+
+- `collectionTemplateTable: [{ "field", "headerText"? }]` — at least one, each `field` once
+  (`headerText` defaults to the field). The dropdown is a table of these columns over the
+  select's rows, the typed text highlighted. Single: a row click (or Enter) picks that row. Multi:
+  the table's row selection is the value. The input still shows `labelField` (inline: `label`).
+- A column's `field`: a report column (checked by the chat), a field of some inline option
+  (`value`, `label` or its own — checked), or a REST row field (not checked: a wrong name shows an
+  empty column — name only fields the resource returns, the url's `$fields` / `fields=` when it
+  has one).
+- `submit`: `"value"` (default — the key, as before) or `"item"` (the whole picked row). With
+  `"item"` the envelope carries, under the field id: single `{…row}`, `null` when unset; multi
+  `[{…row}, …]` in the order picked, `[]` when unset. `value` presets stay keys either way.
+- The row is what the select's data has: a report row = exactly its declared `columns`, typed; a
+  REST row = every field the resource returned — list only what the next turn needs in `$fields`
+  (BOSS) or `fields=` with `onlyData=true` (Fusion REST rows otherwise carry `links`); an inline
+  option = the option as written.
+- Inline options are rows only with `collectionTemplateTable` or `submit: "item"`: an option may
+  then carry more fields (strings, numbers, booleans, `null`) beside `value` and `label`, e.g.
+  `{ "value": "C1", "label": "Smith & Sons — NYC-01", "supplier": "Smith & Sons", "site": "NYC-01" }`.
+  Without either key any other option field is refused.
+- A validating button refuses while a picked key's row is not loaded (the field asks to pick it
+  again); a `validate: false` button sends the rows it knows.
+- Several entities in one list (a supplier and its site in one pick) = one row per combination
+  FROM THE SOURCE: a report whose data set returns supplier-site rows (the example above), or a
+  BOSS object / REST resource whose rows already are the combination. The chat neither joins two
+  sources nor flattens nested data — a column shows one field of the row; a REST `expand` is no way
+  to put a second entity into the row.
+
+A BOSS select whose dropdown is a table and whose submit is the picked workflow's row:
+
+```json
+{ "id": "workflow", "type": "select", "label": "Workflow", "required": true,
+  "dataSource": { "type": "rest", "target": "BOSS", "method": "GET",
+    "url": "/api/boss/data/objects/ora/commonFusionAI/agents/v1/$en/workflows?$filter=status = 'PUBLISHED'&$fields=workflowCode,name,description,updatedBy" },
+  "valueField": "workflowCode", "labelField": "name", "searchTemplate": { "minChars": 2 },
+  "collectionTemplateTable": [ { "field": "name", "headerText": "Workflow" }, { "field": "workflowCode", "headerText": "Code" },
+                               { "field": "updatedBy", "headerText": "Updated by" } ],
+  "submit": "item" }
+```
+
+The report example's field in a block `supplierSites` titled "Pick the supplier sites", one site
+picked, submitted with its OK button (`data` `{ "decision": "OK" }`):
+
+```
+OK — Pick the supplier sites
+<gnimsysSubmit id="supplierSites">{"sites":[{"VENDOR_SITE_ID":400002,"VENDOR_NAME":"Smith & Sons","VENDOR_NUMBER":"S1001","VENDOR_SITE_CODE":"CHI-01","CITY":"Chicago","SITE_LABEL":"Smith & Sons — CHI-01"}],"decision":"OK"}</gnimsysSubmit>
+```
 
 ## Emit it — a `CODE` renderer and a `RETURN` (no model)
 
@@ -217,7 +335,12 @@ Approve — Select the destination subinventory
 
 - The envelope carries the widget `id` only. The JSON holds EVERY field by `id`, `hidden`
   included, then the clicked button's `data` merged on top; unset optional fields are `null`
-  (single) or `[]` (multi / `checkbox`); values are option `value`s, never labels.
+  (single) or `[]` (multi / `checkbox`); values are option `value`s, never labels — except a
+  `submit: "item"` select, which carries its row(s).
+- A `submit: "item"` field reads differently: where a node read a key
+  (`…values.<fieldId>`), it now reads an object (`…values.<fieldId>.VENDOR_NAME`, `null` unset) or,
+  multi, an array of objects in pick order (`[]` unset). The key is the row's `valueField`
+  (inline: `value`). Changing a field to `"item"` changes every node that reads it.
 - Parser `CODE` node `PARSE_SUBMIT` (`returnType: "object"`), the first node after `START` on
   a chat workflow that emits blocks (copy):
 
@@ -244,7 +367,8 @@ return { submitted: true, id: m[1], values: JSON.parse(m[2]) };
   the workflow fetched, or a BO lookup by the submitted id — mandatory after a `dataSource`, whose
   rows the workflow never saw) before any write; a value outside the list re-emits the block with
   an explanation above it. `hidden` values come back as sent, but as text from the client — parse
-  and check them the same way.
+  and check them the same way. A submitted row is client data too: re-read the record by the
+  row's key before a write; its other fields are what the user saw, never the values written.
 - After a click the block turns read-only in the chat (one submit per rendered block): a corrected
   choice is a NEW block in a new turn, never "edit your answer".
 
@@ -292,11 +416,22 @@ organization's subinventories → the transfer. Back returns
   confirming `datasources.allowInline` and the prefix; inline `options` for a large set; `radio`
   with `multi`.
 - `{{query}}` or any other placeholder in a datasource url — the chat builds the search clause.
+  `{{…}}` in report `parameters` or anywhere else in the block — literal values only.
 - A Fusion REST (`"target": "FA"`) datasource the user did not ask for. On a BOSS url: `q`,
   `limit`, `offset`, `$limit` or `$offset`; `$fields` without the `valueField` or the
   `labelField`; a `valueField` unique only inside the url's fixed filter; an object path or
   attribute name that no tool found and the user did not give. On an FA url: `$filter` or
   `$fields`; a `limit` or `offset`.
+- A BI Publisher report the user did not name; a report path, row element, column name or type,
+  or parameter the user did not give. On a report: a `target` other than `"FA"`; `searchField`
+  together with `searchParam`; `searchTemplate` without `searchParam`; a `valueField`,
+  `labelField`, `searchField` or table field that is not a declared column; the `searchParam`
+  also in `parameters`; no `searchParam` on a large list.
+- Extra inline option fields without `collectionTemplateTable` or `submit: "item"`; a table field
+  no option carries, or a REST table field the url does not return.
+- A node still reading a key from a field switched to `submit: "item"`; writing from the submitted
+  row's fields instead of re-reading the record by its key; several entities joined in the chat
+  or through `expand` instead of one row per combination from the source.
 - A block without `buttons`; a button without `data`, two buttons with the same `data`, a `data`
   key equal to a field id; a
   `SWITCH` missing a button's `data` value as a case; routing on the readable line or the button
