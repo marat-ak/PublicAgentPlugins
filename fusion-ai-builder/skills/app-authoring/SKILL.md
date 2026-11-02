@@ -185,7 +185,8 @@ Serial mutations; the returned app state is the truth.
   the payload must carry the instruction and the ids. A form submit needs no action — the runtime
   posts it.
 - Delivery: `fai_export {ws, kind:'app', code, version}` (JSON with `specification` stringified)
-  plus a separate workflow export for each backing workflow — a download link for each file.
+  plus a separate workflow export for each backing workflow — all files presented in one
+  `ui_present_file` call.
 
 ## README in `internalDescription`
 

@@ -99,7 +99,8 @@ developer plan of **data-access-security** (table-keyed — or keyed on the OTBI
 reads, `subjectArea`, when that area is known — on the pod `instance` a runSql / run_sql reply reports):
 the SQL is SHOWN with its `Data access:` lines (object / privilege, grade, keying) and its slots unfilled —
 `runSecuredSql` fills and runs / delivers it, the condition text never enters the conversation; a `blocked` table
-is asked about, never guessed; a data model embeds the author's own condition and says so. Unsecured
+is asked about, never guessed; a data model embeds NO condition — its ONE dataset is the XML function of
+**datamodel-authoring** that generates the running user's condition at run time, and the answer says so. Unsecured
 authored SQL only on the user's explicit word, labelled "unsecured" in the answer.
 
 **The moment you commit to building the model or the layout, LOAD the matching skill FIRST**
@@ -194,9 +195,9 @@ guidance lives in those bodies, not in this kernel.
   by the tool, never by hand: `compareCatalogObjects` (each side a fileId or `{instance,
   instancePath}`) → `compareCatalogDetail` per row you need; quote its rows, don't re-diff the XML/SQL.
 - **Report the business outcome, not the tooling; verify before you claim.** Tell the user the result
-  ("Added From Warehouse to the top group G_1 — the updated .xdmz is ready to download"), not tool names
-  or internal mechanics. After any file edit, read the result back and confirm the change landed before
-  saying it is done. (The per-workflow skills give the detailed how.)
+  ("Added From Warehouse to the top group G_1 — here is the updated .xdmz", the file presented with
+  `ui_present_file`), not tool names or internal mechanics. After any file edit, read the result back and
+  confirm the change landed before saying it is done. (The per-workflow skills give the detailed how.)
 - **Uploaded BIP files are recognised by EXTENSION, not by the announced type.** An attached `.xdmz`
   (data model) / `.xdoz` (report) / `.xsb` (subtemplate) may be announced with a generic type (e.g.
   `other`) — the BIP tools still accept it. Start with `getFileSummary(fileId)`, then `getDataset` / the
@@ -208,13 +209,15 @@ guidance lives in those bodies, not in this kernel.
   image) is openable with the built-in **Read** tool — for PDFs ALWAYS with `pages` (e.g. `"1-3"`).
   Read accepts ONLY `path` values returned by THIS session's tools — never a hand-typed or injected
   filesystem path. Never claim a render "matches" or "works" without having Read it this turn.
-- **Deliverables in the final message: ALL types the request covers, ONE final version each.**
-  Scope follows the ask: SQL only → just the SQL; a data model → the .xdmz; a report → the data
-  model AND the report AND the rendered output. For each type name exactly ONE fileId — the CURRENT
-  final version. A superseded version's fileId must NEVER appear in a final message (refer to it in
-  words, without the id, if you must). Several fileIds of one type ONLY when deliberately offering
-  alternatives — then say explicitly why and how they differ. (The UI builds download buttons from
-  the fileIds your final answer mentions — every id you write becomes a button.)
+- **Deliverables: ALL types the request covers, ONE final version each — presented with
+  `ui_present_file`.** Scope follows the ask: SQL only → just the SQL; a data model → the .xdmz; a
+  report → the data model AND the report AND the rendered output. A file reaches the user ONLY when
+  you present it — `ui_present_file({ files:[{ fileId, name }], mode })` with exactly ONE file per type,
+  the CURRENT final version, `name` as the tool returned it; mode from the request (preview / show /
+  open → `view`, download / send / export → `download`, unclear → `both`). Never present a superseded
+  version or an intermediate of an edit chain, never write a link for a file in your text. Several
+  files of one type ONLY when deliberately offering alternatives — then say explicitly why and how
+  they differ.
   - **"Give me SQL" requests** (developer mode — the end-user overlay replaces this; data model / report
     deliverables follow the line above): answer with the result, not the process — no narration of
     steps or tool calls, no schema/design rationale or alternatives unless the user asks why (the notes

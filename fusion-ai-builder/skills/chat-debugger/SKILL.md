@@ -77,6 +77,8 @@ their counterpart is the record's node frames — an empty sidecar answer never 
     not the one this skill describes.
 - Opening again with other values reloads the panel (a fresh chat); the same values show the loaded
   one. Switching conversations closes the panel; nothing reopens by itself.
+- Previewing a file (`ui_present_file`) while the debugger is open adds a tab to the same side panel:
+  the debugger stays loaded (session kept, still takes `ui_side_panel_message`); the user flips back by its tab — never re-open it.
 - Switching `gnimsysUi` (on or off, at the user's ask) = an open with another value = a reload and
   a fresh pod conversation. A panel opened earlier in this conversation → first `AskUserQuestion`
   — export the debug conversation before the switch? ("Export, then switch" / "Switch without

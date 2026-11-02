@@ -145,9 +145,9 @@ size-driven and not your concern: every tool resolves both. Wire/native nodes ex
 
 **Payloads for the USER → `oic_export_payloads`.** "Give me the payloads / wire data / messages of these runs"
 is ONE call with conditions — `{instance, instanceIds | code+window/status, node?, kind?}` — that returns one
-zip (`fileId`, `name`, `downloadHint`, `manifest`). Offer the download via `downloadHint`; report from
-`manifest` what fell back wire→native and what was skipped. `status:"pending"` = budget hit, no file: call
-again. Never hand over a `path`, and never build the file list yourself.
+zip (`fileId`, `name`, `mime`, `size`, `manifest`). Present it with `ui_present_file` (instructions, Files for
+the USER); report from `manifest` what fell back wire→native and what was skipped. `status:"pending"` = budget
+hit, no file: call again. Never hand over a `path`, and never build the file list yourself.
 
 **A file INSIDE a payload → `oic_extract`, then `oic_get_extract` only for a fileId.** When a payload carries
 a document / attachment / image (typically one base64 field) or the user wants one branch of a message as a
@@ -161,8 +161,8 @@ payload states it (else the tool derives it or answers `needs-input`). An extern
 that node only. Across runs: ONE call with `instanceIds[]` or the run selector + `node {…}` + `nameFrom` (the
 path to each run's file name) → `extracted[]` + `skipped[]` with reasons. Extracted files are searchable
 with `oic_grep` (`glob:"*/extract/**"`). Call `oic_get_extract {treePath}` (or `treePaths`) ONLY when a
-`fileId` is needed — the user wants to download or preview the file; the link / preview come from the
-`fileId`. Never decode, quote or regex-strip base64 by hand.
+`fileId` is needed — the user wants to see or download the file — then present it with `ui_present_file`
+(mode from the request — instructions, Files for the USER). Never decode, quote or regex-strip base64 by hand.
 
 ## 7. From finding to FIX
 

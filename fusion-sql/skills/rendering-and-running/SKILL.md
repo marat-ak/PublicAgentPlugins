@@ -24,11 +24,19 @@ outputs) include a **`path`** field. Open it with the built-in **Read** tool —
   nodes; re-check group paths (`summarizeReportLayout`) against the data XML before re-rendering.
 - Fix → re-render → Read again. Iterate until it matches; only then report success.
 
+## 0b. Showing files to the USER — `ui_present_file`
+Every file tool returns `{ fileId, name, mime, size, … }` (several files: `files:[…]`) — no link. The
+user sees a file ONLY when you call `ui_present_file({ files:[{ fileId, name }], mode })`; mode from the
+request — preview / show / open / look at → `view`; download / send / give / export → `download`;
+unclear → `both`. Present the FINAL version only (never an intermediate of an edit chain), pass `name`
+as the tool returned it, never invent a fileId, never write a link for a file in your text. Embedded
+hosts show a download button only — never claim the file was opened there.
+
 ## 1. Local render — `renderTemplate` (bip-render engine, RTF + XSL)
 `renderTemplate({ fileId, label?, locale?, xml? | dataFileId, format?, subtemplateFileIds? })` renders
 an RTF template (from a `.xdoz` by label/locale, or a bare `.rtf`) + XML data to
-**pdf / html / rtf / xlsx / xml / csv**. Returns `{ fileId, path, warning?, downloadHint }` → Read the
-`path` (rule 0), then share ONE download link for the final version.
+**pdf / html / rtf / xlsx / xml / csv**. Returns `{ fileId, name, mime, size, path?, warning? }` → Read
+the `path` (rule 0), then present the final version with `ui_present_file` (rule 0b).
 An **xsl** template (report-authoring) is compiled and run by BIP's own XSL engine in secure mode, as on
 the pod, to **text / txml / html** (default: its declared output method). A compile/XPath error comes
 back as `error` — this render is the stylesheet's only pre-upload check, so always run it.
@@ -136,5 +144,5 @@ those still modify on the pod.)
 ## The loop
 Author (grounded) → render locally → **Read + verify visually** → fix/iterate → live delivery →
 prepare* → upload (confirm first only in step-by-step mode) → runReport → **Read + verify again** →
-report the business outcome + ONE final download link. Pod dead + RTF/XSL → local render per rule 6, still
+report the business outcome + `ui_present_file` for the ONE final version. Pod dead + RTF/XSL → local render per rule 6, still
 delivered. Never claim "works"/"matches" without having LOOKED at the output this turn.

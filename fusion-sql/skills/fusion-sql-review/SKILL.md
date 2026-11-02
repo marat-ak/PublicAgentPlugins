@@ -103,7 +103,10 @@ playbook for BOTH a bare SQL request and the dataset SQL inside a data model.
    `runSecuredSql` call (the server fills Oracle's own condition for the running user — you never see
    it); `unsecured` → the table directly; `blocked` → ask the user (reason + candidates), never a guess;
    `masked` → the masked twin column only; an `auth-required` reply → sign in and call again, never
-   unsecured silently. Plain SQL under that rule skips the step. Its `Data access:`
+   unsecured silently. A DATA MODEL dataset is not delivered: it is the XML-function dataset of
+   **datamodel-authoring** — the same CTEs inside an inline function that fetches each pair's condition
+   at run time for the running user (no slot, no embedded condition, no lexical hand-off). Plain SQL
+   under that rule skips the step. Its `Data access:`
    lines (table[.column] → object / privilege [grade, keying table | keying area <subject area>]) join the Filter check.
 5. **Explain briefly, then give the final SQL in a single ```sql fenced block.** (Totals/subtotals
    are part of the OUTPUT shape — the 4b Aggregation ladder decides where they live, and its
@@ -184,7 +187,9 @@ UNION as the request needs). If you cannot tell whether it is one term or two pa
       data-access rule); no
       `blocked` table in secured SQL; masked columns read through their twin; the `Data access:` lines
       (object / privilege, grade, keying table or area) are in the Filter check; `none` access worded "no access
-      to <object> for <privilege>", never "no data"; a data model states the condition is the author's.
+      to <object> for <privilege>", never "no data"; a data model is the ONE XML-function dataset
+      (clob `RESULT`, the LOB data properties, the condition generated at run time for the running user —
+      never embedded, never passed through a lexical) and its `Data access:` line says so.
 - [ ] **Currency**: are amounts summed across possibly-mixed currencies? Note it or add a currency
       dimension / conversion.
 - [ ] **Status/date semantics**: is the intended status flag and date type (creation vs transaction vs

@@ -93,10 +93,11 @@ where it or a reference it points to conflicts with this plugin's text, THIS PLU
    the README in `description` (apps: `internalDescription`) reflects this version — skill
    **workflow-authoring** §README (Purpose · Callers · Flow · Inputs & state · Known issues · Changelog).
 6. **Export** — `fai_export {ws, kind, code, version:<n>}` (any of the 14 kinds; the zip carries
-   the full dependency closure) → `{fileId, name, downloadHint, files[], missing[], warnings[]}`.
+   the full dependency closure) → `{fileId, name, mime, size, files[], missing[], warnings[]}`.
    A non-empty `warnings[]` (missing dependency) is reported, never hidden.
-7. **Deliver** — each file by its `name` (see **Delivering files**), the version, the import
-   steps (skill **import-export**), the **Validation** section (Reporting below), then the DRAFT-save offer.
+7. **Deliver** — present each file with `ui_present_file` and name it by its `name` (see
+   **Delivering files**), the version, the import steps (skill **import-export**), the
+   **Validation** section (Reporting below), then the DRAFT-save offer.
 
 ## Standalone vs app-backed
 
@@ -184,12 +185,16 @@ rules above apply. Ours: **workflow-authoring** · **app-authoring** · **widget
 
 ## Delivering files
 
-- A `fai_export` / `fai_file_export` result carries its file's `downloadHint`: the download button
-  appears under your answer by itself. Name each file by its `name` (a bare `fileId` is not downloadable).
-- Write the link yourself when the user asks for a file again later, or when one answer delivers
-  several files (otherwise only the newest export gets a button): /api/files/<fileId>/download
-  for EACH file, as plain text next to its `name` (no backticks, no markdown link) renders as a
-  download link. A `fileId` belongs to this conversation; it does not resolve in another one.
+- A `fai_export` / `fai_file_export` result is the stored file `{fileId, name, mime, size}`; the
+  user sees NOTHING until you present it: `ui_present_file {files:[{fileId, name}], mode}` (full
+  name `mcp__ui__ui_present_file`), `fileId` and `name` exactly as the tool returned them — never
+  invented. Several files of one answer go in ONE call.
+- `mode` from the request: preview / show / open / look at → `view`; download / send / give /
+  export → `download`; unclear → `both`.
+- Its `note` says what the user got: an embedded chat shows a Download button only — never claim
+  a file was opened there. Never write a link or URL to a file in your text.
+- The user asks for a file again later → present its `fileId` again. A `fileId` belongs to this
+  conversation; it does not resolve in another one.
 
 ## Reporting
 

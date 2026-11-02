@@ -1,6 +1,6 @@
 ---
 name: import-export
-description: Use when delivering any artifact as a file (fai_export of a workflow, app, agent, tool, BO, deeplink, topic, policy, policy template, function, document schema, approval or connector; download link; version stamp; Studio import steps), when the user uploads an export or artifact file to work on (fai_import), when a copy must get a new code, when export reports missing dependencies, or when asked what Studio Import accepts.
+description: Use when delivering any artifact as a file (fai_export of a workflow, app, agent, tool, BO, deeplink, topic, policy, policy template, function, document schema, approval or connector; presenting the file with ui_present_file; version stamp; Studio import steps), when the user uploads an export or artifact file to work on (fai_import), when a copy must get a new code, when export reports missing dependencies, or when asked what Studio Import accepts.
 ---
 
 # Import and export (files)
@@ -41,7 +41,7 @@ unverified. Saving to / fetching from a pod instead: skill **instance-import-exp
 
 1. `fai_validate` every artifact in the closure (`ok:true`), then
    `fai_export {ws, kind, code, version:<n>}` — any of the 14 kinds →
-   `{fileId, name, downloadHint, files[], missing[], warnings[]}`.
+   `{fileId, name, mime, size, files[], missing[], warnings[]}`.
 2. Form: an app → one JSON (`specification` a string — the pod export form) plus `requires[]`,
    its backing workflows (from `applicationMetadata.agents.<slot>.agent`), each exported as its own
    zip. Every other kind → a zip of `src/<kindDir>/<file>` with the root first and its full
@@ -63,13 +63,14 @@ unverified. Saving to / fetching from a pod instead: skill **instance-import-exp
 6. Workflow `workflowId` / `$id` and app `$id` / `id` / `appId` are stripped from the exported
    copy (Studio's export form has none); every other file ships byte-for-byte. Workspace files
    keep their ids.
-7. The file is uploaded to the file store under the caller's identity; its `name` is what the user
-   downloads (`downloadHint`) and imports. Reply with each file's `name`, kind, code, `v<n>`, and
-   the import steps below.
+7. The file is stored under the caller's identity and NOT shown to the user until you present it
+   with `ui_present_file` (instructions.md §Delivering files) — an app and its `requires[]`
+   workflows in one call. Its `name` is what the user downloads and imports. Reply with each
+   file's `name`, kind, code, `v<n>`, and the import steps below.
 
 ## Import steps for the user (put them in the reply)
 
-- Download the file with its download button or link in this chat.
+- Download the file with its Download button in this chat.
 - Workflow zip: AI Agent Studio **Workflows → Import**, choose the zip. Identity is the
   `workflowCode`: a DRAFT with the same code is updated in place; a new code creates a new
   workflow. Dependencies inside the zip import alongside.
@@ -109,5 +110,5 @@ non-artifact upload (a document, a spec) goes in with `fai_file_put` instead.
 
 - Delivering with non-empty `warnings[]` unmentioned.
 - Re-using `v1` after a change; forgetting to state the version.
-- Exporting an app without its `requires[]` workflows (one export per file, a link for each).
+- Exporting an app without its `requires[]` workflows (one export per file, all presented).
 - Telling the user to publish, or implying the import is live.

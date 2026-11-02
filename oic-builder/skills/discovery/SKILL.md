@@ -174,8 +174,8 @@ ids are named (`"*"` = every connection of the scope, only when the user means a
 
 - **Export** — `oic_export_connections {instance, from, ids, zip?}`: the user wants the connections as a FILE
   (backup, review, moving them to another instance). `zip:true` = one archive in the import format; without it
-  one `.json` per connection. Offer each file's download link (`downloadHint`). `needsSecrets` / `needsUploads`
-  name what an import elsewhere will need entered in the console.
+  one `.json` per connection. Present the result's `files[]` with `ui_present_file` (instructions, Files for
+  the USER). `needsSecrets` / `needsUploads` name what an import elsewhere will need entered in the console.
 - **Import** — `oic_import_connections {instance, to, fileId, ids?, onExists:"skip"}`: the user UPLOADED an
   export (the zip, or one connection `.json`) and wants those connections in the signed-in instance. A file
   the user edited to hold real passwords sets them — say so before importing.
@@ -213,5 +213,5 @@ export (unexpected entries, oversize, bad JSON) is refused WHOLE — report the 
 **Hand off**: per created connection, the secrets to enter (OIC never returns a secret, so exported and copied
 connections arrive without theirs), the certificate / keystore uploads, and the missing required values —
 then the user tests each connection in the console. For one connection that list is in the status; for a bulk
-run it is in the results file (offer its download link; read it via its `path` or `oic_grep` over
+run it is in the results file (present it with `ui_present_file`; read it via its `path` or `oic_grep` over
 `<instance>/export/results/…`), or, without one, give the counts and offer the file.

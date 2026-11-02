@@ -278,10 +278,14 @@ nodes you were not asked to touch.
 - Big outputs: the `oic_get_*` tools (`oic_get_blueprint`, `oic_get_iar`, `oic_get_flowactivity`,
   `oic_get_external_payload`) hand the whole artifact over as session FILES — Read/Grep them
   selectively. An `oic_raw_api` response stays on the server: search it with `oic_grep` (below).
-- Files for the USER: a tool result that carries `fileId` + `downloadHint` is a deliverable — offer the
-  download it names. Never hand the user a `path`, `readRoot` or any `/app/filestore/...` location: those
-  are for YOUR Read/Grep only. When the user asks for payloads / wire data / "the messages of these runs",
-  call `oic_export_payloads` (conditions in, one zip out) — never assemble the files yourself.
+- Files for the USER: a tool that stores a file returns `{fileId, name, mime, size}` (several: `files[]`),
+  and the user sees NOTHING of it until you present it with `ui_present_file {files:[{fileId, name}],
+  mode}`. `mode` follows the request: preview / show / open / look at → `view`; download / send / export →
+  `download`; unclear → `both`. Present every file the user asked for — never only name it or write a link
+  in your answer, never invent a `fileId`, and claim only what the call's result says the user got. Never
+  hand the user a `path`, `readRoot` or any `/app/filestore/...` location: those are for YOUR Read/Grep
+  only. When the user asks for payloads / wire data / "the messages of these runs", call
+  `oic_export_payloads` (conditions in, one zip out) — never assemble the files yourself.
 - A FILE INSIDE a payload (a document, an image, an attachment, one branch of a message) →
   `oic_extract {instance, instanceId, nodeId?, path?, as, name, mime?}` cuts it into a file of this
   conversation and returns metadata only `{name, mime, mimeFrom, size, treePath}` — it never uploads and
@@ -296,8 +300,8 @@ nodes you were not asked to touch.
   `instanceIds[]` or the run selector + `node {…}` + `nameFrom` (a path to each run's file name).
   The file is searchable with `oic_grep` at its `treePath` (`<instance>/extract/<instanceId>/<name>`).
 - `oic_get_extract {treePath | treePaths}` uploads an extracted file and returns `{fileId, name, mime,
-  size}` — call it ONLY when a `fileId` is needed: the user wants to download or preview the file; the
-  link and the preview come from that `fileId` (no link text from you). Never decode, quote, slice or
+  size}` — call it ONLY when a `fileId` is needed: the user wants to see or download the file; then
+  present it with `ui_present_file` (Files for the USER, above). Never decode, quote, slice or
   regex-strip base64 by hand, and never paste a payload's base64 into your answer — extract it.
 - Remote search: `oic_grep {instances, pattern, …}` is ripgrep over everything LOADED in this
   conversation, seen as ONE path tree: `<instance>/iar/…` (every file of a loaded archive),

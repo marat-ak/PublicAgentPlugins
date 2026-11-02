@@ -1,6 +1,6 @@
 ---
 name: data-access-security
-description: Use before emitting or running ANY Fusion SQL — a final answer, a data model's dataset or LOV SQL, a runSql / run_sql / explain_plan probe, SQL in prose or in a hand-off — to apply the kernel's data-access rule: the SQL it secures reads only the data the running user may see, the rest runs plain. Covers the pod `instance` the plan needs, the developer PLAN from getDataAccessPredicate (one secured CTE per table + the rewrite map, a grade and the keying — table, or the OTBI subject area with `subjectArea` — on every condition, blocked / unsecured tables), the END-USER plan getSecuredQueryPlan (subject-area gate + column whitelist with filter-only columns, the strictest of candidates, the structural none rule, the no-area policy; the end-user overlay owns that flow), running or delivering the statement with the plan's slots left in place through ONE runSecuredSql call (the server fills Oracle's own condition — FND_DATA_SECURITY, by object + privilege NAME, for the user whose session runs the SQL — the text never enters the conversation; deliver run / dataset / file), sensitive tables and masked columns, the three access verdicts (restricted / none / global) and their wording, the "built for the running user" rule for data models, plain (unsecured) SQL, and the mandatory `Data access:` lines of the Filter check.
+description: Use before emitting or running ANY Fusion SQL — a final answer, a data model's dataset or LOV SQL, a runSql / run_sql / explain_plan probe, SQL in prose or in a hand-off — to apply the kernel's data-access rule: the SQL it secures reads only the data the running user may see, the rest runs plain. Covers the pod `instance` the plan needs, the developer PLAN from getDataAccessPredicate (one secured CTE per table + the rewrite map, a grade and the keying — table, or the OTBI subject area with `subjectArea` — on every condition, blocked / unsecured tables), the END-USER plan getSecuredQueryPlan (subject-area gate + column whitelist with filter-only columns, the strictest of candidates, the structural none rule, the no-area policy; the end-user overlay owns that flow), running or delivering the statement with the plan's slots left in place through ONE runSecuredSql call (the server fills Oracle's own condition — FND_DATA_SECURITY, by object + privilege NAME, for the user whose session runs the SQL — the text never enters the conversation; deliver run / file), the secured DATA MODEL rule (the ONE XML-function dataset that generates the running user's condition at run time — never an embedded or lexical-passed condition), sensitive tables and masked columns, the three access verdicts (restricted / none / global) and their wording, plain (unsecured) SQL, and the mandatory `Data access:` lines of the Filter check.
 ---
 
 # Data-access security — secured SQL reads only the user's data
@@ -11,8 +11,9 @@ every query you secure reads each secured table through its **secured CTE**, who
 **Oracle itself generates for the running user** — `FND_DATA_SECURITY.GET_SECURITY_PREDICATE`, called on
 the user's pod by **object + privilege NAME**. Nothing about the condition is stored or guessed on our
 side: the catalog knows WHICH object and privilege secure a table on THAT pod; the pod produces the text.
-You never see or handle that text: you write the plan's `{PRED:<object>|<privilege>}` slots, and
-`runSecuredSql` fills them server-side and runs or delivers the result.
+You never see or handle that text: for an ad-hoc run or a `.sql` file you write the plan's
+`{PRED:<object>|<privilege>}` slots and `runSecuredSql` fills them server-side; a DATA MODEL embeds no
+condition at all — its one dataset calls the API itself when the report runs (Secured data models below).
 Which SQL is secured and which runs plain is the kernel's data-access rule; this skill is the how.
 
 ## The pod `instance` — required, never guessed
@@ -59,8 +60,10 @@ that pod has to be loaded first (an admin action) — and do not emit the SQL un
      open_inv AS (SELECT … FROM ap_sec ap …)
    SELECT … FROM open_inv …
    ```
-   In a data model dataset the statement is first wrapped per datamodel-authoring's CTE rule.
-3. **`runSecuredSql({sql, maxRows?, deliver?})`** (fusion-pod) — ONE call with that statement. The server
+   In a data model dataset no slot is left for the server: the same CTEs go inside the XML function
+   (Secured data models below), each slot replaced by the condition the function fetched.
+3. **`runSecuredSql({sql, maxRows?, deliver?})`** (fusion-pod) — ad-hoc runs and `.sql` files, never a
+   data model dataset: ONE call with that statement. The server
    asks Oracle for each pair's condition in the session that executes this conversation's SQL (the pod
    sign-in, or the editor connection in CloudBeaver), fills every slot verbatim and delivers (see
    Deliverables). The reply carries `dataAccess`: per pair `{object, privilege, access, length}` —
@@ -151,22 +154,45 @@ cannot see show empty"); keep an inner join only where the user's question needs
 
 ## The condition is the running user's
 `runSecuredSql` fills the condition of the user whose session executes this conversation's SQL (the pod
-sign-in; in CloudBeaver the editor connection's user): a secured run returns exactly that user's rows. A **data model authored
-for others** embeds the AUTHOR's condition at authoring time — state it in the deliverable ("data access
-condition built for <user>, regenerate for another author"), never hide it. **Sign-in** follows the
-kernel's pod-identity rule — an `auth-required` reply from `runSecuredSql` included. Never emit the SQL
-unsecured as a substitute.
+sign-in; in CloudBeaver the editor connection's user): a secured run returns exactly that user's rows. A
+**data model** never carries a condition: its dataset generates the RUNNING user's condition each time the
+report runs (below) — so a model built by one user secures correctly for every other user. **Sign-in**
+follows the kernel's pod-identity rule — an `auth-required` reply from `runSecuredSql` included. Never emit
+the SQL unsecured as a substitute.
+
+## Secured data models — the condition is generated at RUN time
+A secured data model is ONE dataset: the general XML-function dataset of **datamodel-authoring**
+("XML-function dataset — return pure XML, no wrapping": the canonical SQL, spec columns and data
+properties live there; its subsection "Secured data model = XML-function dataset + FND_DATA_SECURITY at
+run time" shows the security delta). Inside the report, the function calls `FND_DATA_SECURITY.GET_SECURITY_PREDICATE` for every pair of the plan, for
+whoever runs the report, splices each condition into the plan's CTEs and returns the rows as XML. This
+REPLACES the authoring-time shapes — a condition filled into a plain dataset, or a parent dataset
+handing the text to a child through a lexical: they are not built any more, and an existing model in
+one of those shapes is rebuilt as the XML function, not patched.
+- The plan is the same `getDataAccessPredicate` plan: every cte with its rewrite, in the business SQL the
+  function builds. Each `{PRED:<object>|<privilege>}` becomes one API call on that pair (object and
+  privilege as literals, `p_table_alias => 'sec$'`) into its own `l_pred_n`, appended at the slot's place;
+  anyOf / strictest keep their OR / AND around the pair variables.
+- Fail closed inside the function: a status other than `T` or an empty text → `1=2` (no rows); a slot is
+  never dropped and a table is never read unsecured to make the report run.
+- Length is not a concern: the condition is a CLOB from the API to the cursor — no VARCHAR2, no
+  `SUBSTR`, no chunking, no 4,000-character cap.
+- No `runSecuredSql` for a data model: the dataset is written as-is through `createDataModelFile` /
+  `setDatasetSql`. Its test is `runSql` / `run_sql` of the same statement (it secures itself for the
+  session's user) and the pod run of the model.
+- The condition text still never enters the conversation — it exists only inside the pod at run time.
+- `blocked`, `unsecured`, `masked` and the sensitive-table rules are unchanged: a `blocked` table is asked
+  about BEFORE the model is built.
 
 ## Deliverables — the slotted SQL is shown, the executable text is delivered by the tool
 Show the SLOTTED statement in the answer's ```sql block with its `Data access:` lines; the filled text
 exists only server-side and reaches its destination through `deliver`:
 - `"run"` (default) — the rows come back (`maxRows` as runSql);
-- `{dataset: {fileId, dataset}}` — the data model's dataset SQL is replaced (a NEW fileId): author the
-  dataset with the slotted statement (wrapped per datamodel-authoring), then deliver it here BEFORE any
-  upload or run — a dataset still holding slots does not execute;
-- `"file"` — a downloadable `.sql` file (fileId): offer the download for SQL the user runs elsewhere.
-Never read a filled statement back (`getDataset` of a filled dataset, opening the delivered file): keep
-working from your slotted SQL and deliver again after any change.
+- `"file"` — a `.sql` session file (fileId): present it with `ui_present_file` for SQL the user runs elsewhere;
+- a data model is NOT delivered: its dataset is the XML function (Secured data models above), written
+  as-is — no slot stays in a dataset and no condition is ever filled into one.
+Never read a filled statement back (opening the delivered file): keep working from your slotted SQL and
+deliver again after any change.
 
 ## What the answer says
 - Name what was applied: "limited to your business units (FUN_ALL_BUSINESS_UNITS_V /
@@ -198,5 +224,6 @@ In the kernel's Filter check before every ```sql block, one line per table insta
 - `Data access: <table> BLOCKED — <reason>` — only while asking the user, never in emitted SQL;
 - `Data access: SKIPPED (analysis)` or `Data access: SKIPPED (user chose unsecured SQL)` — plain SQL,
   one line for the statement;
-- on a data model: `Data access: condition built for the running user (<user>) at authoring time`.
+- on a data model, after its table lines: `Data access: generated at run time for the running user
+  (XML-function dataset)`.
 These lines are never dropped, however terse the answer.

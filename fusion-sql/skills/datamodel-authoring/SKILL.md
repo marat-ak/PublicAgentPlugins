@@ -1,11 +1,11 @@
 ---
 name: datamodel-authoring
-description: Use when analyzing, modifying, or generating an Oracle BI Publisher data model (.xdmz) — datasets and their SQL, output group structure, group placement, master-detail group links, parameters, lexicals (flexfield/KFF), value sets (LOVs), event triggers (PL/SQL), bursting, or validations; also covers uploaded-file inspection, the SQL-first / group-by gates before createDataModelFile, and where totals/subtotals/aggregation live (detail + summary rows in ONE query via ROLLUP/GROUPING SETS vs a group-aggregate element).
+description: Use when analyzing, modifying, or generating an Oracle BI Publisher data model (.xdmz) — datasets and their SQL, output group structure, group placement, master-detail group links, parameters, lexicals (flexfield/KFF), value sets (LOVs), event triggers (PL/SQL), bursting, or validations; the XML-function dataset (pure XML, no wrapping — WITH FUNCTION … RETURN XMLTYPE, a clob RESULT, the LOB data properties, nested CURSOR groups, any PL/SQL-built shape) and the secured data model built on it; also covers uploaded-file inspection, the SQL-first / group-by gates before createDataModelFile, and where totals/subtotals/aggregation live (detail + summary rows in ONE query via ROLLUP/GROUPING SETS vs a group-aggregate element).
 ---
 
 # Data model (.xdmz) authoring
 
-You can **analyze, modify, and generate** BIP data models — real, downloadable artifacts via the
+You can **analyze, modify, and generate** BIP data models — real, deliverable artifacts via the
 authoring tools. Do NOT say "I can't create files" or merely describe tables — produce the actual
 `.xdmz`. Ground every table/column/join with the schema tools + real corpus before writing any SQL
 (the full SQL build workflow — ground → validate → grain-check → clarify → adopt/adapt/derive → secure —
@@ -58,8 +58,8 @@ getDataModel(newFileId, "parameters")         // read back — confirm it landed
 **Every edit returns a NEW fileId — ALWAYS chain the next edit on the fileId the PREVIOUS edit
 returned.** Re-using an older id forks the lineage (your later edits silently miss the earlier ones).
 If a reply carries `staleWarning`/`latestFileId`, you targeted an old version — switch to
-`latestFileId`. When the chain is done, share ONE download link — the FINAL file's — and state its
-fileId as the final version; never post links for intermediate files.
+`latestFileId`. When the chain is done, present ONE file — the FINAL one — with `ui_present_file`;
+never present (or link) intermediate files.
 
 ## Placing a field in a SPECIFIC output group
 The output `<dataStructure>` is a **hierarchy** — groups nest (G_1 may contain G_2 which contains G_3);
@@ -77,7 +77,7 @@ After ANY structure/SQL edit, call `getDataStructure` (or `getFileSummary`/`getD
 RESULT and CONFIRM the element is in the group the user asked for BEFORE saying it is done. A field can
 look added yet sit in the wrong group (a real session claimed a field was in G_1 when it was actually
 in G_3). Then tell the user the business result — *"Added From Warehouse to the top group G_1, right
-after Ship From Organization — the updated .xdmz is ready to download"* — NOT tool names, the
+after Ship From Organization — here is the updated .xdmz"* (presented with `ui_present_file`) — NOT tool names, the
 "auto-reconciler", or internal group mechanics (expose those only in dev mode / on request).
 
 ## Generating / creating a data model
@@ -119,7 +119,7 @@ When the user asks to build one ("build me a data model for …"):
    TicketContact_c vs TicketToContact_c vs Ticket_c) — only a single unambiguous hit proceeds
    without confirmation.
 3. Build a **`DataModelSpec`** (datasets with the grounded SQL, secured per the user's data-access choice (**data-access-security**) —
-   LOV `sql` too; parameters; output structure; event
+   a SECURED model is the XML-function dataset (section below) with FND_DATA_SECURITY inside; LOV `sql` too; parameters; output structure; event
    triggers and bursting if the request needs them) and call **`createDataModelFile(spec)`**.
    - **LOVs at CREATE time:** declare dropdowns directly in the spec — `spec.valueSets:[{id, sql | 
      values}]` plus `parameter.valueSet: "<id>"` on the parameter that uses it (and `parameter.format`
@@ -132,12 +132,120 @@ When the user asks to build one ("build me a data model for …"):
      ALL use `ApplicationDB_FSCM` — there is **no** `ApplicationDB_AR`/`ApplicationDB_AP`. Never invent a
      per-subject name and never use a placeholder or ask the user for it. If you truly can't classify,
      OMIT it → defaults to `ApplicationDB_FSCM`. (Unknown names are coerced to the pod default anyway.)
-4. Report what you built and that the `.xdmz` (its `fileId`) is ready to download.
+4. Report what you built and present the `.xdmz` with `ui_present_file`.
 5. **Then pod-TEST it** (when the `fusion-pod` MCP is available): everything-at-once mode → run the
    datamodel test flow directly (`prepareDataModelTest` → upload both → `runReport` as XML → verify
    the data) as part of the same turn; step-by-step mode → offer it first. See the
-   **rendering-and-running** skill for the exact steps and parameter prompting.
+   **rendering-and-running** skill for the exact steps and parameter prompting. An XML-function model's
+   output STARTS with the function's own root (`<ROWSET>`); `<RESULT>&lt;ROWSET&gt;…` means the two LOB
+   data properties are not `true`.
 Never hand-wave a data model as prose — the deliverable is a real `.xdmz`.
+
+## XML-function dataset — return pure XML, no wrapping
+When the output has to be BUILT in PL/SQL, or shaped beyond what datasets + groups + group links can
+declare, the model is ONE dataset whose SQL is an inline `WITH FUNCTION … RETURN XMLTYPE`: the function
+assembles the document (dynamic SQL, `DBMS_XMLGEN`, nested `CURSOR(…)` groups, XML from a package — any
+shape) and BIP emits it AS-IS as the report's data. Choose it whenever the declarative model falls
+short: SQL text assembled at run time, a run-time-generated predicate (the secured model below),
+arbitrary or data-driven nesting, pre-built XML from an API, a CLOB over 4,000 characters that must
+cross into the query (a lexical is a VARCHAR2 and a CLOB does not substitute). A plain SELECT with
+`groupBy` stays the default for everything else.
+
+Canonical dataset SQL (the business SQL and the nesting are yours):
+```sql
+SELECT /*+ with_plsql */ * FROM (
+WITH
+FUNCTION xx_<name>_xml(p_bu VARCHAR2) RETURN XMLTYPE IS        -- one argument per report parameter
+  l_sql    CLOB;
+  l_cur    SYS_REFCURSOR;
+  l_ctx    DBMS_XMLGEN.ctxHandle;
+  l_res    XMLTYPE;
+BEGIN
+  DBMS_LOB.CREATETEMPORARY(l_sql, TRUE);
+  DBMS_LOB.APPEND(l_sql, q'[WITH prm AS (SELECT :b_bu AS bu FROM dual)
+SELECT ap.INVOICE_ID, ap.INVOICE_NUM, ap.INVOICE_AMOUNT,
+       CURSOR(SELECT l.LINE_NUMBER, l.AMOUNT FROM AP_INVOICE_LINES_ALL l
+              WHERE l.INVOICE_ID = ap.INVOICE_ID ORDER BY l.LINE_NUMBER) AS LINES
+FROM AP_INVOICES_ALL ap, prm
+WHERE ap.ORG_ID = prm.bu
+ORDER BY ap.INVOICE_NUM]');                                    -- the business SQL, in pieces
+  OPEN l_cur FOR l_sql USING p_bu;                              -- one USING value per bind, in order
+  SELECT DBMS_XMLGEN.NEWCONTEXT(l_cur) INTO l_ctx FROM dual;
+  DBMS_XMLGEN.SETNULLHANDLING(l_ctx, DBMS_XMLGEN.EMPTY_TAG);
+  SELECT DBMS_XMLGEN.GETXMLTYPE(l_ctx) INTO l_res FROM dual;
+  DBMS_XMLGEN.CLOSECONTEXT(l_ctx);
+  RETURN l_res;
+END;
+SELECT xx_<name>_xml(:P_BU) AS RESULT FROM dual
+)
+```
+The spec that carries it — every line is required:
+```
+datasets:   [{ name: "DATA", sql: <above>, columns: [{ name: "RESULT", dataType: "clob" }] }]
+parameters: the report parameters as usual — each one is an argument of the function; `:P_X` appears
+            ONLY in the closing `SELECT fn(:P_X) AS RESULT FROM dual`
+properties: { exclude_tags_for_lob: "true", EXCLUDE_LINE_FEED_AND_CARRIAGE_RETURN_FOR_LOB: "true",
+              include_parameters: "false", include_null_Element: "false", include_rowsettag: "false",
+              xml_tag_case: "upper" }
+```
+- **Output shape.** The two LOB properties make BIP emit the clob element's XML as the WHOLE data
+  document: root `<ROWSET>`, one `<ROW>` per row of the cursor — no `DATA_DS`, no `G_*` group, no
+  `<RESULT>` wrapper, no parameter elements. With either property `false` (or a non-clob `RESULT`) the
+  XML arrives escaped inside `<RESULT>` and no layout can bind to it.
+- **Nested groups = nested `CURSOR(…) AS <NAME>`.** A cursor column becomes `<NAME><NAME_ROW>…
+  </NAME_ROW></NAME>` under its parent `<ROW>` — the master → detail hierarchy of this pattern (any
+  depth); `groupBy` and group links do not apply. The parent query's `ORDER BY` orders the groups, each
+  cursor's its details. Any other document shape is the function's to build (`XMLELEMENT` /
+  `XMLAGG`, a package returning XMLTYPE) — the model side is identical.
+- **Layout bindings.** XPaths are `/ROWSET/ROW/<COL>` and `/ROWSET/ROW/<NAME>/<NAME>_ROW/<COL>` (or
+  the root and tags the function emits) — the model's declared structure (`DATA_DS/G_DATA/RESULT`)
+  is NOT the data shape; name the paths explicitly when the layout is built, and use the pod run's
+  XML as the sample data.
+- **Always pass `columns`** (create and `setDatasetSql`): the outer `SELECT /*+ with_plsql */ * FROM (…)`
+  has no parseable column list, so nothing can be reconciled from the SQL.
+- **Body rules.** No `:=` (the BIP parser — `SELECT … INTO … FROM dual`); every `q'[…]'` piece is under
+  32K characters and contains no `]'` (split long SQL across several `DBMS_LOB.APPEND`, or switch the
+  delimiter, `q'{…}'`); the dynamic SQL's binds are positional — bind each parameter ONCE in a leading
+  `prm` CTE and reference `prm.<col>`, with one `USING` value per bind in order; `EMPTY_TAG` keeps an
+  absent value as an empty element so bindings never shift; the function returns `XMLTYPE` (not a
+  CLOB); no exception handler that turns an error into a row — a failing report fails loudly.
+- **Test** the statement as written with `runSql` / `run_sql` (it returns the XML for the session's
+  user), then the model on the pod (step 5: the output starts with the function's root).
+
+### Secured data model = XML-function dataset + FND_DATA_SECURITY at run time
+A model whose SQL the data-access rule secures is the technique above with the condition fetched
+INSIDE the function when the report runs — for whoever runs it (**data-access-security**, "Secured
+data models"). It replaces the shapes that embedded a condition at authoring time or passed it from a
+parent dataset through a lexical: those are not built any more — an existing model in one of them is
+rebuilt in this shape. The delta to the template, per pair of the plan (`l_pred_n` each):
+```sql
+  l_pred   CLOB;                                                -- declarations
+  l_status VARCHAR2(30);
+…
+  FND_DATA_SECURITY.GET_SECURITY_PREDICATE(                     -- before the SQL is assembled
+    p_api_version         => 1.0,
+    p_privilege           => 'AP_REPORT_PAYABLES_DATA',         -- the plan's pair, by NAME
+    p_object_name         => 'FUN_ALL_BUSINESS_UNITS_V',
+    p_grant_instance_type => 'UNIVERSAL',
+    p_statement_type      => 'OTHER',
+    x_predicate           => l_pred,
+    x_return_status       => l_status,
+    p_table_alias         => 'sec$');
+  IF NVL(l_status, 'X') <> 'T' OR l_pred IS NULL THEN
+    SELECT TO_CLOB('1=2') INTO l_pred FROM dual;                -- fail closed: no rows
+  END IF;
+…
+  DBMS_LOB.APPEND(l_sql, q'[WITH prm AS (SELECT :b_bu AS bu FROM dual),
+ap_sec AS (SELECT /*+ INLINE */ t.* FROM AP_INVOICES_ALL t
+  WHERE t.ORG_ID IN (SELECT sec$.BU_ID FROM FUN_ALL_BUSINESS_UNITS_V sec$ WHERE ]');
+  DBMS_LOB.APPEND(l_sql, l_pred);                               -- the plan's {PRED:…} slot
+  DBMS_LOB.APPEND(l_sql, q'[))
+SELECT … FROM ap_sec ap, prm …]');                              -- the plan's rewrite applied
+```
+Every secured table of the plan keeps its CTE (inside a `CURSOR(…)` too) with its slot split across the
+appends this way; the condition is a CLOB end to end (no VARCHAR2, no `SUBSTR`, no cap); the
+statement is tested with `runSql` / `run_sql` as written, never through `runSecuredSql` (there is no
+slot); the model's `Data access:` line is the one data-access-security gives for a data model.
 
 ## Computation belongs in SQL — use the FULL power of Oracle
 Push every computation as far LEFT (toward SQL) as possible; the layout should be a dumb display of
