@@ -149,6 +149,21 @@ zip (`fileId`, `name`, `downloadHint`, `manifest`). Offer the download via `down
 `manifest` what fell back wire→native and what was skipped. `status:"pending"` = budget hit, no file: call
 again. Never hand over a `path`, and never build the file list yourself.
 
+**A file INSIDE a payload → `oic_extract`, then `oic_get_extract` only for a fileId.** When a payload carries
+a document / attachment / image (typically one base64 field) or the user wants one branch of a message as a
+file, read the payload first (`oic_activity_flow op:"payload"`), then cut it out with
+`oic_extract {instance, instanceId, nodeId, path, as, name, mime?}` — extract only, it returns
+`{name, mime, mimeFrom, size, treePath}`. Your decisions, from what the payload shows: `path` (JSON path `$…`
+or XPath `/…`, `*[local-name()='X']` steps for namespaced XML; ONE value or ONE branch), `as:"base64"` when the
+value IS a base64 string (decoded strictly to bytes; `not-base64` means it was not) or `as:"text"` for text /
+JSON / XML; `name` from the payload's own file-name field, or ASK the user — never made up; `mime` when the
+payload states it (else the tool derives it or answers `needs-input`). An external body is downloaded for
+that node only. Across runs: ONE call with `instanceIds[]` or the run selector + `node {…}` + `nameFrom` (the
+path to each run's file name) → `extracted[]` + `skipped[]` with reasons. Extracted files are searchable
+with `oic_grep` (`glob:"*/extract/**"`). Call `oic_get_extract {treePath}` (or `treePaths`) ONLY when a
+`fileId` is needed — the user wants to download or preview the file; the link / preview come from the
+`fileId`. Never decode, quote or regex-strip base64 by hand.
+
 ## 7. From finding to FIX
 
 WHERE the fix goes is a separate, governed decision — invoke the **fix-placement** skill before proposing any location: the node that errored is where a broken obligation was DETECTED, not necessarily where it was broken.
