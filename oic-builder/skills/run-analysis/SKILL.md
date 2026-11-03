@@ -128,6 +128,15 @@ VALUE (what was sent/received, why a mapped field was empty). Some nodes have no
 Never bulk-pull payloads INTO REASONING — when the USER wants the payloads themselves, that is an EXPORT (below),
 not a loop of `op:"payload"` calls.
 
+**Showing a payload to the USER → `oic_preview`.** "Show me the payload / the request body of node X / that
+XML / this branch" is ONE call `oic_preview {instance, instanceId, nodeId?, path?, as?, format?, header?}`: the
+user sees the content as a card in the chat, and your result is metadata only `{shown, format, bytes, lines,
+header, source}` — the body never comes back to you. Never quote or paste payload content yourself (not even
+what an earlier `op:"payload"` returned). `path` selects one branch or value (the `oic_extract` selector);
+`as:"base64"` decodes ONE base64 string of text. `needs-input` = pass `format` from what the payload states or
+ask the user; `binary` / `too-large` = offer it as a file (`oic_extract` below). When the user then asks ABOUT
+the content, read it with `op:"payload"` / `oic_grep` as above.
+
 **Payload attribution comes before payload reasoning.** An invoke logs up to FOUR bodies, not two: OIC's
 inner prepared payload (almost always XML — Oracle's canonical form) AND the wire payload the adapter
 actually sent/received, for BOTH the request and the response (with tracing on, all four are present). So
@@ -150,8 +159,8 @@ the USER); report from `manifest` what fell back wire→native and what was skip
 hit, no file: call again. Never hand over a `path`, and never build the file list yourself.
 
 **A file INSIDE a payload → `oic_extract`, then `oic_get_extract` only for a fileId.** When a payload carries
-a document / attachment / image (typically one base64 field) or the user wants one branch of a message as a
-file, read the payload first (`oic_activity_flow op:"payload"`), then cut it out with
+a document / attachment / image (typically one base64 field) or the user wants a payload or one branch of a
+message AS A FILE ("save as a file", "download", "preview the file"), read the payload first (`oic_activity_flow op:"payload"`), then cut it out with
 `oic_extract {instance, instanceId, nodeId, path, as, name, mime?}` — extract only, it returns
 `{name, mime, mimeFrom, size, treePath}`. Your decisions, from what the payload shows: `path` (JSON path `$…`
 or XPath `/…`, `*[local-name()='X']` steps for namespaced XML; ONE value or ONE branch), `as:"base64"` when the
