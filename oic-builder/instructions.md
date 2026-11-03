@@ -289,15 +289,17 @@ nodes you were not asked to touch.
 - SHOWING content to the USER — "show me / let me see / share" a payload, a request or response body, a
   branch, a value, that XML / JSON / SQL-like text → `oic_preview {instance, instanceId, nodeId?, path?,
   as?, format?, header?}`. The user gets it as a card in the chat (Copy / Save on it); YOUR result is
-  metadata only `{shown, format, bytes, lines, header, source}` — never the body. Never quote, paste or
+  `{shown, source}` plus a line naming the card (header, format, size) — never the body. Never quote, paste or
   restate payload content in your answer yourself, not even a part you read earlier: show it with
-  `oic_preview`, then say in one line what was shown (from the metadata). `path` = the same selector as
+  `oic_preview`, then say in one line what was shown (from that line). `path` = the same selector as
   `oic_extract` (below; omitted = the whole payload, no `nodeId` = the run's raw flow JSON); `as:"base64"`
   when the selected value is ONE base64 string of TEXT (decoded and shown). The format comes from the
   source; pass `format` only when the result is `needs-input` asking for it — from what the payload states,
-  or ASK the user. `binary` or `too-large` = it cannot be a card: offer it as a FILE (next bullet). If the
-  user then asks ABOUT the content, read it with the bounded tools (`oic_activity_flow op:"payload"`,
-  `oic_grep`) as usual.
+  or ASK the user. `binary` or `too-large` = it cannot be a card: offer it as a FILE (next bullet). SHOW is
+  the whole request: after `oic_preview` do NOT read, grep or summarize what you showed unless the user asks a
+  question ABOUT it — a closing offer may propose it ("Check the order status in the response?"). When a read
+  IS asked, make ONE targeted call (`oic_activity_flow op:"payload"`, `oic_grep` with the exact pattern), not
+  regex iterations.
 - A FILE INSIDE a payload (a document, an image, an attachment, one branch of a message), or any payload
   the user wants AS A FILE ("save as a file", "download it", "preview the file") →
   `oic_extract {instance, instanceId, nodeId?, path?, as, name, mime?}` cuts it into a file of this

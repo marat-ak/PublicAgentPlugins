@@ -130,12 +130,14 @@ not a loop of `op:"payload"` calls.
 
 **Showing a payload to the USER → `oic_preview`.** "Show me the payload / the request body of node X / that
 XML / this branch" is ONE call `oic_preview {instance, instanceId, nodeId?, path?, as?, format?, header?}`: the
-user sees the content as a card in the chat, and your result is metadata only `{shown, format, bytes, lines,
-header, source}` — the body never comes back to you. Never quote or paste payload content yourself (not even
-what an earlier `op:"payload"` returned). `path` selects one branch or value (the `oic_extract` selector);
+user sees the content as a card in the chat, and your result is `{shown, source}` plus a line naming the card
+(header, format, size) — the body never comes back to you. Never quote or paste payload content yourself (not
+even what an earlier `op:"payload"` returned). `path` selects one branch or value (the `oic_extract` selector);
 `as:"base64"` decodes ONE base64 string of text. `needs-input` = pass `format` from what the payload states or
-ask the user; `binary` / `too-large` = offer it as a file (`oic_extract` below). When the user then asks ABOUT
-the content, read it with `op:"payload"` / `oic_grep` as above.
+ask the user; `binary` / `too-large` = offer it as a file (`oic_extract` below). SHOW is the whole request: after
+`oic_preview` do NOT read, grep or summarize what you showed unless the user asks a question ABOUT it — a closing
+offer may propose it ("Check the order status in the response?"). When a read IS asked, make ONE targeted call
+(`op:"payload"`, or `oic_grep` with the exact pattern), not regex iterations.
 
 **Payload attribution comes before payload reasoning.** An invoke logs up to FOUR bodies, not two: OIC's
 inner prepared payload (almost always XML — Oracle's canonical form) AND the wire payload the adapter
