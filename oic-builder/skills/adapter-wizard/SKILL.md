@@ -23,13 +23,17 @@ page is the SAME loop.
 |---|---|---|---|
 | **EDIT in place** | `oic_wizard_create {instance, code, version, project?, wsid, connection, editNodeId, nodeType}` (`nodeType` = segment: `stagefiles`, `invokes`, …) | **pre-filled** with the existing config — incl. file bindings absent from get_node/blueprint/.jca (`Filename`/`FileReferenceName` expressions; otherwise only in `.iar` `*expr.properties`, see the stage-files and source-material skills) | change ONLY your deltas; everything else echoes |
 | **NEW endpoint** | `oic_wizard_create {instance, code, version, project?, wsid, connection, name, anchor, rpi?}` | **server defaults** | fill the required fields (read labels/options from the live page, like a designer user) |
+| **NEW: first trigger of an empty flow** | `oic_wizard_create {instance, code, version, project?, wsid, connection, target:'trigger'}` — no `anchor`, no `rpi`, no `name`: the endpoint name is the wizard's own field | **server defaults** | same as a new endpoint; the connection is the user's choice |
 
 Every `oic_wizard_*` call carries the SAME `{instance, code, version, project?, wsid}` — one wizard per
 integration per conversation; `oic_wizard_cancel` before creating another for the same integration.
 
-Node-order plumbing is the tool's problem, not yours: invokes/receives get a stub before the wizard; a
-Stage File (`STAGE_FILE_CONNECTION`) is created as its STAGEFILE node by `oic_wizard_save` at the anchor —
-the server then adds the request map a Write needs (a Read has none). `oic_wizard_save` is the same call
+Node-order plumbing is the tool's problem, not yours: invokes get a stub before the wizard; a Stage File
+and a first trigger are created by `oic_wizard_save`. A Stage File (`STAGE_FILE_CONNECTION`) becomes its
+STAGEFILE node at the anchor — the server then adds the request map a Write needs (a Read has none). A first
+trigger is created only when a fresh read shows the flow is empty (otherwise save refuses, nothing changed);
+the result's `created` is its id, and the tenant adds nodes around it, which may differ by trigger — read what
+it built with `oic_reload_blueprint`, never assume a shape. `oic_wizard_save` is the same call
 either way (edit = rebind in place; no delete, node id + request map survive, downstream never invalidates).
 
 ## The loop (identical for both)
@@ -42,8 +46,10 @@ either way (edit = rebind in place; no delete, node id + request map survive, do
    SERVER parses and returns the detected root-element combo. NEVER send file content through next.
 4. `oic_wizard_next {fieldValue?}` — commit the page and advance. **No fieldValue = pure echo** (every
    stored value sent back unmodified); pass only non-event deltas. `op:'previous'` goes back.
-5. At summary: it shows the SERVER's view of the full config (incl. bindings like Filename/Append) —
-   read it as the pre-generate confirmation that nothing was lost/missing.
+5. Finish at the last enabled page: no response says when, so go to step 6 once no enabled page follows
+   `currentPageId` in `pages`. In every flow seen so far it is a summary showing the SERVER's view of the
+   full config (incl. bindings like Filename/Append) — read it as the pre-generate confirmation that nothing
+   was lost/missing.
 6. `oic_wizard_generate` → artifactId; `oic_wizard_save`; then `oic_commit` + `oic_verify` (all with the workspace triple).
 - `oic_wizard_page {field?}` — introspect without advancing; with `field` = RAW subtree (debug unknown
   object types).
@@ -196,7 +202,7 @@ recipe (this is a user-designer action):
 The wizard subsystem (`/ic/api/adapters/v1/ui/*`) is DECOUPLED from blueprint nodes: sessions are
 anonymous server-side scratchpads keyed by CLIENT-minted binding/artifact uuids (fresh every session,
 create and edit alike). The node↔wizard association exists only in the CLIENT (this driver's session):
-`oic_wizard_save` is what links the generated artifact to the node (PATCH existing / POST stagefile).
+`oic_wizard_save` is what links the generated artifact to the node (PATCH existing / POST stagefile / POST first trigger).
 Consequences:
 - `cloudAdapterFilterId` on load is just a READ pointer ("pre-fill from that node's config") — not an
   edit target. Editing an UNCONFIGURED node (stub, or a canceled wizard) has nothing to resume → the
@@ -206,8 +212,8 @@ Consequences:
   oic_delete_node if unwanted. Never just walk away from a session.
 
 ## Cautions
-- stagefile sessions auto-use the stagefile filter; TRIGGER endpoints: `target:'trigger'` + `filter`
-  with `"inbound":true`.
+- stagefile sessions auto-use the stagefile filter; a trigger (`target:'trigger'`) gets its inbound filter by
+  default — pass `filter` only to override.
 - CAF conventions already inside the driver: firing field `processed:false`, pluginId echo, checkbox
   booleans, and **ooe ACCUMULATION** (orderOfEvents re-lists every prior page submission `processed:true`
   + current deltas `false`, reset on page change — a lone-delta ooe → 400 "field required": the server

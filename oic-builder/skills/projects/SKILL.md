@@ -1,6 +1,6 @@
 ---
 name: projects
-description: Use when working with OIC projects or making a copy of an integration — listing projects and their integrations; CLONING an integration (oic_clone_integration — a new version of the same integration, or a new integration under a NEW code/name: "clone X as Y", "copy X to a new integration", "duplicate", "save as", "create Y from X"); copying existing integrations into a project (oic_copy_integrations_to_project — by reference, same code/version); importing an uploaded archive; and pointing to the connection copy/import tools for a project's connections.
+description: Use when working with OIC projects or making a copy of an integration — listing projects and their integrations; CLONING an integration (oic_clone_integration — a new version of the same integration, or a new integration under a NEW code/name: "clone X as Y", "copy X to a new integration", "duplicate", "save as", "create Y from X"); CREATING a new, empty integration (oic_create_integration: "create a new integration", "new scheduled integration", "from scratch"); copying existing integrations into a project (oic_copy_integrations_to_project — by reference, same code/version); importing an uploaded archive; and pointing to the connection copy/import tools for a project's connections.
 ---
 
 # Projects (grouping integrations under an OIC project)
@@ -60,6 +60,29 @@ The designer's Clone: a new integration (or version) built from an existing one;
   made up.
 - **Result check.** The clone is CONFIGURED, not activated (activation is a separate agreement). Confirm
   with `oic_list_integrations {scope: <project, or "standalone">, search: [<toCode>]}` before reporting it done.
+
+## Create a new, empty integration — `oic_create_integration`
+The designer's Create: a new integration with no source (from an existing one = `oic_clone_integration`, from an
+uploaded archive = `oic_import_integration`).
+`oic_create_integration {instance, code, version, name, integrationType, project?, description?}` —
+`integrationType` is `app-driven` (no trigger, no activities) or `scheduled` (the tenant adds the schedule
+trigger and a stop).
+- **Nothing is defaulted.** Take code, name, version and type from the user's request; whatever it leaves
+  open → ASK (AskUserQuestion) — never invent a name, never assume a version or type, never derive the code
+  yourself (offering the designer-style identifier of the name — upper case, underscores — as an option is fine).
+- **Scope is explicit.** `instance` = the bound tenant. `project` follows the pinned scope choice
+  (instructions.md §Integration scope): omitted = standalone, given = inside that project (that path is not
+  live-proven: rely on the result check).
+- **Clash = nothing changed.** The target code|version is checked in that scope first; if it is taken the call
+  errors and the tenant is untouched — report it and ask for another code/version, never retry with one you
+  made up.
+- **Result check.** `verified:true` = the re-read found it. `verified:false` (`state:"created-unverified"`) =
+  the tenant accepted the create but the re-read did not confirm it: NOT done — confirm with
+  `oic_list_integrations {scope: <project, or "standalone">, search: [<code>]}` before any next step.
+- **What exists after it.** INPROGRESS, never activated (activation is a separate agreement); no workspace
+  opened, nothing locked. An App Driven integration with no trigger is a valid state to keep.
+- **First trigger of an App Driven flow** → the adapter-wizard skill, after opening it with a lock (the
+  result's `note` gives the call).
 
 ## Connections in a project
 To give a project its own copies of connections, copy them from standalone (or another project) with

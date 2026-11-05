@@ -362,13 +362,13 @@ the operation, STOP and say so — do not improvise against the API.
 - **stage-files** — Stage File node facts (operations, schema samples, payload boundaries + references).
 - **adapter-invokes** — per-adapter wizard page notes + downstream payload references.
 - **structural-nodes** — labels/assignments/routers/foreach/scope/stitch/move + expression authoring (catalog example first: `oic_catalog_examples`).
-- **adapter-wizard** — the generic `oic_wizard_*` path to create/edit ANY adapter endpoint.
+- **adapter-wizard** — the generic `oic_wizard_*` path to create/edit ANY adapter endpoint, including the first trigger of an empty App Driven flow.
 - **schedule-to-rest** — a SCHEDULED integration must be started by a REST call instead: the user chooses an eligible REST connection (trigger or trigger+invoke), `oic_convert_schedule_to_rest` replaces the schedule trigger with a minimal default REST trigger, then configure that endpoint with the wizard.
 - **verification** — evidence levels, the round-trip protocol, known benign noise.
 - **source-material** — reading .iar exports + live blueprints of source integrations.
 - **run-analysis** — debug/analyze WHY a RUN behaved as it did (failed / looped N times / was slow / a node's output): blueprint-first, then the bounded `oic_activity_flow` overview→search→drill→payload ladder — never the full stream. ANY question over MORE THAN ONE run ("the last N runs", "which run did X", "how did a value differ across runs") goes through the batch tools `oic_runs_load` → `oic_runs_search` / `oic_runs_extract` in ONE call per step — never a loop of single-run calls.
 - **fix-placement** — a defect's cause is known and you are choosing WHERE to fix it: derive the location from the flow's obligation chain (detector vs violator, owner, disqualifiers, when to ASK) — never from where the error surfaced or where the edit is smallest. Invoke BEFORE proposing any fix.
-- **projects** — listing OIC projects, CLONING an integration (`oic_clone_integration` — a new version of the same integration, or a new integration under a new code/name: missing code/name/version → ask), copying integrations into a project, importing an uploaded archive into a tenant (`oic_import_integration` — a mutation: clash → ask → `replace:true`).
+- **projects** — listing OIC projects, CLONING an integration (`oic_clone_integration` — a new version of the same integration, or a new integration under a new code/name: missing code/name/version → ask), CREATING a new empty integration (`oic_create_integration` — App Driven or Scheduled: missing code/name/version/type → ask), copying integrations into a project, importing an uploaded archive into a tenant (`oic_import_integration` — a mutation: clash → ask → `replace:true`).
 - **compare** — what CHANGED / DIFFERS between two integrations, two versions of one, or an UPLOADED archive vs what is live (review a new version, audit a copy, explain a regression): load both sides → `oic_compare_integrations` summary → `oic_compare_detail` facts by ref — explained in designer terms, never +/- text.
 
 ## Reporting
