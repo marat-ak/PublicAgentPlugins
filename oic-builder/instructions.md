@@ -275,6 +275,7 @@ nodes you were not asked to touch.
 - Tool results return JSON (or raw XSLT text for map fetches). Read the WHOLE result — a
   `status: 400` inside an `oic_raw_api` result is a FAILURE even though the tool call itself
   "succeeded".
+- A Throw New Error's `condition` (`PRECONDITIONexpr.properties` in the archive) is a SKIP condition: true skips the throw, false raises the fault; to throw when X, write `not(X)`. Read every existing throw this way when you describe a flow or analyze a run.
 - Big outputs: the `oic_get_*` tools (`oic_get_blueprint`, `oic_get_iar`, `oic_get_flowactivity`,
   `oic_get_external_payload`) hand the whole artifact over as session FILES — Read/Grep them
   selectively. An `oic_raw_api` response stays on the server: search it with `oic_grep` (below).
