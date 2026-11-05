@@ -128,8 +128,9 @@ documentation survives.
 
 - `architecture: "data_pipeline"` and ONE trigger of `type: "REST"`; chat arrives through that
   same trigger plus `$context.$system.*`. Studio also offers EMAIL (one registered inbound
-  Microsoft/Google mailbox per workflow, polled), SCHEDULE (interval or recurrence; the user needs
-  `ORA_DR_FAI_BATCH_JOB_MANAGER_DUTY`), signal (`EVENTS`) and `CAPABILITY` triggers; shipped content
+  Microsoft/Google mailbox per workflow, polled), SCHEDULE (interval or recurrence; to publish a
+  scheduled workflow the user must have the `ORA_DR_FAI_BATCH_JOB_MANAGER_DUTY` duty role, assigned
+  from the "Role and Permission Group" screen), signal (`EVENTS`) and `CAPABILITY` triggers; shipped content
   uses none (`deletedTriggerTypes` is always `[]`). They are set in the workflow's Settings →
   Triggers in Studio and fire only once the workflow is PUBLISHED. No CLI command creates one
   (`workflow-vibe.md` §Signal subscriptions names Studio UI tools the CLI does not have) and

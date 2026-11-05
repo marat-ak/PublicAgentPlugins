@@ -1,6 +1,6 @@
 ---
 name: run-and-debug
-description: Use when the user wants to run or test a workflow or app on the pod, see what a run did (executed nodes, node inputs and outputs), stop a run before a node (a breakpoint), run a batch of conversation scenarios from an uploaded file (scenario runs), rerun, override or pin node config/outputs for debugging, create/sync/run workflow or app tests (scripted conversation tests via fai_test_scaffold), compare runs or optimize model choice and token cost — and when run results or test reports should reach the user as files. The user trying it themselves in the chat debugger panel belongs to chat-debugger.
+description: Use when the user wants to run or test a workflow or app on the pod, see what a run did (executed nodes, node inputs and outputs), stop a run before a node (a breakpoint), run a batch of conversation scenarios from an uploaded file (scenario runs), rerun, override or pin node config/outputs for debugging, create/sync/run workflow or app tests (scripted conversation tests via fai_test_scaffold), compare runs or optimize model choice and token cost, monitor agent or workflow usage/metrics — and when run results or test reports should reach the user as files. The user trying it themselves in the chat debugger panel belongs to chat-debugger.
 ---
 
 # Run, debug, test
@@ -225,6 +225,7 @@ zip) and offer to turn each stable scenario into a mode-1 regression test (`fai_
 `propose-sweep-candidates` (pod; stops for the user's review), labeled test runs,
 `compare-workflow-test-runs`, `analyze-token-usage {report}`, `generate-optimization-report`,
 `run-optimization-sweep`.
+- For monitoring, the ESS job "Aggregate AI Agent Usage and Metrics" should be scheduled.
 
 ## Results as files
 
