@@ -13,45 +13,37 @@ holds thousands of integrations; opening workspaces/blueprints to "look inside" 
 lock-risky, and unbounded. Blueprint has exactly ONE role: confirming a flow-level detail on a
 SHORTLIST you already built — never the search primitive.
 
-`oic_find_connections` and `oic_list_adapters` take `{instance}` — the instance you signed in to, named
-on every call (instructions.md §Session lifecycle). `oic_list_integrations` and `oic_connection_usage`
-are instance-free.
-
 ## Catalog first
 
-Before any live sweep, search the instance's local catalog: `oic_catalog_search {instance, query, kind?,
-project?, status?, connection?}` — one call, no sign-in (your KC instance role is the gate), matching
-WORDS in name, description, summary and flow text (live listing matches code only). Check
-`oic_catalog_status {instance}` and tell the user the catalog's age (`exportedAt`) and whether a job is
-running (`runningJob`). Go live (`oic_find_connections`, `oic_search_integrations`,
-`oic_list_integrations`) only when the catalog is `empty`/`not-configured`, stale for the question, or
-the user asks for live state.
+Before any live sweep, search the instance's local catalog: `oic_catalog_search` — one call, no sign-in
+(your KC instance role is the gate), matching WORDS in name, description, summary, flow text and what the
+nodes do (the live listing matches only name/code/description/keywords). Check `oic_catalog_status` and
+tell the user the catalog's age (when its export was taken) and whether a job is running. Go live
+(`oic_find_connections`, `oic_list_integrations`) only when the catalog is empty / not configured, stale
+for the question, or the user asks for live state.
 
-The catalog is filled and refreshed from the conversation with `oic_catalog_crawl {instance, scope?,
-full?}` — the user's own OIC sign-in does the work (no stored credential): it lists every integration
-and connection of the instance, downloads only the integrations updated since the catalog's watermark
-(`oic_catalog_status.lastUpdated`; `full:true` re-reads all), stores them node by node and, after a
-complete run, drops what the instance no longer has. Incremental and resumable: an interrupted crawl
-(token expiry) keeps what it wrote and the next call continues. `scope:"projects"`/`"both"` reads
-project integrations through a temporary deployment per project, so the user's OIC role must allow
-creating project deployments; `"standalone"` needs no such role. It runs in the background (minutes
-on a first run; tell the user) — follow it with `oic_catalog_job {instance, jobId}`
-(`oic_catalog_jobs {instance}` lists what is running; `status:"all"` the recent ones) and read
-`counts.errors[]`: every archive that failed is named with its integration/project. `auth-required` =
-sign the user in to THAT instance first (identity loop).
+The catalog is filled and refreshed from the conversation with `oic_catalog_crawl` — the user's own OIC
+sign-in does the work (no stored credential): it lists every integration and connection of the instance,
+downloads only the integrations updated since the catalog's watermark (a full crawl re-reads all), stores
+them node by node and, after a complete run, drops what the instance no longer has. Incremental and
+resumable: an interrupted crawl (token expiry) keeps what it wrote and the next call continues. Crawling
+PROJECT integrations reads them through a temporary deployment per project, so the user's OIC role must
+allow creating project deployments; a standalone-only crawl needs no such role. It runs in the background
+(minutes on a first run; tell the user) — follow it with `oic_catalog_job` (`oic_catalog_jobs` lists what
+is running and the recent ones) and read the job's error list: every archive that failed is named with
+its integration/project. An auth-required answer = sign the user in to THAT instance first (identity loop).
 
 ### Counts, lists and reports — `oic_catalog_sql`
 
 "How many / which / per adapter / per pattern / which integrations reference lookup L or library F" are SQL
-over the catalog, not live sweeps. `oic_catalog_sql {instance, describe:true}` ONCE (tables and columns from
-the database, node types, pattern ids, the signature census — never guess a name), then ONE read-only SELECT
-per call (`{instance, sql, maxRows?}`): rows are confined to the instance (no instance filter needed), capped
-(`truncated` = aggregate or page), and a `{state:"sql-error"}` result is yours to fix and retry. The node table
-(`integration_node`: one row per activity with its `sig`, `flow_path`, `props`) joins `integration` on
-(project_id, code, version); `integration_endpoint` / `_map` / `_variable` / `_tracking` / `_schedule` /
-`_lookup_ref` / `_library_ref` / `_pattern` are siblings on the same key. State the catalog's age
-(`oic_catalog_status`) with every answer. A concrete example of ONE activity ("show me a REST invoke with a
-templated URI") is `oic_catalog_examples`, not SQL.
+over the catalog, not live sweeps. Describe the catalog ONCE (tables and columns from the database, node
+types, pattern ids, the signature census — never guess a name), then ONE read-only SELECT per call: rows
+are confined to the instance (no instance filter needed), capped (truncated = aggregate or page), and an
+SQL error is yours to fix and retry. The node table (`integration_node`: one row per activity with its
+`sig`, `flow_path`, `props`) joins `integration` on (project_id, code, version); `integration_endpoint` /
+`_map` / `_variable` / `_tracking` / `_schedule` / `_lookup_ref` / `_library_ref` / `_pattern` are siblings
+on the same key. State the catalog's age (`oic_catalog_status`) with every answer. A concrete example of
+ONE activity ("show me a REST invoke with a templated URI") is `oic_catalog_examples`, not SQL.
 
 Connection search sees **DIRECT reach only.** An integration that reaches a capability transitively —
 by invoking another integration, or subscribing to its published event — holds no connection of its
@@ -60,47 +52,45 @@ integration-dependency question, and no tool answers it today.
 
 ## The one search call
 
-`oic_find_connections {instance, scope, adapters?, names?, text?}` sweeps every connection ONCE and searches IN MEMORY
-across every field — adapter code + display name, connection name, description, endpoint/host URLs — so
-one call carries as many angles as you need. `adapters` matches the adapter kind, `names` the
-connection name, `text` the whole haystack (where a provider's host or API name surfaces a *generic*
-connector no name would reveal). All terms are **regex, case-insensitive, OR** — a connection returns
-if ANY term hits. You supply the terms from your own knowledge of the world (a brand, a host, an API
-name); the tool matches them against the LIVE tenant. This skill names no providers, hosts, or adapter
-codes — those are instance facts, discovered live.
+`oic_find_connections` sweeps every connection ONCE and searches IN MEMORY across every field — adapter
+code + display name, connection name, description, endpoint/host URLs — so one call carries as many
+angles as you need: the adapter kind, the connection name, and the whole haystack (where a provider's host
+or API name surfaces a *generic* connector no name would reveal). A connection returns if ANY term hits.
+You supply the terms from your own knowledge of the world (a brand, a host, an API name); the tool
+matches them against the LIVE tenant. This skill names no providers, hosts, or adapter codes — those are
+instance facts, discovered live.
 
-Each hit carries `matchedOn` (which field + term + snippet), so YOU judge relevance **by that field**:
-the same host can legitimately sit in BOTH the auth/token field and the API/resource field of one
-connection, and a match ONLY in the auth/token field is a WEAKER signal than one in the resource URL.
+Each hit says which field + term matched, with a snippet, so YOU judge relevance **by that field**: the
+same host can legitimately sit in BOTH the auth/token field and the API/resource field of one connection,
+and a match ONLY in the auth/token field is a WEAKER signal than one in the resource URL.
 
 **Search BOTH shapes in the one call.** A capability is reached EITHER through a dedicated adapter OR
-through a generic connector (REST/SOAP/database/…) whose URL targets the provider — so run the
-`adapters` angle AND the `text`/URL angle together, or you silently miss the other shape. Turn "the
-provider I have in mind" into the real code with `oic_list_adapters {instance, filter?}` (same regex over the
-tenant's live adapter catalog) BEFORE `oic_find_connections {instance, scope, adapters:[...]}`; never type a code from
-memory. An EMPTY adapter list does NOT prove the capability is absent — it may exist only as a
-generic-connector-with-URL, so still run the text angle.
+through a generic connector (REST/SOAP/database/…) whose URL targets the provider — so run the adapter
+angle AND the text/URL angle together, or you silently miss the other shape. Turn "the provider I have
+in mind" into the real adapter code with `oic_list_adapters` (the tenant's live adapter catalog) BEFORE
+the adapter angle of `oic_find_connections`; never type a code from memory. An EMPTY adapter list does
+NOT prove the capability is absent — it may exist only as a generic-connector-with-URL, so still run the
+text angle.
 
 (The tool auto-refreshes its cache once on a zero-hit search, so a just-created connection is not
-missed; `refresh:true` forces a fresh sweep.) A text/URL search is substring-based, so it misses a host
-hidden behind an alias, proxy, CNAME, or account-locator-only URL. When a provider connection is
-EXPECTED but the search stays thin, ASK the user for the exact host or account URL rather than
-concluding absence — a false negative in front of an impact or rotation question is dangerous.
+missed; a fresh sweep can be forced.) A text/URL search is substring-based, so it misses a host hidden
+behind an alias, proxy, CNAME, or account-locator-only URL. When a provider connection is EXPECTED but
+the search stays thin, ASK the user for the exact host or account URL rather than concluding absence — a
+false negative in front of an impact or rotation question is dangerous.
 
 ## Expand to integrations
 
-For each kept connection, `oic_connection_usage {connectionId, scope}` returns the integrations USING it
-(code, version, status) plus `usageActive`. Interpret the status: ACTIVATED + active = the integration
-breaks the moment the connection changes; CONFIGURED / inactive = a latent or stale reference, not a
-live break. If several connections matched but the question implies ONE ("our X connection"), confirm
-WHICH is in scope before unioning their usage.
+For each kept connection, `oic_connection_usage` returns the integrations USING it with their status and
+whether the usage is active. Interpret the status: ACTIVATED + active = the integration breaks the moment
+the connection changes; CONFIGURED / inactive = a latent or stale reference, not a live break. If several
+connections matched but the question implies ONE ("our X connection"), confirm WHICH is in scope before
+unioning their usage.
 
-Both `oic_find_connections` and `oic_connection_usage` take the required `scope`, set from the
-conversation's pinned integration scope (instructions.md §Integration scope — asked before the first
-search when the tenant has projects): standalone → `"standalone"`; projects → one call per chosen
-project id; both → `"all"` (one call; every hit carries its `project`, null = standalone). The same
-connection id can exist in several places as DIFFERENT connections — expand a hit in its own place:
-`scope` = its `project`, or `"standalone"` when that is null. An EXHAUSTIVE or inventory question covers
+Both `oic_find_connections` and `oic_connection_usage` search the conversation's pinned integration scope
+(instructions.md §Integration scope — asked before the first search when the tenant has projects):
+standalone, one call per chosen project, or both in one call (every hit names its project; none =
+standalone). The same connection id can exist in several places as DIFFERENT connections — expand a hit
+in its own place: its project, or standalone when it has none. An EXHAUSTIVE or inventory question covers
 the WHOLE pinned scope — every project in it — or project-scoped connections and usages are silently
 missed (see the **projects** skill).
 
@@ -114,8 +104,8 @@ scale seam (finalists are a handful); skip Inventory grouping for a targeted FIN
 
 ### Inventory — "every system we talk to"
 
-The no-term call `oic_find_connections {instance, scope}` IS the exhaustive primitive — it returns EVERY connection
-of that scope; that full set (across the whole pinned scope) is your raw material. Group connections into SYSTEMS by
+`oic_find_connections` with NO terms IS the exhaustive primitive — it returns EVERY connection of that
+scope; that full set (across the whole pinned scope) is your raw material. Group connections into SYSTEMS by
 resolved host, NOT by connection count: judge each by its API/resource URL field, not its name, and
 union both shapes (dedicated adapter and generic-connector) that resolve to the same host onto ONE
 system. EXCLUDE or explicitly FLAG auth/IdP-only hosts (token endpoints, identity providers) — they are
@@ -133,8 +123,8 @@ that reaches the changed capability transitively will not appear.
 ### Direction — "reads vs writes"
 
 Two independent axes — never collapse them. **Role = FLOW direction:** SOURCE/trigger means the
-integration is entered through the connection, TARGET/invoke means it calls out through it;
-`integrationRole` (SOURCE_AND_TARGET vs TARGET) only BOUNDS which roles are possible — it does NOT
+integration is entered through the connection, TARGET/invoke means it calls out through it; the adapter's
+integration role (SOURCE_AND_TARGET vs TARGET) only BOUNDS which roles are possible — it does NOT
 decide read-vs-write. **Operation = DATA direction:** an invoke running a query READS, an invoke running
 a write op WRITES — so a TARGET-only connection is NOT automatically a writer. Which verb reads and
 which writes is ordinary SQL/API knowledge; apply it. When the operation hides direction — a generic
@@ -155,55 +145,55 @@ explicitly-labeled, caveated ESTIMATE, never as the silent answer.
 Reuse beats a duplicate: search `oic_find_connections` for the system first and offer what exists. Create
 only on the user's choice. Then:
 
-1. **Describe** the adapter — `oic_list_adapters {instance, adapter}`: allowed roles, policies, and (when this
-   scope already has one) the property + per-policy definitions. Everything the user must choose comes from
-   this metadata, never from memory — the same steps serve an adapter you have never seen.
+1. **Describe** the adapter with `oic_list_adapters`: allowed roles, policies, and (when this scope already
+   has one) the property + per-policy definitions. Everything the user must choose comes from this
+   metadata, never from memory — the same steps serve an adapter you have never seen.
 2. **Ask** (AskUserQuestion) for identifier, name, role, **standalone or which project**, security policy and
    the non-secret values. Nothing is defaulted.
 3. **Create** — `oic_create_connection`. Secrets are never yours to carry: leave them out (a secret in the
-   input is refused). A `rejected` result returns the definitions — show the errors, re-ask, retry. `exists`
-   means the identifier is taken — reuse or rename, never overwrite.
-4. **Hand off** — tell the user exactly which secrets (`mustCompleteInConsole.secrets`) and missing values to
-   enter in the OIC console, that the connection test runs there afterwards, and repeat any `warnings`.
+   input is refused). A rejected result returns the definitions — show the errors, re-ask, retry. An
+   existing identifier means it is taken — reuse or rename, never overwrite.
+4. **Hand off** — tell the user exactly which secrets and missing values the result says must be completed
+   in the OIC console, that the connection test runs there afterwards, and repeat any warnings.
 
 ## Exporting, importing and copying connections
 
-Three tools over ONE read path and the SAME create path as `oic_create_connection`. Every scope is an explicit
-argument — `from` / `to` = `"standalone"` or a project id, the user's choice (ask; never inferred) — and the
-ids are named (`"*"` = every connection of the scope, only when the user means all of them).
+Three tools over ONE read path and the SAME create path as `oic_create_connection`. The source and target
+scopes (standalone or a project) are the user's choice (ask; never inferred), and the connections are
+named — every connection of a scope only when the user means all of them.
 
-- **Export** — `oic_export_connections {instance, from, ids, zip?}`: the user wants the connections as a FILE
-  (backup, review, moving them to another instance). `zip:true` = one archive in the import format; without it
-  one `.json` per connection. Present the result's `files[]` with `ui_present_file` (instructions, Files for
-  the USER). `needsSecrets` / `needsUploads` name what an import elsewhere will need entered in the console.
-- **Import** — `oic_import_connections {instance, to, fileId, ids?, onExists:"skip"}`: the user UPLOADED an
-  export (the zip, or one connection `.json`) and wants those connections in the signed-in instance. A file
-  the user edited to hold real passwords sets them — say so before importing.
-- **Copy** — `oic_copy_connections {instance, from, to, ids}`: between two scopes of the SAME signed-in
-  instance (standalone ↔ project, project ↔ project). Across instances = export on one, import on the other
-  (each needs its own sign-in).
+- **Export** — `oic_export_connections`: the user wants the connections as a FILE (backup, review, moving
+  them to another instance) — one archive in the import format, or one `.json` per connection. Present the
+  files with `ui_present_file` (instructions, Files for the USER). The result names what an import
+  elsewhere will need entered in the console (secrets, uploads).
+- **Import** — `oic_import_connections`: the user UPLOADED an export (the zip, or one connection `.json`)
+  and wants those connections in the signed-in instance; an existing connection is skipped, never
+  overwritten. A file the user edited to hold real passwords sets them — say so before importing.
+- **Copy** — `oic_copy_connections`: between two scopes of the SAME signed-in instance (standalone ↔
+  project, project ↔ project). Across instances = export on one, import on the other (each needs its own
+  sign-in).
 
 **One connection vs many.** Import and copy are mutations; how you confirm depends on the size:
 - **One connection** (one id to copy, or an upload holding one connection): once the user has asked for it
-  and the target scope is settled, call the tool and report the status it returns — `state`, the `host` it
-  points to, and what `needsConsole` lists. There is no plan and no file.
-- **Several, or `"*"`, or a multi-connection upload**: the first call is a PLAN — it reads and counts but
-  creates nothing. Show the user the plan (how many, how many are already in the target and will be
-  skipped, the time estimate) and ASK two things together: go ahead? and do they want a per-connection
-  results file? Never assume either answer. On a yes, call the same tool with ONLY
-  `{instance, planId, resultFile}` (their answer). Each call works for about a minute and a half and
-  returns progress; keep calling with the same `planId` until `status` is `done`, telling the user the
-  progress between calls. Re-calling is always safe: finished connections are never redone and existing
-  ids are never overwritten. A plan the user leaves unanswered expires — plan again rather than reuse an
-  old one. If they skipped the results file and later want the details, call once more with the same
-  `planId` and `resultFile:true` (nothing runs again).
-- A large **export** (more than one call can safely read) also comes back as a plan: ask, then call with
-  `{instance, planId}` until `done` — the export file arrives with the last call.
+  and the target scope is settled, call the tool and report the status it returns — the state, the host
+  it points to, and what must be completed in the console. There is no plan and no file.
+- **Several, or all of a scope, or a multi-connection upload**: the first call is a PLAN — it reads and
+  counts but creates nothing. Show the user the plan (how many, how many are already in the target and
+  will be skipped, the time estimate) and ASK two things together: go ahead? and do they want a
+  per-connection results file? Never assume either answer. On a yes, execute the plan with their answer
+  about the results file. Each call works for about a minute and a half and returns progress; keep
+  executing the same plan until it is done, telling the user the progress between calls. Re-calling is
+  always safe: finished connections are never redone and existing ids are never overwritten. A plan the
+  user leaves unanswered expires — plan again rather than reuse an old one. If they skipped the results
+  file and later want the details, execute the same plan once more asking for the file (nothing runs
+  again).
+- A large **export** (more than one call can safely read) also comes back as a plan: ask, then execute it
+  until done — the export file arrives with the last call.
 
 Values never enter the conversation: results carry counts, states, property NAMES, file ids and — for a
 single connection — the HOST it points to; show it so the user can review where the connection points. The
-exported files sit in the conversation's tree (`<instance>/export/…`, an uploaded one under `upload/<file>/…`);
-search them only for what the user asks about, and never repeat a secret.
+exported files sit in the conversation's tree (an uploaded one with the uploads); search them only for what
+the user asks about, and never repeat a secret.
 
 States: `created`, `exists` (the id is taken in the target scope — skipped, NEVER overwritten; replacing it is
 the user's console decision), `rejected` (the adapter is missing on the target, or a value the target's
@@ -213,5 +203,5 @@ export (unexpected entries, oversize, bad JSON) is refused WHOLE — report the 
 **Hand off**: per created connection, the secrets to enter (OIC never returns a secret, so exported and copied
 connections arrive without theirs), the certificate / keystore uploads, and the missing required values —
 then the user tests each connection in the console. For one connection that list is in the status; for a bulk
-run it is in the results file (present it with `ui_present_file`; read it via its `path` or `oic_grep` over
-`<instance>/export/results/…`), or, without one, give the counts and offer the file.
+run it is in the results file (present it with `ui_present_file`; read it via its path or `oic_grep`), or,
+without one, give the counts and offer the file.

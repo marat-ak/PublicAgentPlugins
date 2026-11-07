@@ -6,28 +6,27 @@ description: Use when creating or editing an adapter invoke (REST, FTP, ERP Clou
 # Adapter invokes
 
 **All invoke endpoints (REST, FTP, ERP Cloud, DB, collocated, OCI-fn, any adapter) are created and edited
-through the generic wizard `oic_wizard_*` — see the adapter-wizard skill. The former per-adapter recipe
-tools (`oic_add_invoke_rest/ftp/collocated/ocifn`) are REMOVED — do not look for them.** This page =
-per-adapter page knowledge to apply WHILE driving the wizard, plus downstream payload references.
-Structural nodes are the structural-nodes skill; maps are the maps skill.
+through the generic wizard `oic_wizard_*` — see the adapter-wizard skill.** This page = per-adapter page
+knowledge to apply WHILE driving the wizard, plus downstream payload references. Structural nodes are the
+structural-nodes skill; maps are the maps skill.
 
 Every invoke's wizard auto-creates a request map (TRANSFORMER before the invoke) that YOU must configure
 (the maps skill) — an invoke with an unconfigured map is invalid.
 
-**Catalog example first.** Before the wizard, `oic_catalog_examples {instance, nodeType: "INVOKE", adapter: <code
-or display name>, operation?}` (or a `sig` such as `INVOKE.REST.post.templated`) shows how this tenant's working
-invokes of the same adapter are configured — verb, URI shape, media type, headers, FTP file modes, Fusion
-object/operation — and where they sit in the flow (`flowPath`). Copy the SHAPE, never the prefixes.
+**Catalog example first.** Before the wizard, `oic_catalog_examples` for INVOKE nodes of the same adapter
+(by code or display name, optionally the operation — or a signature such as `INVOKE.REST.post.templated`)
+shows how this tenant's working invokes are configured — verb, URI shape, media type, headers, FTP file
+modes, Fusion object/operation — and where they sit in the flow. Copy the SHAPE, never the prefixes.
 
 ## Prefer EDIT over delete+recreate (artifact-conflict rule)
-To change an existing invoke, EDIT it in place (`oic_wizard_create {instance, code, version, project?, wsid, editNodeId, nodeType:'invokes'}`).
+To change an existing invoke, EDIT it in place (`oic_wizard_create` on the existing invoke).
 NEVER churn delete→create of the same invoke in one workspace — it orphans wizard artifacts → later
 PATCH 500 (Cache null / ICS-18122) or subsequent creates 400. If you truly must delete: delete +
-`oic_commit` (with the workspace triple `{instance, code, version, project?, wsid}`), then rebuild on a FRESH lock (release that wsid, re-open `lock:true`).
+`oic_commit`, then rebuild on a FRESH lock (release that wsid, re-open with the lock).
 
 ## Per-adapter page notes (apply while walking the wizard)
-- **REST** (`connection` = your REST adapter connection id): welcome page — `resourceURI`, `httpVerb` (both
-  `hasEvent`), request/response checkboxes. Request/response SAMPLE is a `fileBrowserObject`
+- **REST** (the connection = your REST adapter connection id): welcome page — `resourceURI`, `httpVerb`
+  (both hasEvent), request/response checkboxes. Request/response SAMPLE is a file-browser field
   (`inputContentRequest` / `inputContentResponse`) → upload via `oic_wizard_file`; element combo =
   `request-wrapper` / `response-wrapper`. Downstream response payload:
   `$<Name>/nsA:executeResponse/nsB:response-wrapper/…` (nsA=`…REST/<Name>_REQUEST/types`, nsB=`…REST/<Name>/types`).
@@ -37,12 +36,12 @@ PATCH 500 (Cache null / ICS-18122) or subsequent creates 400. If you truly must 
   directory+includeFiles in-wizard.
 - **Collocated (Local Integration)**: pick the target integration; the operation page is submitted with
   the operation combo left UNSELECTED — selecting any value binds the WRONG operation.
-- **OCI Function**: region → compartment → application → function are CHAINED `hasEvent` parents — set
+- **OCI Function**: region → compartment → application → function are CHAINED hasEvent parents — set
   each via `oic_wizard_event` and re-read before the next (options don't exist until the parent's event
   fires). Request = JSON sample; response = binary.
 - **ERP Cloud / HCM / other Fusion adapters**: no per-adapter notes exist — drive the generic wizard as
-  designed: read each page's fields/options from the LIVE response, fire `hasEvent` parents first, fill
-  required fields, `generate` + `save`. First build on an adapter without notes: apply the result check +
+  designed: read each page's fields/options from the LIVE response, fire hasEvent parents first, fill
+  required fields, generate + save. First build on an adapter without notes: apply the result check +
   snapshot vs a reference node (the verification skill) and note in your report that the recipe is
   round-trip unverified until proven.
 

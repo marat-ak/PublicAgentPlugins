@@ -10,32 +10,32 @@ conditional emission. You author the XSLT.
 (Copying from another integration — the port-map skill — is a learning/benchmark aid, not the product flow.)
 
 ## Procedure
-1. **Discover the TARGET shape** — fetch the fresh doc (`oic_get_map_xslt {instance, code, version, project?, mapId}`): the empty template
-   shows the target root element; the schema section names the target wsdl. For element structure read the
-   target's wsdl/schema from the .iar (the source-material skill) or the live tree
-   (`fetchTreeNodeChildren type:target` via `oic_raw_api`, jetmapper contentType text/plain). For stagefile
-   writes the structure = the schema SAMPLE that created the stagefile.
+1. **Discover the TARGET shape** — fetch the fresh doc (`oic_get_map_xslt`): the empty template shows the
+   target root element; the schema section names the target wsdl. For element structure read the target's
+   wsdl/schema from the .iar (the source-material skill) or the live tree (the jetmapper
+   `fetchTreeNodeChildren` target read via `oic_raw_api`). For stagefile writes the structure = the schema
+   SAMPLE that created the stagefile.
 2. **Discover the SOURCE shapes** — which upstream payloads/variables carry the data: `oic_get_blueprint`
    (what exists upstream), payload structures from their schema samples/wsdls. Variables are simple strings
    unless typed.
-3. **Find a precedent** — `oic_catalog_examples {instance, nodeType: "TRANSFORMER"}` (narrow with `connection`,
-   `adapter` or `pattern`): the tenant's own working maps with target/sources, techniques, lookups and an XSLT
-   excerpt (the full text is `integration_map.xslt` via `oic_catalog_sql`); `oic_catalog_search {instance, query}`
-   finds the integration when words are what you know; `oic_catalog_status` tells the catalog's age. A close
-   example de-risks structure and function choice. For the live map read the precedent with `oic_load_iar` +
+3. **Find a precedent** — `oic_catalog_examples` for TRANSFORMER nodes (narrowed by connection, adapter or
+   pattern): the tenant's own working maps with target/sources, techniques, lookups and an XSLT excerpt (the
+   full text is `integration_map.xslt` via `oic_catalog_sql`); `oic_catalog_search` finds the integration
+   when words are what you know; `oic_catalog_status` tells the catalog's age. A close example de-risks
+   structure and function choice. For the live map read the precedent with `oic_load_iar` +
    `oic_get_map_xslt`. A precedent's XSLT body carries FOREIGN prefixes — treat any example as
    intent-reference only; prefixes always per the maps skill's PREFIX SOURCE LAW + NAMESPACE LAW.
 4. **Write the body**: `<xsl:param name="X"/>` for every referenced payload/variable + one
    `<xsl:template match="/">` producing the target root. XSLT 2.0 available (`for-each-group`,
    `current-group()`, `replace`); mapper functions: `dvm:lookupValue`, `oraext:encodeReferenceToBase64`,
    `xp20:*` (catalog is auto-sent by the save tool). Prefixes: the NAMESPACE LAW — ONLY the server's
-   table from `oic_get_map_namespaces {instance, code, version, project?, wsid, mapId}`, read in the
-   workspace you save in; every `xsl:param` names one of its `registeredSources` (the maps skill §Sources).
-   You write no declaration — the save declares the body's prefixes from that table.
-5. **Save** with `oic_set_map_xslt {instance, code, version, project?, wsid, mapId, spliceBody}` (indented body;
-   `extraSources` only for a source prepare does not list).
-6. **Check** (discipline: the verification skill): save result `errorsCount:0` AND `sourcesReferencedCount`
-   == params you used; `oic_commit {instance, code, version, project?, wsid}`; fresh `oic_verify {instance, code, version, project?}`; refetch shows body intact.
+   table from `oic_get_map_namespaces`, read in the workspace you save in; every `xsl:param` names one of
+   its registered sources (the maps skill §Sources). You write no declaration — the save declares the
+   body's prefixes from that table.
+5. **Save** the indented body with `oic_set_map_xslt` (an extra source only for one prepare does not list).
+6. **Check** (discipline: the verification skill): zero errors in the save result AND a referenced-source
+   count equal to the params you used; `oic_commit`; a fresh `oic_verify`; the refetch shows the body
+   intact.
 
 ## Authoring rules
 - Emit optional target elements inside `<xsl:if test="normalize-space(…) != ''">` when the requirement says

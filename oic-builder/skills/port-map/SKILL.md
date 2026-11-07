@@ -9,10 +9,10 @@ Use when a task says "make map mX equal to map from integration Y / this .xsl fi
 The source doc's prefixes are INVALID here (the maps skill, THE PREFIX SOURCE LAW + THE NAMESPACE LAW). Port = remap by URI.
 
 ## Algorithm (mechanical — never regex-scrape a header for prefixes, never mint your own)
-1. Get THIS map's server prefix table: `oic_get_map_namespaces {instance, code, version, project?, wsid, mapId}` (live, in the workspace you save in) → `namespaces: [{prefix, ns}]`.
-   Invert → `uri→prefix`. Tool fails → STOP and report; never substitute the table from the archive, a
+1. Get THIS map's server prefix table: `oic_get_map_namespaces` (live, in the workspace you save in).
+   Invert it → `uri→prefix`. Tool fails → STOP and report; never substitute the table from the archive, a
    sibling map's header, or memory (the maps skill, NAMESPACE LAW §6).
-2. `oic_get_map_xslt {instance, code, version, project?, mapId}` → FRESH doc. Keep everything through `</oracle-xsl-mapper:schema>` UNTOUCHED
+2. `oic_get_map_xslt` → the FRESH doc. Keep everything through `</oracle-xsl-mapper:schema>` UNTOUCHED
    (server-owned header + schema section).
 3. From the SOURCE doc: take the tail AFTER `</oracle-xsl-mapper:schema>` (xsl:params + ALL templates,
    including named templates, + `</xsl:stylesheet>`). The SOURCE header's `prefix→uri` map tells you what
@@ -26,9 +26,8 @@ The source doc's prefixes are INVALID here (the maps skill, THE PREFIX SOURCE LA
    - prefix not declared in the source header (typically the target `nstrgmpr`) → leave as-is; the fresh
      wrapper defines the target binding.
 5. The remapped tail is the BODY; the fresh header stays the server's — no declaration of yours anywhere.
-6. Save with `oic_set_map_xslt {instance, code, version, project?, wsid, mapId, spliceBody: <remapped tail>}` —
-   the save declares every table prefix the tail uses; each `xsl:param` must name one of the map's
-   `registeredSources` (the maps skill §Sources).
+6. Save the remapped tail as the whole body with `oic_set_map_xslt` — the save declares every table prefix
+   the tail uses; each `xsl:param` must name one of the map's registered sources (the maps skill §Sources).
 7. Verify per the maps skill §Verifying (refetch + fresh verify; params must survive).
 
 ## Gotchas

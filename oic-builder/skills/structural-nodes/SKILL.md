@@ -5,87 +5,86 @@ description: Use when adding or editing structural blueprint nodes — labels, a
 
 # Structural nodes
 
-Every tool in the table below takes the workspace triple `{instance, code, version, project?, wsid}` —
-the workspace YOU opened in this conversation (instructions.md §Session lifecycle). All create tools also
-take `anchor` + `rpi` (`BEFORE` = insert before anchor node; `AT_END` = append inside anchor
-container). Node ids are server-assigned sequentially per type (next free `l*`, `a*`, `s*`, `sc*`, `f*`, `t*`…).
-If the task requires SPECIFIC ids, creation ORDER determines them — plan the order first.
-`name`/`variableName` values you mint follow the core naming rule (instructions.md).
+Every tool below works in the workspace YOU opened WITH the lock in this conversation (instructions.md
+§Session lifecycle). A new node is placed relative to an anchor: BEFORE a sibling, or at the END inside
+a container. Node ids are server-assigned sequentially per type (next free `l*`, `a*`, `s*`, `sc*`,
+`f*`, `t*`…). If the task requires SPECIFIC ids, creation ORDER determines them — plan the order first.
+Names and variable names you mint follow the core naming rule (instructions.md).
 
-**Catalog example first.** For the node type you are about to add or modify, `oic_catalog_examples {instance,
-nodeType: ROUTER_ROUTE | FOR | WHILE | ASSIGNMENT | THROW | NOTIFICATION | PUBLISHER | STITCH | TRY | …}` (or a
-`sig` such as `ROUTER_ROUTE.compound`, `ASSIGNMENT.string.function`, `NOTIFICATION.attach`) returns working
-examples with their expressions, variable types, conditions and position in the flow (`flowPath`). Copy the
-shape; their expressions carry FOREIGN prefixes — PREFIX SOURCE LAW (maps skill).
+**Catalog example first.** For the node type you are about to add or modify, `oic_catalog_examples` (by
+node type — ROUTER_ROUTE, FOR, WHILE, ASSIGNMENT, THROW, NOTIFICATION, PUBLISHER, STITCH, TRY, … — or by
+an activity signature such as `ROUTER_ROUTE.compound`, `ASSIGNMENT.string.function`,
+`NOTIFICATION.attach`) returns working examples with their expressions, variable types, conditions and
+position in the flow. Copy the shape; their expressions carry FOREIGN prefixes — PREFIX SOURCE LAW (maps
+skill).
+
+**Every expression** (assignment, route condition, for-each, throw, notification): paths come from
+`oic_expression_tree` read at the spot the write tool uses — where the new node goes, or the existing
+node — function prefixes from `oic_xpath_functions` (the maps skill's PREFIX SOURCE LAW); the tool
+declares every prefix the expression uses — no tool takes namespace pairs. A lookup value =
+`oic_lookup_expression` (live-checked lookup + columns → the call). Call `oic_expression_tree` BEFORE
+authoring the expression, copy the path, drill into one subtree rather than dumping the tree.
 
 | Tool | Notes |
 |---|---|
-| `oic_add_label {name, anchor, rpi}` | container for assignments |
-| `oic_add_assignment {anchor, variableName, textExpression, xpathExpression?, variableType?}` | XPath 1.0 core / 2.0-via-`fn:` per the maps skill §the `fn:` law. No `if/then/else` (XSLT, not a function). Paths from `oic_expression_tree` at this spot, function prefixes from `oic_xpath_functions` (the maps skill's PREFIX SOURCE LAW, for this and every expression tool below); the tool declares every prefix the expression uses — no tool takes namespace pairs. A lookup value = `oic_lookup_expression` (live-checked lookup + columns → the call), for this and every expression below. |
-| `oic_add_router {name, anchor, rpi}` | auto-creates its FIRST empty route (next `sc*` id) |
-| `oic_add_route {routerId, otherwise?, expressionName?, textExpression?, xpathExpression?}` | `otherwise:true` = default branch (server generates xpath — never send your own `true`) |
-| `oic_set_route_condition {routeId, textExpression, xpathExpression?, expressionName?}` | set/replace condition; re-running it also refreshes a stale route verdict. A lookup-driven condition (`<lookup call> = 'true'`) wraps the call `oic_lookup_expression` returns. |
-| `oic_add_foreach {name, anchor, rpi, variableName, textExpression, xpathExpression, parallel?}` | xpath = repeating element |
-| `oic_add_scope {name, anchor, rpi}` | TRY container (`t*`). Variables declared INSIDE are invisible after it — declare outer flags before the scope. |
-| `oic_add_catchall {tryId}` | fault handler (`ta*`) on an EXISTING t*. GLOBAL fault handler creation is UNDECODED (no gt0 element exists until it materializes) — if asked, STOP and report. |
-| `oic_add_stop {anchor}` | valid at branch/route end only, not mid-sequence |
-| `oic_add_throw {anchor, rpi, name, faultCode, condition?, reason?, details?}` / `oic_add_note {…}` | the fault code is `faultCode`, NOT `code` (`code` is the integration code of the workspace triple); expressions are `{textExpression, xpathExpression?}`. `condition` is a SKIP condition: true skips the throw, false raises the fault; to throw when X, write `not(X)`. Note: see tool schema |
-| `oic_add_notification {anchor, rpi, name, from, to, subject, body, attachments?}` | from/to/subject = `{textExpression, xpathExpression?}`; body = HTML string; referenced $vars must exist in scope; `name` REQUIRED. An address or subject kept in a lookup = the call `oic_lookup_expression` returns (both its expressions + its `dvm` pair). |
-| `oic_add_publisher {anchor, rpi, name, eventCode}` | resolves eventType code→revision dynamically (never hardcode revision); creates its request map — configure per the maps skill |
-| `oic_patch_assignment` | edit expr in place. Minimal body {operation,typeDef,expression} = create body minus location (tool handles it; GET-echo → 400). Same expr engine as create (the maps skill §the `fn:` law). |
-| `oic_expression_tree {instance, code, version, project?, wsid, anchor, rpi, elementType}` (a NEW node's spot) / `{…, wsid, elementId}` (an EXISTING node) + `path?`, `depth?` | **the expression picker at a flow location** — every variable in scope with its PREFIXED path (`/ns0:execute/…` the primary payload, `$Var/pfx:root/…` every other), type, repeat, `targets` (writable vars). Call it BEFORE authoring any assignment/route/foreach/throw/notification expression, at the spot the write tool uses: a new node's `{anchor, rpi, elementType}` with `elementType` = its blueprint segment (`assignments` with the label as anchor and `AT_END`, `routes` with the router + `AT_END`, `forLoops`, `throws`, `notifications`), an existing node's `{elementId}`; copy the path, drill with `path`. The maps skill's PREFIX SOURCE LAW. |
+| `oic_add_label` | container for assignments |
+| `oic_add_assignment` | goes into its label. XPath 1.0 core / 2.0-via-`fn:` per the maps skill §the `fn:` law. No `if/then/else` (XSLT, not a function). |
+| `oic_add_router` | auto-creates its FIRST empty route (next `sc*` id) |
+| `oic_add_route` | the Otherwise (default) branch is a flag — the server generates its xpath; never send your own `true` |
+| `oic_set_route_condition` | set/replace a condition; re-running it also refreshes a stale route verdict. A lookup-driven condition (`<lookup call> = 'true'`) wraps the call `oic_lookup_expression` returns. |
+| `oic_add_foreach` | over the REPEATING element (the maps skill: only where the schema repeats) |
+| `oic_add_scope` | TRY container (`t*`). Variables declared INSIDE are invisible after it — declare outer flags before the scope. |
+| `oic_add_catchall` | fault handler (`ta*`) on an EXISTING `t*`. GLOBAL fault handler creation is UNDECODED (no gt0 element exists until it materializes) — if asked, STOP and report. |
+| `oic_add_stop` | valid at branch/route end only, not mid-sequence |
+| `oic_add_throw` / `oic_add_note` | the throw's condition is a SKIP condition: true skips the throw, false raises the fault; to throw when X, write `not(X)`. |
+| `oic_add_notification` | referenced variables must exist in scope; the body is HTML, not an expression. An address or subject kept in a lookup = the call `oic_lookup_expression` returns. |
+| `oic_add_publisher` | resolves the event type's revision live (never hardcode a revision); creates its request map — configure per the maps skill |
+| `oic_patch_assignment` | edit an assignment's expression in place (the tool builds the minimal body; echoing a GET body back → 400). Same expression engine as create (the maps skill §the `fn:` law). |
+| `oic_expression_tree` | **the expression picker at a flow location** — every variable in scope with its PREFIXED path, type, repeat, and the writable variables. The maps skill's PREFIX SOURCE LAW. |
 
 ## Assignment authoring
-Assignment is a PLAIN blueprint node (NOT a CAF wizard). Create = `POST assignments {location, operation:"Assign",
-typeDef:"simple", expression:{…}}`; edit = same `expression` minus `location` via PATCH. The designer only
-adds catalog READS around it: the expression picker (→ `oic_expression_tree`) and `xpathFunctions`
-(→ `oic_xpath_functions`). To author generically: `oic_expression_tree` at the spot (`elementType:
-"assignments"`) for the variable's prefixed path, `oic_xpath_functions` for the Oracle/custom funcs and the
-prefix their call is written with (default `scope:"extensions"`; `"standard"`/`"all"` add the built-ins
-catalog; `filter` narrows), then `oic_add_assignment` with the expression text. The tool declares the
-expression's prefixes at that spot. (Expression-engine rule — 1.0 core vs 2.0-via-prefix — is the maps skill
-§the `fn:` law.)
-- **textExpression vs xpathExpression**: designer sends `textExpression` = the friendly label shown on
-  the canvas, `xpathExpression` = the canonical xpath of the same value (`$<var>/<ns>:<root>/…`). Runtime
-  evaluates the XPATH. The tools default xpath=text — pass a valid xpath as `textExpression` and it works
-  as both; only the canvas label differs. Give distinct `xpathExpression` only if you want a prettier label.
+Assignment is a PLAIN blueprint node (NOT a CAF wizard): create = POST, edit = the same expression via
+PATCH. The designer only adds catalog READS around it: the expression picker (→ `oic_expression_tree`)
+and the function catalog (→ `oic_xpath_functions`). To author generically: `oic_expression_tree` at the
+assignment's spot for the variable's prefixed path, `oic_xpath_functions` for the Oracle/custom functions
+and the prefix their call is written with, then `oic_add_assignment` with the expression text. The tool
+declares the expression's prefixes at that spot. (Expression-engine rule — 1.0 core vs 2.0-via-prefix —
+is the maps skill §the `fn:` law.)
+- **Canvas label vs evaluated xpath**: the designer sends a friendly label shown on the canvas AND the
+  canonical xpath of the same value; runtime evaluates the XPATH. A valid xpath given as the expression
+  text works as both — only the canvas label differs; give a separate label only if you want a prettier
+  canvas.
 
 ## STITCH (no dedicated tool — use the escape hatches)
-A STITCH appends/assigns into a variable in place (XPath 2.0-capable — use the `fn:` prefix). Two-step, no
-mapper pipeline (unlike TRANSFORMER):
-1. Create shell: `oic_node_post {instance, code, version, project?, wsid, segment:"stitches", body:{...minimal...}}` (returns the new `sh*` id).
-2. Configure: `oic_node_patch {instance, code, version, project?, wsid, segment:"stitches", id:"<the sh* id>", body:{ name, description:"", statements:[
-   {operation:"Append", to:{type:"XPathPath", path:"$targetVar/ns:Repeating/ns:Elem"},
-    from:{type:"XPathExpression", expression:"$src/ns:...[predicate]"}} ] }}` — paths from
-   `oic_expression_tree {…, elementId:"<the sh* id>"}`. The tool fills the node's `namespaces` with every
-   prefix the statements use (never send it); the server auto-populates `variables[]`. Then `oic_commit`
-   (with the workspace triple `{instance, code, version, project?, wsid}`). The same holds for any
-   `{xpathExpression}` object in an escape-hatch body (a logger's `logMessage`, a while condition): its
-   `namespaceContexts` is the tool's.
+A STITCH appends/assigns into a variable in place (XPath 2.0-capable — use the `fn:` prefix). Two steps,
+no mapper pipeline (unlike TRANSFORMER): create the shell with `oic_node_post` (it returns the new `sh*`
+id), then configure its statements with `oic_node_patch` — paths from `oic_expression_tree` at that
+`sh*` node; the tool fills the node's namespaces with every prefix the statements use (never send them);
+the server populates its variables. Then `oic_commit`. The same holds for any expression object in an
+escape-hatch body (a logger's message, a while condition): its namespaces are the tool's.
 - **Append only targets a REPEATING element** (`maxOccurs`>1). The designer reads maxOccurs from the schema
-  tree (`webmapper/schematree`) and won't let you target a single node; the API just stores the path, so YOU
-  must ensure `to.path` is a repeating element.
-- `operation` also = `Assign` / `Remove` (same to/from shape).
+  tree and won't let you target a single node; the API just stores the path, so YOU must ensure the
+  target path is a repeating element.
+- The statement operations are Append / Assign / Remove.
 - Expressions run XPath 2.0 via the `fn:` prefix (the maps skill §the `fn:` law).
 - Keeps the SOURCE element's namespace (unlike a write-stagefile, which mints a new one) → append into a
   same-typed global var to filter/accumulate with ZERO downstream cascade (see the stage-files skill,
   cascade caveat).
 
-## Node MOVE (any type) — `oic_move_node {elementIds, anchor, rpi?}`
-The designer's GENERIC endpoint: `POST …/blueprint/move
-{elementIDs:[...], location:{rpi, anchorElementId}}` → **204**. No type/id in the path, `location` is NESTED,
-`elementIDs` is an ARRAY (move several together, relative order kept).
-- `rpi:"BEFORE"` + a **sibling** id = reorder, OR drop INTO the container that sibling belongs to (container
-  membership is implied by the anchor's position — you never name the container for BEFORE).
-- `rpi:"AT_END"` + a **container** id (scope t*, route sc*, foreach f*, label l*) = append inside it.
+## Node MOVE (any type) — `oic_move_node`
+The designer's GENERIC move: several nodes move together, their relative order kept.
+- BEFORE a **sibling** = reorder, OR drop INTO the container that sibling belongs to (container membership
+  is implied by the anchor's position — you never name the container for BEFORE).
+- At the END of a **container** (scope t*, route sc*, foreach f*, label l*) = append inside it.
 - Canvas layout only re-flows on the next designer reload (blueprint is the source of truth).
-- Body shape is endpoint-specific: the generic `blueprint/move` needs the NESTED `location:{}`, the per-type
-  `.../move` needs a FLAT `{rpi,anchorElementId}` — mismatching gives ICS-11115. `oic_move_node` handles this;
-  prefer it (uniform across types + multi-select).
+- Prefer `oic_move_node` over a per-type move through the escape hatch: the per-type endpoint takes a
+  different body shape (mismatching gives ICS-11115); the generic one is uniform across types +
+  multi-select.
 
 ## Placement gotchas
 - Build strictly in flow order — a later node cannot be anchored to a not-yet-existing predecessor.
-- Appending AT_END directly after a REPLY/terminal → ICS-10039; anchor a route/container instead.
+- Appending at the END directly after a REPLY/terminal → ICS-10039; anchor a route/container instead.
+- Appending at the END of a LEAF nests inside that leaf — wrong for siblings; anchor the next sibling with BEFORE.
 - Deleting an invoke/stagefile CASCADES its request map. Router delete cascades routes+children.
 
 ## Persist check

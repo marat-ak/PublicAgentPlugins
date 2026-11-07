@@ -20,14 +20,16 @@ const BANNED = [
   /sessionPurge/,
   /X-Session-/,
   /UNKNOWN[^\n]*UNLOCK/i,
+  /oic_add_stagefile|oic_add_invoke_|oic_change_stagefile_schema|oic_search_integrations/,   // tools that no longer exist
 ];
 test('no implicit-context wording, no purge hook, no dead tool names in the plugin', () => {
   const hits = [];
   for (const f of walk(root)) { const t = readFileSync(f, 'utf8'); for (const re of BANNED) if (re.test(t)) hits.push(`${f}: ${re}`); }
   assert.deepEqual(hits, []);
 });
-test('workspace skill teaches the explicit triple', () => {
+// The explicit-scope RULE is taught in words; the argument list itself is the tool schema's (no-arg-recipes).
+test('workspace skill teaches that every workspace call names its integration and wsid', () => {
   const t = readFileSync(join(root, 'skills/workspace/SKILL.md'), 'utf8');
-  assert.match(t, /\{instance, code, version, project\?, wsid\}/);
+  assert.match(t, /no implicit workspace: every workspace call names its integration and the wsid/);
   assert.match(t, /Lock upgrade/);
 });

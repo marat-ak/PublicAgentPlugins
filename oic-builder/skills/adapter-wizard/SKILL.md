@@ -5,64 +5,62 @@ description: Use for creating or editing ANY adapter endpoint (stagefile, REST, 
 
 # Generic adapter wizard (oic_wizard_*) — THE path for ALL adapter endpoints, create AND edit
 
-**The former per-adapter recipe tools (`oic_add_stagefile`, `oic_add_invoke_rest/ftp/collocated/ocifn`,
-`oic_change_stagefile_schema`) are REMOVED from the tool set — do not look for them. Every adapter
-endpoint goes through `oic_wizard_*`.** (Structural nodes — label/assignment/router/route/for/scope/
-catch/throw/stop/notification/publisher — stay plain blueprint POSTs per the structural-nodes skill;
-not wizard territory.)
+**Every adapter endpoint (stagefile, REST, FTP, DB, ERP, collocated, OCI-fn, any adapter) is created and
+edited through `oic_wizard_*`.** (Structural nodes — label/assignment/router/route/for/scope/catch/throw/
+stop/notification/publisher — stay plain blueprint POSTs per the structural-nodes skill; not wizard
+territory.)
 
 The CAF wizard (`ui/load|next|previous|event|generate`) is SELF-DESCRIBING: every response returns the
 page's fields (name/type/value/options/hasEvent). The driver is a thin echo-delta layer over it — never
 hardcode page/field names; read them from the returned page model.
 
-## ONE procedure, two entry variants
+## ONE procedure, three entry variants
 Create and edit differ ONLY in the first call. Everything after `oic_wizard_create` returns the first
 page is the SAME loop.
 
-| Entry | Call | Pages arrive | Your job per page |
+| Entry | First call | Pages arrive | Your job per page |
 |---|---|---|---|
-| **EDIT in place** | `oic_wizard_create {instance, code, version, project?, wsid, connection, editNodeId, nodeType}` (`nodeType` = segment: `stagefiles`, `invokes`, …) | **pre-filled** with the existing config — incl. file bindings absent from get_node/blueprint/.jca (`Filename`/`FileReferenceName` expressions; otherwise only in `.iar` `*expr.properties`, see the stage-files and source-material skills) | change ONLY your deltas; everything else echoes |
-| **NEW endpoint** | `oic_wizard_create {instance, code, version, project?, wsid, connection, name, anchor, rpi?}` | **server defaults** | fill the required fields (read labels/options from the live page, like a designer user) |
-| **NEW: first trigger of an empty flow** | `oic_wizard_create {instance, code, version, project?, wsid, connection, target:'trigger'}` — no `anchor`, no `rpi`, no `name`: the endpoint name is the wizard's own field | **server defaults** | same as a new endpoint; the connection is the user's choice |
+| **EDIT in place** | `oic_wizard_create` on the EXISTING node (its id and blueprint segment) | **pre-filled** with the existing config — incl. file bindings absent from get_node/blueprint/.jca (`Filename`/`FileReferenceName` expressions; otherwise only in `.iar` `*expr.properties`, see the stage-files and source-material skills) | change ONLY your deltas; everything else echoes |
+| **NEW endpoint** | `oic_wizard_create` with the endpoint name, the connection and the anchor | **server defaults** | fill the required fields (read labels/options from the live page, like a designer user) |
+| **NEW: first trigger of an empty flow** | `oic_wizard_create` as a TRIGGER with no anchor — the endpoint name is the wizard's own field | **server defaults** | same as a new endpoint; the connection is the user's choice |
 
-Every `oic_wizard_*` call carries the SAME `{instance, code, version, project?, wsid}` — one wizard per
-integration per conversation; `oic_wizard_cancel` before creating another for the same integration.
+One wizard per integration per conversation — every `oic_wizard_*` call names the same integration and
+wsid; `oic_wizard_cancel` before creating another for the same integration.
 
 Node-order plumbing is the tool's problem, not yours: invokes get a stub before the wizard; a Stage File
 and a first trigger are created by `oic_wizard_save`. A Stage File (`STAGE_FILE_CONNECTION`) becomes its
 STAGEFILE node at the anchor — the server then adds the request map a Write needs (a Read has none). A first
 trigger is created only when a fresh read shows the flow is empty (otherwise save refuses, nothing changed);
-the result's `created` is its id, and the tenant adds nodes around it, which may differ by trigger — read what
-it built with `oic_reload_blueprint`, never assume a shape. `oic_wizard_save` is the same call
-either way (edit = rebind in place; no delete, node id + request map survive, downstream never invalidates).
+the result names its id, and the tenant adds nodes around it, which may differ by trigger — read what it
+built with `oic_reload_blueprint`, never assume a shape. `oic_wizard_save` is the same call either way
+(edit = rebind in place; no delete, node id + request map survive, downstream never invalidates).
 
-## The loop (identical for both)
-1. Read the returned page: `fields:[{name,type,value,options,hasEvent,required,readOnly}]`.
-2. `oic_wizard_event {field, value}` — REQUIRED for any change to a `hasEvent:true` field (parent):
-   downstream fields/options are computed server-side by this round-trip. Re-read the returned page
-   BEFORE filling dependents; combo options are valid only from the LATEST response.
-3. `oic_wizard_file {field?, content, fileName?}` — file/sample upload (`fileBrowserObject`:
-   `SCHEMA_FILE_CHOOSER`, REST `inputContentRequest`): raw text in, tool base64s + sends via event, the
-   SERVER parses and returns the detected root-element combo. NEVER send file content through next.
-4. `oic_wizard_next {fieldValue?}` — commit the page and advance. **No fieldValue = pure echo** (every
-   stored value sent back unmodified); pass only non-event deltas. `op:'previous'` goes back.
+## The loop (identical for all)
+1. Read the returned page: every field with its type, value, options, hasEvent, required and readOnly.
+2. `oic_wizard_event` — REQUIRED for any change to a hasEvent field (parent): downstream fields/options
+   are computed server-side by this round-trip. Re-read the returned page BEFORE filling dependents;
+   combo options are valid only from the LATEST response.
+3. `oic_wizard_file` — file/sample upload (file-browser fields: `SCHEMA_FILE_CHOOSER`, REST
+   `inputContentRequest`): raw text in, the tool base64s + sends it via event, the SERVER parses and
+   returns the detected root-element combo. NEVER send file content through next.
+4. `oic_wizard_next` — commit the page and advance. Without deltas it is a **pure echo** (every stored
+   value sent back unmodified); pass only the non-event fields you change. It also goes back a page.
 5. Finish at the last enabled page: no response says when, so go to step 6 once no enabled page follows
-   `currentPageId` in `pages`. In every flow seen so far it is a summary showing the SERVER's view of the
-   full config (incl. bindings like Filename/Append) — read it as the pre-generate confirmation that nothing
-   was lost/missing.
-6. `oic_wizard_generate` → artifactId; `oic_wizard_save`; then `oic_commit` + `oic_verify` (all with the workspace triple).
-- `oic_wizard_page {field?}` — introspect without advancing; with `field` = RAW subtree (debug unknown
-  object types).
+   the current page. In every flow seen so far it is a summary showing the SERVER's view of the full config
+   (incl. bindings like Filename/Append) — read it as the pre-generate confirmation that nothing was
+   lost/missing.
+6. `oic_wizard_generate` → `oic_wizard_save`; then `oic_commit` + `oic_verify`.
+- `oic_wizard_page` — introspect without advancing; one field's RAW subtree for debugging unknown object
+  types.
 
 ## Field semantics (from the parsed page model)
 - `checkboxObject`: `value` is the checkbox ID string — the STATE is `checked` (boolean). The driver
   echoes booleans; never treat `value` as state.
-- `expressionBuilderObject` (Filename, PhysicalDirectory, FileReferenceName…): pass the expression STRING
-  only — literals quoted inside it, a payload path copied from `oic_expression_tree` at the node's spot
-  (`{anchor, rpi, elementType}` for a new node, `{elementId}` for an existing one), a function call with its
-  `oic_xpath_functions` prefix (the maps skill's PREFIX SOURCE LAW). The driver sends the designer's shape:
-  the label and the namespace pairs of every prefix the expression uses, resolved at that spot; an unknown
-  prefix is refused before the call. Never send an object, `::userFriendlyXpath` or `::namespacePairs`.
+- `expressionBuilderObject` (Filename, PhysicalDirectory, FileReferenceName…): the expression STRING
+  only — literals quoted inside it, a payload path copied from `oic_expression_tree` at the node's spot (a
+  new node's place, or the existing node), a function call with its `oic_xpath_functions` prefix (the maps
+  skill's PREFIX SOURCE LAW). The driver sends the designer's shape: the label and the namespace pairs of
+  every prefix the expression uses, resolved at that spot; an unknown prefix is refused before the call.
   Unchanged fields echo with what the server stored.
 - `comboBoxObject`: `options` are the ONLY values it takes, sent as the option itself — an option `"true"`
   is the string `"true"`, never a boolean (the driver refuses a value that is not an option; a mistyped
@@ -78,10 +76,9 @@ response — an existing sample EXISTS, and you MUST start from it verbatim:
 2. **REST request/response pages DO NOT echo the stored sample** (`inputContentRequest` /
    `inputContentResponse` come back `null` on resume) — BUT the ORIGINAL sample the user uploaded is
    stored VERBATIM in the endpoint's artifact. Get it with a TOOL, do NOT reconstruct and do NOT script:
-   - **`oic_iar_samples {instance, code, version, project?}`** (cache-only over the archive
-     `oic_open_integration` loaded when you started — or `oic_load_iar` alone; load it first) → `endpoints:{<Ref>:{requestSample,
-     responseSample,…}}`. `requestSample`/`responseSample` are the exact JSON/XML the user uploaded. THAT
-     is the source of truth — exactly what the wizard expects re-uploaded.
+   - **`oic_iar_samples`** (cache-only over the archive `oic_open_integration` loaded when you started —
+     or `oic_load_iar` alone; load it first) returns each endpoint's request/response sample: the exact
+     JSON/XML the user uploaded. THAT is the source of truth — exactly what the wizard expects re-uploaded.
    - Splice ONLY your intended additions into that verbatim sample (e.g. insert new fields after a named
      sibling), keeping every existing field, value, and type. Upload it.
    - The generated `*_REQUEST.wsdl` is DERIVED from the sample and is LOSSY for this purpose (types/order/
@@ -90,13 +87,13 @@ response — an existing sample EXISTS, and you MUST start from it verbatim:
 3. **Can't obtain the existing payload** (`oic_iar_samples` returns no sample for the endpoint, no
    capture)? **STOP AND ASK THE USER** for the current sample. NEVER generate a payload from memory, notes,
    or field lists.
-4. **Mandatory post-save proof — via `oic_iar_schema_diff`, never a script and never a file.** Every
-   call below takes the SAME `{instance, code, version, project?}`:
+4. **Mandatory post-save proof — via `oic_iar_schema_diff`, never a script and never a file.** All on the
+   same integration:
    a. BEFORE the edit: the archive baseline — already loaded by `oic_open_integration`; otherwise
       `oic_load_iar` (no-op if already loaded).
    b. After saving: `oic_reload_iar` — re-downloads the archive and stashes the baseline schema.
-   c. `oic_iar_schema_diff` — the before/after verdict. Assert for the edited endpoint: `removed:[]`,
-      `typeChanged:[]`, `added:[exactly the intended fields]`, `clean:true` (request AND response).
+   c. `oic_iar_schema_diff` — the before/after verdict. Assert for the edited endpoint: nothing removed,
+      no type changed, exactly the intended fields added, clean (request AND response).
    d. When the diff needs explaining, read the after-image itself with `oic_iar_samples` /
       `oic_iar_schema`.
    A schema edit without this diff is UNVERIFIED regardless of oic_verify being green.
@@ -126,9 +123,9 @@ When a metadata-defined adapter node is MISSING fields, two resolutions:
    and is a user-requested workaround, not a default.
 
 ## Worked recipes
-No separate recipe — both are the loop above. A **schema edit**: resume on `editNodeId`, obtain the current
-sample per the SAMPLE FIDELITY LAW, splice, generate/save, then its mandatory `.iar` diff proof (law §4) +
-a `oic_set_map_xslt {…, wsid, mapId, validateOnly}` refresh on each dependent map. A **new endpoint**: the same loop from
+No separate recipe — both are the loop above. A **schema edit**: resume on the node (edit in place), obtain
+the current sample per the SAMPLE FIDELITY LAW, splice, generate/save, then its mandatory `.iar` diff proof
+(law §4) + a validation-only `oic_set_map_xslt` refresh on each dependent map. A **new endpoint**: the same loop from
 defaults, then configure the request map the server created (an invoke, a stage-file Write — the maps
 skill) before verify. Commit per node.
 
@@ -212,15 +209,15 @@ Consequences:
   oic_delete_node if unwanted. Never just walk away from a session.
 
 ## Cautions
-- stagefile sessions auto-use the stagefile filter; a trigger (`target:'trigger'`) gets its inbound filter by
-  default — pass `filter` only to override.
+- stagefile sessions auto-use the stagefile filter; a trigger gets its inbound filter by default — override
+  the filter only when you must.
 - CAF conventions already inside the driver: firing field `processed:false`, pluginId echo, checkbox
   booleans, and **ooe ACCUMULATION** (orderOfEvents re-lists every prior page submission `processed:true`
   + current deltas `false`, reset on page change — a lone-delta ooe → 400 "field required": the server
-  registers a field ONLY through ooe; fieldValue alone is ignored).
-- On the FIRST welcome event of a create, ride the endpoint name alongside that event's delta as
-  `fieldValue:{referenceName:'<endpoint name>'}` (the event field itself read from the live page, never
-  pinned) — the designer's own pattern (referenceName rides the first event).
+  registers a field ONLY through ooe; field values alone are ignored).
+- On the FIRST welcome event of a create, the endpoint name (`referenceName`) rides along with that
+  event's delta (the event field itself read from the live page, never pinned) — the designer's own
+  pattern (referenceName rides the first event).
 - Adapter-specific page knowledge lives in the adapter-invokes skill — consult it before driving a
   known-tricky adapter (collocated: leave the operation combo UNSELECTED — selecting binds the wrong op;
   OCI-fn: region→compartment→app→function = chained hasEvent parents).

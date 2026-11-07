@@ -14,51 +14,48 @@ govern everything below:
 - **Payloads ONLY when the question needs a body.** Never fetch a node's payload to reason about STRUCTURE —
   structure comes from the blueprint, not from runtime bodies.
 
-Every runtime call here takes `{instance}` — `oic_activity_flow {instance, instanceId, …}` and the
-`oic_load_flowactivity` / `oic_get_flowactivity` / `*_external_payload` family; the design-time reads
-take `{instance, code, version, project?}` (`oic_get_blueprint`, `oic_describe_activity`).
-`oic_list_instances` (run search) is instance-free (its `sweep:true` mode takes `{instance}`). Name it on every call (instructions.md §Session
-lifecycle).
+Runtime loads run against the signed-in instance; runtime and design reads name the instance folder they
+read (instructions.md §Where loaded data lives).
 
 ## 1. Build the mental model from the BLUEPRINT, not the run
 
-Before touching runtime, understand the integration's DESIGN. `oic_get_blueprint` (cached per conversation, cheap to
-re-call) is the bounded structural map: the trigger, every node (list/read, ForEach loops, maps, invokes,
-routers/routes, scopes), and what calls what. Open the integration read-only for this in ONE call —
-`oic_open_integration {instance, code, version, project?}` (lock defaults to false; it also loads the
-archive and blueprint, so `oic_get_blueprint` / `oic_describe_activity` answer from the cache at once).
-Your model of "what SHOULD happen" is built here; the run tells you what DID.
+Before touching runtime, understand the integration's DESIGN. `oic_get_blueprint` (cached per conversation,
+cheap to re-call) is the bounded structural map: the trigger, every node (list/read, ForEach loops, maps,
+invokes, routers/routes, scopes), and what calls what. Open the integration read-only for this in ONE call —
+`oic_open_integration` without the lock (it also loads the archive and blueprint, so `oic_get_blueprint` /
+`oic_describe_activity` answer from the cache at once). Your model of "what SHOULD happen" is built here;
+the run tells you what DID.
 
 **A run names the design to open.** When the request starts from a run (an instanceId), load it first
-(`oic_load_flowactivity`): its `instance` block is Oracle's record of WHAT ran — `integration {name, code,
-version}` and `project` (`{code}`; null = standalone). Open exactly that: `oic_open_integration {instance,
-code, version, project: <project.code>}`, no `project` when it is null. The run's project is a fact read from
-Oracle — never asked, never searched for (instructions.md §Integration scope).
+(`oic_load_flowactivity`): its run record is Oracle's record of WHAT ran — the integration (name, code,
+version) and its project (none = standalone). Open exactly that integration, in that project (none = the
+standalone one). The run's project is a fact read from Oracle — never asked, never searched for
+(instructions.md §Integration scope).
 
 **The report opens with what ran.** Every run analysis starts with one line per run:
-`Integration name (CODE version) · Project: Name (CODE)` — `Project: CODE` when the block carries no name,
-`· Standalone` when `project` is null. In a call tree (a run whose invokes started other integrations' runs)
-that line is given for the root AND for every child run, each from that child's own `instance` block — a child
-can live in a different project than its parent.
+`Integration name (CODE version) · Project: Name (CODE)` — `Project: CODE` when the record carries no
+name, `· Standalone` when it has no project. In a call tree (a run whose invokes started other
+integrations' runs) that line is given for the root AND for every child run, each from that child's own
+run record — a child can live in a different project than its parent.
 
 **Child runs of a call tree.** An invoke that called another integration shows `-> CODE [project P |
-standalone]` on its search / children lines (`op:"node"`: `target {code, project}`) — read from the invoke's own
-request path, which always carries the callee's scope. Find the child's run with `oic_list_instances {code:
-target.code, project: target.project (omitted when null), startdate+enddate spanning the parent's received..end}`,
-then load it: its `instance` block confirms integration and project. An invoke without `target` is one whose
-stream names no callee (a native Local Integration invoke, a templated path): say so and take the callee from the
-design or ask — never guess it.
+standalone]` on its search / children lines (and the drilled node names its target integration and
+project) — read from the invoke's own request path, which always carries the callee's scope. Find the
+child's run with `oic_list_instances` for that code, in that project (none when standalone), over a range
+spanning the parent's received..end; then load it: its run record confirms integration and project. An
+invoke without a target is one whose stream names no callee (a native Local Integration invoke, a templated
+path): say so and take the callee from the design or ask — never guess it.
 
 ## 2. Get the instanceId, then the OVERVIEW — never the full tree
 
-A run is addressed by its `instanceId` (from `oic_list_instances` — filter `status:"FAILED"` for a failing
-run; that is the discovery skill's inventory law applied to runs). Then:
+A run is addressed by its `instanceId` (from `oic_list_instances` — filter on FAILED for a failing run; that
+is the discovery skill's inventory law applied to runs). Then:
 
-`oic_activity_flow {op:"overview", instanceId}` returns a TINY summary — did it fail and WHERE, the hoisted
-error root cause, node/error counts, and a shallow skeleton (top-level nodes + collapsed subtree counts). It
-is deliberately not the full tree. The stream is fetched + parsed ONCE per instanceId and cached in this
-conversation; later ops reuse it (`refresh:true` re-fetches). A `410 Gone` means the run's stream was purged —
-pick a more recent run.
+The `oic_activity_flow` overview returns a TINY summary — did it fail and WHERE, the hoisted error root
+cause, node/error counts, and a shallow skeleton (top-level nodes + collapsed subtree counts). It is
+deliberately not the full tree. The stream is fetched + parsed ONCE per instanceId and cached in this
+conversation; later queries reuse it (`oic_reload_flowactivity` re-fetches a run that progressed). A
+`410 Gone` means the run's stream was purged — pick a more recent run.
 
 Read the overview to decide the ONE question worth drilling. **A failed run's implicit goal is "why did it
 fail" → go straight to the hoisted root cause / the error nodes.** For a broad or unpinned request ("check
@@ -70,53 +67,45 @@ don't decide, ASK).
 The moment a question spans more than one run — "the last 10 runs", "which run processed file X", "what
 filter did each run send", "did the error start today", "compare the file counts" — stop using the
 per-run ladder in a loop. Each single-run call is a full model round-trip; ten runs × four calls is the
-cost this section removes. Three tools, all naming `{instance}`: the load runs against the signed-in
-instance; search and extract read that instance's folder (signed in to it or not):
+cost this section removes. The load runs against the signed-in instance; search and extract read that
+instance's folder (signed in to it or not):
 
 0. A question over EVERY run of a period (more than one page — counts, "all failures last week") is
-   PLAN → ASK → FETCH. `oic_list_instances {instance, sweep:true, startdate, enddate, code, …}` (UTC, both
-   ends explicit) only COUNTS and returns a plan. A plan with `needsConfirmation` is a cost the user has
-   not agreed to: ask with AskUserQuestion before fetching — state the run total (beside the schedule's
-   expected runs when given), the call count and time estimate, and offer: fetch all / only a status
-   (`byStatus` shows what that saves) / a narrower range / counts only. Fetch only on their choice:
-   `oic_list_instances {instance, planId}` writes the full list to a session file; read the file, then
-   feed chosen ids to step 1. A plan without `needsConfirmation` is fetched directly.
-1. `oic_runs_load {instance, code, timewindow? | startdate+enddate, status?, version?, project?, limit?}` — OR
-   `{instance, instanceIds:[…]}` (never both). `project` = the integration's search-result `project` tag,
-   omitted when null: without it only standalone runs are listed (`selector.scope` says which). ONE call lists the runs server-side (same filters as
-   `oic_list_instances`, newest first, ≤ 50) and downloads their streams IN PARALLEL (bounded pool,
-   automatic backoff on throttling). Returns one compact row per run — integration name, project (null =
-   standalone), outcome, status, start, duration,
-   node/error counts, the first error's node + `#identifier` + message, cache state — and NEVER a tree.
-   `purged` (410) and `failed` (with HTTP status) are per-run states, not batch failures; `pending`
-   rows + `pendingIds` mean the time budget ran out — call again with those ids (loaded runs are hits).
-   `payloads` (default `"none"`): `"all"` or a node selector `{adapter?, milestone?, identifier?, text?}`
-   downloads the EXTERNAL bodies of the matching nodes only (≤ `maxPayloadsPerRun`). Use the selector,
-   never `"all"`, unless the question is literally about every body.
-2. `oic_runs_search {instance, instanceIds?, …filters}` — the §4 filters (`errorsOnly`, `adapter`,
-   `text`, `milestone`, `minIterations`/`maxIterations`, `slowerThanMs`) plus `errorText` (regex over
-   error summary/details) and `payloadText` (regex over inline + downloaded bodies — the "which run saw
-   file X" question Oracle's monitor cannot answer) — run ONCE across the loaded set, grouped per run
-   (`perRunLimit` lines each, `offset/limit` over matching runs). `notLoaded` lists ids you never loaded;
-   `payloadsNotSearched` says external bodies were skipped — a miss there proves nothing until you load
-   them with `payloads:{…}`.
-3. `oic_runs_extract {instance, instanceIds?, node:{…selector}, pick?, fields?, payload?}` — picks the SAME
-   node in every run (by `identifier` exactly, or `milestone`/`adapter`/`text` regex) and returns its facts
-   (`elapsed`, `iterations`, `childCount`, `message`, `errorSummary`) plus ONE extracted value from its
-   body: `payload:{xpath}` (XML, `namespaces` map optional; `count(...)` for counts), `{regex}` (capture
-   group 1, `count` of matches) or `{jsonPath}` (dotted path). `payloadSource:"needs-load"` +
-   `needsPayload` means the body is external and not downloaded — `oic_runs_load {instanceIds, payloads:
-   <the same node selector>}` then re-run. Cache-only: it never downloads.
+   PLAN → ASK → FETCH with `oic_list_instances`: the plan (UTC, both ends explicit) only COUNTS. A plan
+   that needs confirmation is a cost the user has not agreed to: ask with AskUserQuestion before fetching
+   — state the run total (beside the schedule's expected runs when given), the call count and time
+   estimate, and offer: fetch all / only a status (the per-status counts show what that saves) / a narrower
+   range / counts only. Fetch only on their choice: the fetch writes the full list to a session file; read
+   the file, then feed chosen ids to step 1. A plan that needs no confirmation is fetched directly.
+1. `oic_runs_load` — the run set is an explicit id list OR a selector over the `oic_list_instances`
+   filters (code, time window or range, status, version, project — the integration's search-result
+   project, none when it has none: without it only standalone runs are listed; the result says which).
+   ONE call lists the runs server-side (newest first, ≤ 50) and downloads their streams IN PARALLEL
+   (bounded pool, automatic backoff on throttling). Returns one compact row per run — integration name,
+   project (none = standalone), outcome, status, start, duration, node/error counts, the first error's
+   node + `#identifier` + message, cache state — and NEVER a tree. `purged` (410) and `failed` (with HTTP
+   status) are per-run states, not batch failures; pending runs mean the time budget ran out — call again
+   with those ids (loaded runs are hits). External payload bodies are downloaded only on request, for the
+   nodes a node selector names: use a selector, never all bodies, unless the question is literally about
+   every body.
+2. `oic_runs_search` — the §4 filters plus error-text and payload-text regexes (payload text = the "which
+   run saw file X" question Oracle's monitor cannot answer) — run ONCE across the loaded set, grouped per
+   run. It lists ids you never loaded, and says when external bodies were not searched — a miss there
+   proves nothing until you load them (step 1, with a node selector).
+3. `oic_runs_extract` — picks the SAME node in every run (by `#identifier` exactly, or milestone /
+   adapter / text) and returns its facts plus ONE value extracted from its body (an XPath — `count(...)`
+   for counts —, a regex, or a JSON path). A body that is external and not downloaded is reported as
+   needing a load — `oic_runs_load` with the same node selector, then re-run. Cache-only: it never
+   downloads.
 
 Worked shape — "which filter did the SFTP list send and how many files came back, over the last 10 runs":
-`oic_runs_load {code, limit:10, payloads:{adapter:"ftp", milestone:"list"}}` → `oic_runs_extract
-{node:{adapter:"ftp", milestone:"list"}, payload:{xpath:"count(//*[local-name()='File'])"}}` and a second
-extract with `{regex:"<Filter>([^<]+)</Filter>"}` — three calls, not forty. Then, if ONE run needs
-drilling, drop to the single-run ladder (§2–§6) for THAT instanceId only — it is already cached.
+load the last 10 runs with the bodies of the FTP list node, extract a count of the `File` elements from
+that node in every run, then extract the `<Filter>` value with a regex — three calls, not forty. Then, if
+ONE run needs drilling, drop to the single-run ladder (§2–§6) for THAT instanceId only — it is already
+cached.
 
-Selection discipline still applies: a run set is ALWAYS explicit — a selector with `code` or an
-`instanceIds` list. The tools never default to "all runs" or "the last run"; if the question does not
-pin the set, ASK.
+Selection discipline still applies: a run set is ALWAYS explicit — a selector with a code or an id list.
+The tools never default to "all runs" or "the last run"; if the question does not pin the set, ASK.
 
 ## 3. Correlate runtime ↔ design by `#identifier`
 
@@ -127,39 +116,35 @@ the fix on the design node, never on the raw runtime record.
 
 ## 4. Targeted SEARCH — find the interesting node without seeing them all
 
-`oic_activity_flow {op:"search", …}` queries the flat index; filters compose (regex where noted,
-case-insensitive):
-- `errorsOnly` — just the failing nodes (paginated; the way to enumerate them all).
-- `adapter` — nodes of one adapter kind.
-- `text` — regex over node milestone + message; `milestone` — regex over the milestone only.
-- `minIterations` / `maxIterations` — loop iteration-count range (find the loop that ran too few / too many).
-- `descendantsOf {nodeId}` — restrict to one node's SUBTREE.
-- `slowerThanMs` — nodes at/over an elapsed threshold (the slow-node question).
+The `oic_activity_flow` search queries the flat index; filters compose: only the failing nodes (paginated —
+the way to enumerate them all), one adapter kind, text over milestone + message, the milestone alone, a
+loop iteration-count range (the loop that ran too few / too many), one node's SUBTREE, nodes at/over an
+elapsed threshold (the slow-node question).
 
-## 5. DRILL one node — `op:"node"`, pages never expands
+## 5. DRILL one node — pages, never expands
 
-`oic_activity_flow {op:"node", nodeId}` returns one node plus its immediate children, PAGINATED (`offset`).
-Big loops are the reason for this: a loop with thousands of iterations pages its children — never expand it
-whole. Loops also carry an event cap (~20K events): when a loop reports more iterations than children loaded,
-the tool says so — the full log lives in the platform's flow log, not this stream.
+Drilling ONE node returns it plus its immediate children, PAGINATED. Big loops are the reason for this: a
+loop with thousands of iterations pages its children — never expand it whole. Loops also carry an event
+cap (~20K events): when a loop reports more iterations than children loaded, the tool says so — the full
+log lives in the platform's flow log, not this stream.
 
-## 6. PAYLOAD on demand — `op:"payload"`, one body
+## 6. PAYLOAD on demand — one body
 
-`oic_activity_flow {op:"payload", nodeId}` fetches exactly ONE node's body, only when the question is about a
+The `oic_activity_flow` payload view fetches exactly ONE node's body, only when the question is about a
 VALUE (what was sent/received, why a mapped field was empty). Some nodes have no payload; the tool says so.
-Never bulk-pull payloads INTO REASONING — when the USER wants the payloads themselves, that is an EXPORT (below),
-not a loop of `op:"payload"` calls.
+Never bulk-pull payloads INTO REASONING — when the USER wants the payloads themselves, that is an EXPORT
+(below), not a loop of payload reads.
 
 **Showing a payload to the USER → `oic_preview`.** "Show me the payload / the request body of node X / that
-XML / this branch" is ONE call `oic_preview {instance, instanceId, nodeId?, path?, as?, format?, header?}`: the
-user sees the content as a card in the chat, and your result is `{shown, source}` plus a line naming the card
-(header, format, size) — the body never comes back to you. Never quote or paste payload content yourself (not
-even what an earlier `op:"payload"` returned). `path` selects one branch or value (the `oic_extract` selector);
-`as:"base64"` decodes ONE base64 string of text. `needs-input` = pass `format` from what the payload states or
-ask the user; `binary` / `too-large` = offer it as a file (`oic_extract` below). SHOW is the whole request: after
-`oic_preview` do NOT read, grep or summarize what you showed unless the user asks a question ABOUT it — a closing
-offer may propose it ("Check the order status in the response?"). When a read IS asked, make ONE targeted call
-(`op:"payload"`, or `oic_grep` with the exact pattern), not regex iterations.
+XML / this branch" is ONE call: the user sees the content as a card in the chat, and your result names the
+card — the body never comes back to you. Never quote or paste payload content yourself (not even what an
+earlier payload read returned). The selection is one branch or value (the `oic_extract` selector); ONE
+base64 string of text is decoded and shown. When the tool asks for the format, give it from what the
+payload states or ask the user; binary / too-large content = offer it as a file (`oic_extract` below). SHOW
+is the whole request: after `oic_preview` do NOT read, grep or summarize what you showed unless the user
+asks a question ABOUT it — a closing offer may propose it ("Check the order status in the response?").
+When a read IS asked, make ONE targeted call (the payload view, or `oic_grep` with the exact pattern), not
+regex iterations.
 
 **Payload attribution comes before payload reasoning.** An invoke logs up to FOUR bodies, not two: OIC's
 inner prepared payload (almost always XML — Oracle's canonical form) AND the wire payload the adapter
@@ -170,32 +155,32 @@ bodies are request and which are response from the stream's position / label / d
 then match the error message against the WIRE payload of the correct direction ("could not parse the
 payload" is about the wire REQUEST body, not the inner XML you happened to read).
 
-**`kind`** names which of the two you mean: `wire` = the real bytes sent to / received from the endpoint (real
-media type — JSON stays JSON); `native` = OIC's internal XML. Default `wire`; where a side has no wire payload
-the tool returns the native one and SAYS so (never present that as wire). Nodes carry `kind` + `direction`;
-`oic_runs_load {payloads}`, `oic_runs_extract` and `oic_export_payloads` take `kind`. Inline vs external is
-size-driven and not your concern: every tool resolves both. Wire/native nodes exist only at Debug tracing.
+**Wire vs native** names which of the two you mean: wire = the real bytes sent to / received from the
+endpoint (real media type — JSON stays JSON); native = OIC's internal XML. Wire is the default; where a
+side has no wire payload the tool returns the native one and SAYS so (never present that as wire). Nodes
+carry their kind + direction; the batch load, extract and export tools take the kind. Inline vs external
+is size-driven and not your concern: every tool resolves both. Wire/native nodes exist only at Debug
+tracing.
 
-**Payloads for the USER → `oic_export_payloads`.** "Give me the payloads / wire data / messages of these runs"
-is ONE call with conditions — `{instance, instanceIds | code+window/status, node?, kind?}` — that returns one
-zip (`fileId`, `name`, `mime`, `size`, `manifest`). Present it with `ui_present_file` (instructions, Files for
-the USER); report from `manifest` what fell back wire→native and what was skipped. `status:"pending"` = budget
-hit, no file: call again. Never hand over a `path`, and never build the file list yourself.
+**Payloads for the USER → `oic_export_payloads`.** "Give me the payloads / wire data / messages of these
+runs" is ONE call with conditions (the runs, optionally the node and the kind) that returns one zip.
+Present it with `ui_present_file` (instructions, Files for the USER); report from its manifest what fell
+back wire→native and what was skipped. A pending answer = budget hit, no file: call again. Never hand over
+a server path, and never build the file list yourself.
 
-**A file INSIDE a payload → `oic_extract`, then `oic_get_extract` only for a fileId.** When a payload carries
-a document / attachment / image (typically one base64 field) or the user wants a payload or one branch of a
-message AS A FILE ("save as a file", "download", "preview the file"), read the payload first (`oic_activity_flow op:"payload"`), then cut it out with
-`oic_extract {instance, instanceId, nodeId, path, as, name, mime?}` — extract only, it returns
-`{name, mime, mimeFrom, size, treePath}`. Your decisions, from what the payload shows: `path` (JSON path `$…`
-or XPath `/…`, `*[local-name()='X']` steps for namespaced XML; ONE value or ONE branch), `as:"base64"` when the
-value IS a base64 string (decoded strictly to bytes; `not-base64` means it was not) or `as:"text"` for text /
-JSON / XML; `name` from the payload's own file-name field, or ASK the user — never made up; `mime` when the
-payload states it (else the tool derives it or answers `needs-input`). An external body is downloaded for
-that node only. Across runs: ONE call with `instanceIds[]` or the run selector + `node {…}` + `nameFrom` (the
-path to each run's file name) → `extracted[]` + `skipped[]` with reasons. Extracted files are searchable
-with `oic_grep` (`glob:"*/extract/**"`). Call `oic_get_extract {treePath}` (or `treePaths`) ONLY when a
-`fileId` is needed — the user wants to see or download the file — then present it with `ui_present_file`
-(mode from the request — instructions, Files for the USER). Never decode, quote or regex-strip base64 by hand.
+**A file INSIDE a payload → `oic_extract`, then `oic_get_extract` only for a file id.** When a payload
+carries a document / attachment / image (typically one base64 field) or the user wants a payload or one
+branch of a message AS A FILE ("save as a file", "download", "preview the file"), read the payload first
+(the payload view), then cut it out with `oic_extract` — extract only, it returns metadata. Your
+decisions, from what the payload shows: the ONE value or branch to select; whether it IS a base64 string
+(decoded strictly to bytes — a not-base64 answer means it was not) or text / JSON / XML; the file name —
+from the payload's own file-name field, or ASK the user, never made up; the media type when the payload
+states it (else the tool derives it or asks for it). An external body is downloaded for that node only.
+Across runs: ONE call over the run set, each run's file name taken from a path into its payload; the
+result lists what was extracted and what was skipped, with reasons. Extracted files are searchable with
+`oic_grep`. Call `oic_get_extract` ONLY when a file id is needed — the user wants to see or download the
+file — then present it with `ui_present_file` (mode from the request — instructions, Files for the USER).
+Never decode, quote or regex-strip base64 by hand.
 
 ## 7. From finding to FIX
 

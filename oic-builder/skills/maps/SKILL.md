@@ -1,19 +1,18 @@
 ---
 name: maps
-description: Use for ANY map (XSLT / TRANSFORMER node) configuration, and before writing ANY activity content that carries namespace prefixes (assignments, conditions, for-each, throw, notification, logger, stitch, variables, wizard expression fields) — THE PREFIX SOURCE LAW (all activities), THE NAMESPACE LAW, the map-builder law (only existing sources/targets), saving with oic_set_map_xslt, validateOnly, the clean-build recipe, adding standalone map nodes, and verifying a map really persisted.
+description: Use for ANY map (XSLT / TRANSFORMER node) configuration, and before writing ANY activity content that carries namespace prefixes (assignments, conditions, for-each, throw, notification, logger, stitch, variables, wizard expression fields) — THE PREFIX SOURCE LAW (all activities), THE NAMESPACE LAW, the map-builder law (only existing sources/targets), saving with oic_set_map_xslt, validation-only saves, the clean-build recipe, adding standalone map nodes, and verifying a map really persisted.
 ---
 
 # Maps (XSLT / TRANSFORMER nodes)
 
-Every map tool here takes the workspace triple `{instance, code, version, project?, wsid}` — the
-workspace YOU opened in this conversation (instructions.md §Session lifecycle) — `oic_get_map_namespaces`
-included (it reads the LIVE mapper of that workspace). The exceptions are the cache read
-`oic_get_map_xslt` and `oic_verify`, which take `{instance, code, version, project?}` and no wsid.
+Every map tool here works in the workspace YOU opened in this conversation (instructions.md §Session
+lifecycle) — `oic_get_map_namespaces` included (it reads the LIVE mapper of that workspace). The cache
+read `oic_get_map_xslt` and `oic_verify` need no workspace.
 
-**Catalog example first.** `oic_catalog_examples {instance, nodeType: "TRANSFORMER", connection?, adapter?}` shows
-this tenant's maps with target/sources, techniques (for-each, choose, dvm-lookup, grouping…), lookups and an
-XSLT excerpt — the full XSLT is `integration_map.xslt` (`oic_catalog_sql`). Intent-reference only: prefixes per
-the PREFIX SOURCE LAW below.
+**Catalog example first.** `oic_catalog_examples` for TRANSFORMER nodes (narrowed by connection or
+adapter) shows this tenant's maps with target/sources, techniques (for-each, choose, dvm-lookup,
+grouping…), lookups and an XSLT excerpt — the full XSLT is `integration_map.xslt` (`oic_catalog_sql`).
+Intent-reference only: prefixes per the PREFIX SOURCE LAW below.
 
 ## ⚖ THE PREFIX SOURCE LAW — every activity you create or modify (non-overridable)
 Applies to ANY written content that carries namespace prefixes: a map's XSLT, an assignment, a route
@@ -29,21 +28,19 @@ expression field — every prefixed path and every prefixed function call you wr
    path means; the URI carries over, the prefix never does. Re-bind every path to the prefix the live
    fetch returns for that URI.
 3. **Two live prefix services — one per kind of content, never crossed:**
-   - **Inside a map** (XSLT) → `oic_get_map_namespaces {…, wsid, mapId}`: the mapper's table — the prefix
-     of every URI the body references (payload AND function prefixes; THE NAMESPACE LAW below).
-   - **Any other expression** (assignment, route condition, for-each, throw, notification, logger, stitch,
-     global variable, adapter-wizard expression field) → `oic_expression_tree {…, wsid, anchor, rpi,
-     elementType}` for the spot a NEW node goes (`elementType` = the node's blueprint segment:
-     `stagefiles`, `assignments`, `routes`, `forLoops`, `throws`, `notifications`, `invokes`), or
-     `{…, wsid, elementId}` for an EXISTING node: the designer's expression picker — every variable in
-     scope with its PREFIXED path (`/ns0:execute/…` the primary payload, `$Var/pfx:root/…` every other),
-     type, repeat. Drill with `path` + `depth` instead of dumping a tree. Paths are COPIED from the result —
-     never typed from a namespace URI plus a prefix of your choosing.
+   - **Inside a map** (XSLT) → `oic_get_map_namespaces`: the mapper's table — the prefix of every URI
+     the body references (payload AND function prefixes; THE NAMESPACE LAW below).
+   - **Any other expression** (assignment, route condition, for-each, throw, notification, logger,
+     stitch, global variable, adapter-wizard expression field) → `oic_expression_tree`, read at the spot
+     the node is written — where a NEW node goes, or the EXISTING node: the designer's expression picker
+     — every variable in scope with its PREFIXED path, type, repeat. Drill into one subtree instead of
+     dumping a tree. Paths are COPIED from the result — never typed from a namespace URI plus a prefix of
+     your choosing.
    - **A FUNCTION call in any non-map expression** (`ora:`, `oraext:`, `xp20:`, this instance's custom
-     `orajs*`) → the `prefix` of its `oic_xpath_functions {…, wsid}` item, written as the catalog shows the
-     call (`oraext:decodeBase64ToReference(…)`). XPath 2.0 built-ins take `fn:` (§the `fn:` law).
-   - **A lookup (DVM) call** → build it with `oic_lookup_expression` (it checks the lookup and both columns
-     live and writes the plain lookup name); put its `xpathExpression` into your expression.
+     `orajs*`) → the prefix of its `oic_xpath_functions` item, written as the catalog shows the call
+     (`oraext:decodeBase64ToReference(…)`). XPath 2.0 built-ins take `fn:` (§the `fn:` law).
+   - **A lookup (DVM) call** → build it with `oic_lookup_expression` (it checks the lookup and both
+     columns live and writes the plain lookup name); put the call it returns into your expression.
    - The two services number the SAME URI differently (one tree gave a payload `ns13`, the mapper's table
      `ns23`). A prefix read from one is wrong in the other; a prefix from anywhere else is wrong in both.
      Content with no prefix at all (literals, simple `$variables`, unprefixed XPath 1.0 core functions)
@@ -62,25 +59,23 @@ Prefixes are **per-map, server-assigned, and unstable across maps**: the fresh w
 different maps. Therefore:
 
 1. **The prefix table is RETURNED BY THE API — you never derive, guess, or regex-scrape it.**
-   `oic_get_map_namespaces {instance, code, version, project?, wsid, mapId}` →
-   `{namespaces: [{prefix, ns}], registeredSources, target}` — the complete table the server's mapper
-   assigned for THIS map in THIS workspace (read live, exactly as the designer opens the map, with every
-   in-scope payload and variable registered): every upstream payload, the target's inner schemas, utility
-   and function namespaces — including ones the map's saved header does not declare yet (a new map's header
-   holds almost none of them). `registeredSources` = the server's raw entries of what the map can reference
-   (`/` = the activity's own payload, a name = an upstream payload such as an invoke response, a loop
-   variable, `self`, `tracking_var_N`); a URI you need that is absent from `namespaces` belongs to a payload
-   that is not a source of this map (§3).
+   `oic_get_map_namespaces` returns the complete table the server's mapper assigned for THIS map in THIS
+   workspace (read live, exactly as the designer opens the map, with every in-scope payload and variable
+   registered): every upstream payload, the target's inner schemas, utility and function namespaces —
+   including ones the map's saved header does not declare yet (a new map's header holds almost none of
+   them) — plus the map's registered sources (what the map can reference: the activity's own payload,
+   an upstream payload such as an invoke response, a loop variable, `self`, tracking variables). A URI
+   you need that is absent from the table belongs to a payload that is not a source of this map (§3).
    The designer is a dumb renderer of this table; be the same. No workspace open for the integration →
-   `status:"not-open"`: open it (`oic_open_integration`, `lock:true` if you will save) and re-read.
-2. To reference a payload/variable: find its namespace URI's entry in `namespaces`, use that prefix.
+   a not-open answer: open it (`oic_open_integration`, with the lock if you will save) and re-read.
+2. To reference a payload/variable: find its namespace URI's entry in the table, use that prefix.
    (The fresh wrapper header from `oic_get_map_xslt` shows only the in-use subset — the TABLE is the authority.)
-3. **WE NEVER AUTHOR NAMESPACE DECLARATIONS.** You write the map BODY (`spliceBody`, or `replace` on the
-   fetched doc); the save keeps the server's header and declares on the `xsl:stylesheet` tag every prefix the
-   body uses, from THIS map's table (the result's `declaredPrefixes`). Any `xmlns` in your text is refused.
-   A body prefix the table does not hold is refused before the save: that URI belongs to a payload that is
-   not a source of this map — confirm the payload exists upstream and is in scope at the map (§Sources);
-   one prepare does not list is added with `extraSources`, then re-read the table. Still absent → STOP and
+3. **WE NEVER AUTHOR NAMESPACE DECLARATIONS.** You write the map BODY (the whole body, or a replacement
+   in the fetched doc); the save keeps the server's header and declares on the `xsl:stylesheet` tag every
+   prefix the body uses, from THIS map's table. Any `xmlns` in your text is refused. A body prefix the
+   table does not hold is refused before the save: that URI belongs to a payload that is not a source of
+   this map — confirm the payload exists upstream and is in scope at the map (§Sources); one prepare does
+   not list is added as an extra source of the save, then re-read the table. Still absent → STOP and
    report; never invent.
 4. NEVER copy prefixes or declarations from another map (a sibling map of the same integration included),
    another integration, an archive (`oic_get_iar` / Read / grep of any `.xsl`), an export, documentation,
@@ -90,11 +85,11 @@ different maps. Therefore:
 6. **Tool failure is a STOP, not a detour.** If `oic_get_map_namespaces` or `oic_get_map_xslt` fails (id
    resolution, error, empty table), STOP and report the failure to the user. NEVER substitute the table
    by reading the archive, a sibling map's header, or memory — none of those is this map's table.
-   (`status:"not-open"` is not a failure — it means open the workspace first, then re-read.)
+   (A not-open answer is not a failure — it means open the workspace first, then re-read.)
 
-Why "it works" is not evidence: a self-declared prefix can save with `errorsCount:0` and even run
-correctly at runtime, yet the mapper reports `hasMappings:false` / `targetsMappedCount:0` — the designer
-does not own that rule, so any designer re-save silently drops it. Only the table proves compliance.
+Why "it works" is not evidence: a self-declared prefix can save with zero errors and even run correctly
+at runtime, yet the mapper reports no mappings — the designer does not own that rule, so any designer
+re-save silently drops it. Only the table proves compliance.
 
 ### URI patterns (for LOCATING the right entry in the table — never for building declarations)
 | Payload | URI |
@@ -111,22 +106,23 @@ does not own that rule, so any designer re-save silently drops it. Only the tabl
 ## ⚖ MAP-BUILDER LAW — use ONLY existing sources and existing targets
 Every element you read must exist in a registered SOURCE schema; every element you write must exist in
 the TARGET schema. Never invent, guess, or carry names over. This is a construction-time discipline the
-validator will NOT enforce: `oic_set_map_xslt {validateOnly}` / the save pipeline only check that SOURCE
+validator will NOT enforce: a validation-only save and the save pipeline only check that SOURCE
 references resolve and the XSLT is well-formed — a write to a target element absent from the schema
-validates clean (`errorsCount:0`) yet is **SILENTLY DROPPED at the adapter boundary** (`rules`/
-`targetsMappedCount` count the value-of rules you wrote, not whether they hit real fields). Verify
-targets against the schema, not the validator:
+validates clean (zero errors) yet is **SILENTLY DROPPED at the adapter boundary** (the rule counts count
+the value-of rules you wrote, not whether they hit real fields). Verify targets against the schema, not
+the validator:
 
-1. **Targets — write only names present in the current target schema.** Read it with `oic_iar_schema`
-   (endpoint → `[{name,type}]`): REST/stagefile from the wsdl payload; DB adapters from the `*_REQUEST.xsd`
-   object model, including columns AND relation collections (a child collection is named after its
-   relation and exists only through it). That list is the set of legal target names.
+1. **Targets — write only names present in the current target schema.** Read it with `oic_iar_schema`:
+   REST/stagefile from the wsdl payload; DB adapters from the `*_REQUEST.xsd` object model, including
+   columns AND relation collections (a child collection is named after its relation and exists only
+   through it). That list is the set of legal target names.
    - **EXCEPTION — opaque/template targets:** when the target is OPAQUE (opaque stagefile write) or the map
      produces the payload from a TEMPLATE/literal body (e.g. a JSON string assembled by the template, not a
      mapped schema), there IS no defined target schema — the existence check does not apply.
      `oic_iar_schema` will be empty/opaque for these; that is expected, not a miss.
-2. **Sources — read only names present in a registered source.** Register sources per the NAMESPACE LAW /
-   `extraSources`; reference only elements that exist in those source schemas.
+2. **Sources — read only names present in a registered source.** Register sources per the NAMESPACE LAW
+   (an extra source only for one prepare does not list); reference only elements that exist in those
+   source schemas.
 3. **Porting from another version / onto a recreated adapter:** names are NOT guaranteed identical — a
    recreated adapter can carry a differently-NAMED relation collection or renamed columns. If any name in
    the source body is ABSENT from the current source/target schema, **STOP and ask** ("X from the source
@@ -148,59 +144,57 @@ map to a shared downstream activity (classic: several routes each building a dif
 invoke after the switch — move the auto-map into one route with `oic_move_node`, `oic_add_map` in the
 others), or Oracle failed to create the default map.
 0. **Find the anchor** with `oic_get_blueprint` — the indented tree shows containment by nesting. To append
-   as the LAST activity inside a route/scope/foreach, anchor the CONTAINER id with `rpi:"AT_END"` (NOT the
+   as the LAST activity inside a route/scope/foreach, anchor the CONTAINER and append at its end (NOT the
    last child with BEFORE). Identify a route by its CONTENTS, not by name. Re-run `oic_get_blueprint`
    after to confirm placement.
-1. **Find the target id** with `oic_list_map_targets {anchor, rpi}` → the feedable targets, each
-   `{endpointName, connectionName, applicationId}`. Match by `endpointName`/`connectionName`; take that
-   entry's `applicationId`. NEVER guess it or reuse one from another session/capture — list it fresh at the
-   anchor. (Same invoke = same `applicationId` across anchors, so several route maps can share one target.)
-2. `oic_add_map {anchor, rpi, outputUri:<applicationId>}` → new `m*`, bound to that target. The map ships a
-   valid identity xsl — it **verifies CLEAN even empty** (no blueprint error) while emitting no real target fields.
-3. Configure it with `oic_set_map_xslt` (NAMESPACE LAW applies) → `oic_commit` for real output (both with the workspace triple `{instance, code, version, project?, wsid}`).
-The target (`outputUri`) is the ONLY binding — several maps may target the same `applicationId` (one per
-route). The designer's mapper-open calls (prepare/jetmapper) are the config UI, NOT needed to create the node.
+1. **Find the target** with `oic_list_map_targets` at that anchor — the feedable targets; match by
+   endpoint / connection name and take that entry's application id. NEVER guess it or reuse one from
+   another session/capture — list it fresh at the anchor. (Same invoke = same target id across anchors, so
+   several route maps can share one target.)
+2. `oic_add_map` bound to that target → a new `m*`. The map ships a valid identity xsl — it **verifies
+   CLEAN even empty** (no blueprint error) while emitting no real target fields.
+3. Configure it with `oic_set_map_xslt` (NAMESPACE LAW applies) → `oic_commit` for real output.
+The target is the ONLY binding — several maps may target the same one (one per route). The designer's
+mapper-open calls (prepare/jetmapper) are the config UI, NOT needed to create the node.
 
 ## Sources — what a map can read
 `prepare` (run by `oic_get_map_namespaces` and by every save) registers every payload and variable in scope
 at the map — upstream invoke responses, stage-file reads/writes, loop variables, `self`, tracking variables —
-exactly as the designer lists them (`registeredSources`, raw entries). The save echoes that list. Reference
-a payload with `<xsl:param name="<sourceName>"/>` + paths under it; nothing to register for those.
-`extraSources` only ADDS a source prepare does not list (a raw entry in the same shape); an entry naming a
-source already registered is refused unless identical — the server's registration stands.
+exactly as the designer lists them (the registered sources, raw entries). The save echoes that list.
+Reference a payload with `<xsl:param name="<sourceName>"/>` + paths under it; nothing to register for those.
+An extra source only ADDS one prepare does not list (a raw entry in the same shape); one naming a source
+already registered is refused unless identical — the server's registration stands.
 - Running a manual `prepare` alongside the save pipeline can wedge the workspace (`412 Workspace is in
   use`) and even DROP THE LOCK — if it persists, relock and redo uncommitted work.
 
 ## Saving a map — `oic_set_map_xslt`
-Modes (exactly one): `spliceBody` (everything after `</oracle-xsl-mapper:schema>`: params + templates +
-`</xsl:stylesheet>`) | `replace {old,new,all?}` (surgical, applied to the freshly fetched doc) |
-`validateOnly:true` (re-run validation on the existing doc, no save). The server's header is always kept;
-the save declares the body's prefixes (NAMESPACE LAW §3). Plus `extraSources` (§Sources).
+Write the whole body, OR a surgical replacement in the freshly fetched doc, OR re-run validation on the
+existing doc (no save) — one per call. The server's header is always kept; the save declares the body's
+prefixes (NAMESPACE LAW §3).
 
 ## Building a clean map via the tool — verifies WITHOUT a designer re-open
 A tool-authored map can persist a nonzero WarningsCount and show "Invalid map/expression" on fresh verify
-even with `errorsCount:0` — clearing only when a human re-opens it in the designer.
-- **Minified body → persistent `WarningsCount:1`.** A COMPACT `spliceBody` (no whitespace between elements,
+even with zero errors — clearing only when a human re-opens it in the designer.
+- **Minified body → persistent `WarningsCount:1`.** A COMPACT body (no whitespace between elements,
   e.g. `<a><b><xsl:value-of.../></b></a>`) makes `saveSuccess`/`fetchRules` compute an incomplete rule set
   → 1 warning persists → badge flips. The SAME body **pretty-printed** (newlines + indentation between
   elements, designer style) verifies clean. The cause is the formatting — not `xml:id`, not the filter
   logic. **Always emit indented XSLT.**
 
-Reliable clean build = indented `spliceBody` (sources as prepare registers them), then `oic_commit
-{instance, code, version, project?, wsid}` + `oic_verify {instance, code, version, project?}` (map absent from
-problems).
+Reliable clean build = an indented body (sources as prepare registers them), then `oic_commit` +
+`oic_verify` (map absent from problems).
 
 The tool runs the FULL required pipeline internally (saveSourceCode → tree enrichment ×3 → fetchRules →
 rich saveSuccess → PATCH transformers). All stages are required for the verdict to persist. Commit separately.
 
 Facts the tool relies on (do not fight them):
 - The schema section (`oracle-xsl-mapper:mapSources/mapTargets`) is REGENERATED server-side from the map's registered model. Hand-injecting source entries there is ignored.
-- An `<xsl:param name="X"/>` referencing a payload NOT registered in the map model gets **silently stripped** on save → `$X` unresolved → map invalid on fresh verify. `X` must be a `registeredSources` name (§Sources) — and check the save result's `stateInfo.sourcesReferencedCount` equals the number of params your body actually uses.
+- An `<xsl:param name="X"/>` referencing a payload NOT registered in the map model gets **silently stripped** on save → `$X` unresolved → map invalid on fresh verify. `X` must be a registered source (§Sources) — and check that the save result's referenced-source count equals the number of params your body actually uses.
 - The tool sends the instance's customFunctions catalog automatically (required — without it `oraext:`/`xp20:` calls flip the verdict INVALID).
 
 ## Verifying a map REALLY saved
-1. Save result: `stateInfo.errorsCount == 0` AND `sourcesReferencedCount` == number of referenced params. `saveMessages` JETMAPPER-00332 WARNINGs are suspect — investigate, don't dismiss.
-2. `oic_commit {instance, code, version, project?, wsid}`, then fresh `oic_verify {instance, code, version, project?}`: no "Invalid map/expression" for this map id.
+1. Save result: zero errors AND a referenced-source count equal to the number of referenced params. JETMAPPER-00332 WARNINGs in the save messages are suspect — investigate, don't dismiss.
+2. `oic_commit`, then a fresh `oic_verify`: no "Invalid map/expression" for this map id.
 3. Strongest evidence: `oic_get_map_xslt` refetch — your params/template survived verbatim.
 4. Deep check (when asked): export .iar, read the map's `req_*_stateinfo.xml` — `ErrorsCount` and `WarningsCount` must be 0. WarningsCount > 0 flips the badge even with 0 errors.
 
@@ -231,10 +225,7 @@ blueprint ASSIGNMENT, ROUTER/route condition, FOR, STITCH from/to, NOTIFICATION 
 core** engine (OIC is a BPEL engine): 1.0 core functions run bare, but any 2.0 function needs a prefix —
 W3C `fn:` (the write tool declares it), or Oracle `xp20:`/`oraext:` (from `oic_xpath_functions`) — else the
 engine errors "Could not find function" (e.g. `fn:ends-with(fn:lower-case($x/ns:f),'<ext>')`). No API
-declares the version. `oic_xpath_functions` takes `scope`: `extensions` (default) = Oracle
-`ora`/`oraext`/`xp20` + this instance's CUSTOM `orajs*` library (the part you cannot guess) — each item with
-the `prefix` its call is written with; `standard` = the designer's built-ins catalog
-(String/Date/Node-set/Boolean/Conversion/Mathematical/Advanced/Integration Cloud groups, with signatures);
-`all` = both merged.
-`filter` = case-insensitive substring on name/category/signature/description. (Where any prefix in a
+declares the version. `oic_xpath_functions` lists the Oracle `ora`/`oraext`/`xp20` functions + this
+instance's CUSTOM `orajs*` library (the part you cannot guess), each with the prefix its call is written
+with, and — on request — the designer's built-ins catalog with signatures. (Where any prefix in a
 blueprint expression field may come from — payload or function — is THE PREFIX SOURCE LAW above.)

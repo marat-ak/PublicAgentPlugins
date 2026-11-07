@@ -6,17 +6,17 @@ description: Use when creating, editing, or debugging Stage File nodes — opera
 # Stage File nodes
 
 ## Create / edit — via the GENERIC WIZARD (the adapter-wizard skill)
-All stagefile creation and schema editing goes through `oic_wizard_*` on `STAGE_FILE_CONNECTION` —
-the former `oic_add_stagefile` recipe tool is REMOVED; do not look for it. Facts that apply regardless
-of tool:
+All stagefile creation and schema editing goes through `oic_wizard_*` on `STAGE_FILE_CONNECTION`.
+Facts that apply regardless of tool:
 
-**Catalog example first.** `oic_catalog_examples {instance, nodeType: "STAGEFILE", operation?}` (or a `sig` such
-as `STAGEFILE.write.csv.by-filename` / `STAGEFILE.read.xml.by-fileref`) shows this tenant's working stage-file
-nodes: operation, format (opaque/json/xml/csv), by-filename vs by-fileref, the filename/directory/reference
-expressions, append flag, and the map feeding a WRITE. Copy the shape, never the prefixes.
+**Catalog example first.** `oic_catalog_examples` for STAGEFILE nodes (by operation, or by a signature
+such as `STAGEFILE.write.csv.by-filename` / `STAGEFILE.read.xml.by-fileref`) shows this tenant's working
+stage-file nodes: operation, format (opaque/json/xml/csv), by-filename vs by-fileref, the
+filename/directory/reference expressions, append flag, and the map feeding a WRITE. Copy the shape, never
+the prefixes.
 
-A new Stage File is a STAGEFILE node (`sf*`): `oic_wizard_create {…, connection:"STAGE_FILE_CONNECTION",
-name, anchor, rpi}` opens the wizard without a node, `oic_wizard_save` creates the node at that anchor.
+A new Stage File is a STAGEFILE node (`sf*`): `oic_wizard_create` on `STAGE_FILE_CONNECTION` with its name
+and anchor opens the wizard without a node; `oic_wizard_save` creates the node at that anchor.
 
 | Operation (wizard `Operation` combo) | File config | Notes |
 |---|---|---|
@@ -26,11 +26,10 @@ name, anchor, rpi}` opens the wizard without a node, `oic_wizard_save` creates t
 
 Expression fields take the expression STRING: literals quoted INSIDE it (a filename or directory literal is
 written wrapped in quotes within the expression), a payload reference as the PREFIXED path
-`oic_expression_tree {…, wsid, anchor, rpi, elementType:"stagefiles"}` returns for the node's spot, a
-function call with its `oic_xpath_functions` prefix. The driver adds the label and declares every prefix
-the expression uses — never send an object, `::namespacePairs` or `::userFriendlyXpath`. Combo fields
-(`Operation`, `FileRefProcessingEnabled`) take one of their `options`, sent as the option itself — `"true"`,
-not `true`.
+`oic_expression_tree` returns at the stage file's spot, a function call with its `oic_xpath_functions`
+prefix. The driver adds the label and declares every prefix the expression uses — you send the string
+only. Combo fields (`Operation`, `FileRefProcessingEnabled`) take one of their options, sent as the option
+itself — `"true"`, not `true`.
 Schema page (`nxsdSchemaOptions`): `nxsdSchemaOptionsJSON`/`XML` = sample-derived (upload via
 `oic_wizard_file`; JSON root element = `request-wrapper`); `nxsdSchemaOptionSelect` = upload XSD (opaque
 uses the fixed opaque XSD); `nxsdSchemaOptionsCreate` = CSV wizard (delimited/nxsd).
@@ -48,7 +47,7 @@ is wrong:
    type → **zero cascade**.
 
 ## MANDATORY result check (known silent failure)
-After create/edit + save, `oic_get_node {instance, code, version, project?, nodeType:'stagefiles', nodeId}` (or `oic_get_blueprint`) and assert:
+After create/edit + save, read the node (`oic_get_node`, or `oic_get_blueprint`) and assert:
 1. the node is a STAGEFILE (`sf*`) and `operationName` equals what you requested — the CAF `ui/event`
    firing field MUST be `processed:false` (`processed:true` makes the server silently IGNORE the change →
    e.g. a Write silently becomes Read). The generic driver builds orderOfEvents this way by construction;
@@ -79,7 +78,7 @@ its rows, turn the bytes into a FILE and read that file with the report's XML sa
 Paths and prefixes in every step come from the live tools for that node's spot (the maps skill's PREFIX
 SOURCE LAW); a tenant integration doing the same gives the shape to copy (instructions.md §Precedent first).
 
-## Change schema in place — wizard resume is THE path (the former `oic_change_stagefile_schema` tool is REMOVED)
+## Change schema in place — wizard resume is THE path
 A stagefile's file bindings (the `Filename` expression, the read-fileref `FileReferenceName`
 expression, the directory) are NOT in `oic_get_node` or the blueprint dump, and NOT in
 the `.jca`. They live in TWO places only: the `.iar`'s `*expr.properties` (`WRITE_FILENAMEexpr` /
@@ -87,13 +86,14 @@ the `.jca`. They live in TWO places only: the `.iar`'s `*expr.properties` (`WRIT
 session. ⚠ Do not grep the .iar for the field name ("FileReferenceName") — the value files are named by
 ROLE; a name-grep finds nothing and falsely suggests the binding is unrecoverable.
 
-- **The path**: a schema change in place = resume the wizard on the node (`editNodeId`,
-  `nodeType:'stagefiles'`, `connection:'STAGE_FILE_CONNECTION'`) and change only the schema. Read the
-  CURRENT sample from the page's own file field `value` (base64 — no .iar needed), splice, upload. Bindings
-  (Filename/Append/FileRef) survive by construction; walk it per the adapter-wizard skill.
+- **The path**: a schema change in place = resume the wizard on the stage file (edit in place, on
+  `STAGE_FILE_CONNECTION`) and change only the schema. Read the CURRENT sample from the page's own file
+  field `value` (base64 — no .iar needed), splice, upload. Bindings (Filename/Append/FileRef) survive by
+  construction; walk it per the adapter-wizard skill.
 
-AFTER the edit: `oic_commit {instance, code, version, project?, wsid}` → a FRESH lock (release that wsid, then `oic_open_workspace {…, lock:true}` — new wsid) → `oic_set_map_xslt {…, wsid, mapId, validateOnly:true}` on every dependent map
-(stale-error fix), then commit again.
+AFTER the edit: `oic_commit` → a FRESH lock (release that wsid, then `oic_open_workspace` with the lock — a
+new wsid) → a validation-only `oic_set_map_xslt` on every dependent map (stale-error fix), then commit
+again.
 
 ## Payload fields DIE at every schema boundary (debugging rule)
 Every stage-file write, stage-file read and REST-invoke request validates against ITS OWN schema and
