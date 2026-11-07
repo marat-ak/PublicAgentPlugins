@@ -1,6 +1,6 @@
 ---
 name: data-access-security
-description: Use before writing or running SECURED Fusion SQL — the kernel's opt-in data-access rule: in developer mode only when the user asked for data access / security or said yes when the align ask offered it, and every end-user read — a final answer, a data model's dataset or LOV SQL, a secured run, SQL in prose or in a hand-off; secured SQL reads only the data the running user may see. Plain SQL (the developer default) needs no load. Covers the pod `instance` the plan needs, the developer PLAN from getDataAccessPredicate (one secured CTE per table + the rewrite map, a grade and the keying — table, or the OTBI subject area with `subjectArea` — on every condition, blocked / unsecured tables), the END-USER plan getSecuredQueryPlan (subject-area gate + column whitelist with filter-only columns, the strictest of candidates, the structural none rule, the no-area policy; the end-user overlay owns that flow), running or delivering the statement with the plan's slots left in place through ONE runSecuredSql call (the server fills Oracle's own condition — FND_DATA_SECURITY, by object + privilege NAME, for the user whose session runs the SQL — the text never enters the conversation; deliver run / file), the secured DATA MODEL rule (the ONE XML-function dataset that generates the running user's condition at run time — never an embedded or lexical-passed condition), sensitive tables and masked columns, the three access verdicts (restricted / none / global) and their wording, and the mandatory `Data access:` lines of secured SQL's Filter check.
+description: Use before writing or running SECURED Fusion SQL — the kernel's opt-in data-access rule: in developer mode only when the user asked for data access / security or said yes when the align ask offered it, and every end-user read — a final answer, a data model's dataset or LOV SQL, a secured run, SQL in prose or in a hand-off; secured SQL reads only the data the running user may see. Plain SQL (the developer default) needs no load. Covers the pod instance the plan needs, the developer PLAN from getDataAccessPredicate (one secured CTE per table + the rewrite, a grade and the keying — table, or the OTBI subject area — on every condition, blocked / unsecured tables), the END-USER plan getSecuredQueryPlan (the end-user overlay owns that flow), running or delivering the statement with the plan's slots left in place through ONE runSecuredSql call (the server fills Oracle's own condition — FND_DATA_SECURITY, by object + privilege NAME, for the user whose session runs the SQL — the text never enters the conversation), the secured DATA MODEL rule (the ONE XML-function dataset that generates the running user's condition at run time — never an embedded or lexical-passed condition), sensitive tables and masked columns, the three access verdicts (restricted / none / global) and their wording, and the mandatory `Data access:` lines of secured SQL's Filter check.
 ---
 
 # Data-access security — secured SQL reads only the user's data
@@ -15,41 +15,27 @@ You never see or handle that text: for an ad-hoc run or a `.sql` file you write 
 `{PRED:<object>|<privilege>}` slots and `runSecuredSql` fills them server-side; a DATA MODEL embeds no
 condition at all — its one dataset calls the API itself when the report runs (Secured data models below).
 Which SQL is secured (opt-in) and which runs plain is the kernel's data-access rule; this skill is the how.
+The plan tools' descriptions define everything they return (CTEs, rewrite, pairs, grades, keying,
+blocked / unsecured / masked entries) — this skill is the order and the rules around them.
 
-## The pod `instance` — required, never guessed
-The plan is per pod. `instance` = the pod host EXACTLY as a `runSql` or `run_sql` reply in this
-conversation reports it (`instance` field). No such reply yet → run the instance probe `select 1 from dual`
-(a fixed connectivity probe that reads no table — not reviewed, kernel review rule) and take its `instance`. A `run_sql` reply without `instance` is not a Fusion pod connection — there is no
-data-access plan for it; say so. Never type a host from memory, another conversation or a URL guess. An
-"unknown instance / no layer loaded" error names the loaded pods: relay it — the data-access layer of
-that pod has to be loaded first (an admin action) — and do not emit the SQL unsecured as a substitute.
+## The pod instance — required, never guessed
+The plan is per pod: its instance is the pod host EXACTLY as a `runSql` or `run_sql` reply in this
+conversation reports it. No such reply yet → run the instance probe `select 1 from dual` (a fixed
+connectivity probe that reads no table — not reviewed, kernel review rule) and take the instance it
+reports. A `run_sql` reply that names no instance is not a Fusion pod connection — there is no data-access
+plan for it; say so. Never type a host from memory, another conversation or a URL guess. An "unknown
+instance / no layer loaded" error names the loaded pods: relay it — the data-access layer of that pod has
+to be loaded first (an admin action) — and do not emit the SQL unsecured as a substitute.
 
-## Two tools, one flow
-1. **`getDataAccessPredicate({instance, tables:[{table, alias}, …], subjectArea?})`** (fusion-schema) — ONE
-   call with EVERY table instance of the statement (FROM, joins, inline views, scalar / IN / EXISTS
-   subqueries, every UNION arm, the query's own CTEs; the same table twice = two entries, two aliases). It
-   returns the developer plan, keyed by TABLE (`keying: 'table'`) — or, when the query reads ONE OTBI
-   subject area you know (the user named it, or the report is built on it), keyed on that area with
-   `subjectArea` (`keying: 'area'`: each table read as that area reads it — see Reading the plan):
-   - `ctes[]` — one per secured table instance: `cteName` (`<alias>_sec`), `cte` (the full CTE text with
-     `{PRED:<object>|<privilege>}` slot(s)), `pairs`, `grade`, `route` (direct = the table is its own
-     security object | reference = its primary context column through the reference object), `column`
-     / `context` (the secured context column), `evidence`, `equivalentTo?`, `masked?`;
-   - `rewrite[]` — `{from: '<TABLE> <alias>', to: '<alias>_sec <alias>'}`;
-   - `pairs[]` — the distinct `{object, privilege, alias:"sec$"}` of the whole statement;
-   - `blocked[]` — `{table, alias, column?, reason, candidates?}`: the pair could not be resolved —
-     fail closed, nothing is guessed;
-   - `unsecured[]` — `{table, alias, reason}`: no context column and not a security object (reference
-     data) → the table is read directly;
-   - with `subjectArea` also `columns{<alias>: {hidden, hiddenCount, maskingShapes?}}` — the columns the
-     area does NOT expose (advice: an OTBI user of that area could not see them; say so when you select
-     one) — and `gate: {applied: false}`: whether the running user holds the area is an END-USER rule.
-2. **Write the statement with the slots LEFT IN PLACE**: put ALL the ctes, exactly as the plan gives them,
-   into the statement's ONE leading `WITH` (inline PL/SQL declarations first, the query's own CTEs after
-   them — they may read the secured CTEs), then apply `rewrite` to every FROM / JOIN / subquery / UNION
-   arm: `FROM ap_invoices_all ap` → `FROM ap_sec ap` (the CTE returns `t.*`; the rest of the statement is
-   unchanged). Never fill, edit, move or drop a `{PRED:<object>|<privilege>}` slot — the slots ARE the
-   pairs the server resolves.
+## One flow
+1. **`getDataAccessPredicate`** — ONE call with EVERY table instance of the statement. It is keyed by
+   table, or — when the query reads ONE OTBI subject area you know (the user named it, or the report is
+   built on it) — on that area.
+2. **Write the statement with the slots LEFT IN PLACE**: all the plan's CTEs, exactly as given, in the
+   statement's ONE leading `WITH` (inline PL/SQL declarations first, the query's own CTEs after them — they
+   may read the secured CTEs), the plan's rewrite applied to every FROM / JOIN / subquery / UNION arm. Never
+   fill, edit, move or drop a `{PRED:<object>|<privilege>}` slot — the slots ARE the pairs the server
+   resolves.
 
    ```sql
    WITH
@@ -62,88 +48,39 @@ that pod has to be loaded first (an admin action) — and do not emit the SQL un
    ```
    In a data model dataset no slot is left for the server: the same CTEs go inside the XML function
    (Secured data models below), each slot replaced by the condition the function fetched.
-3. **`runSecuredSql({sql, maxRows?, deliver?})`** (fusion-pod) — ad-hoc runs and `.sql` files, never a
-   data model dataset: ONE call with that statement. The server
-   asks Oracle for each pair's condition in the session that executes this conversation's SQL (the pod
-   sign-in, or the editor connection in CloudBeaver), fills every slot verbatim and delivers (see
-   Deliverables). The reply carries `dataAccess`: per pair `{object, privilege, access, length}` —
-   `restricted` (a condition applied), `none` (the user holds no grant for the pair: the statement still
-   runs, those rows are withheld), `global` (no restriction) — plus `notes` with the wording, and the
-   gate verdicts when a gate was passed. You never receive the condition text or the filled statement.
-   An error of the statement points into YOUR slotted SQL (`errorPosition`; `errorIn` when it falls inside
-   a condition) — fix your SQL, never the slot.
+3. **`runSecuredSql`** — ad-hoc runs and `.sql` files, never a data model dataset: ONE call with that
+   statement. The server asks Oracle for each pair's condition in the session that executes this
+   conversation's SQL (the pod sign-in, or the editor connection in CloudBeaver), fills every slot verbatim
+   and runs or delivers it (Deliverables below). You get the verdict per pair, never the condition text or
+   the filled statement. An error of the statement points into YOUR slotted SQL — fix your SQL, never the
+   slot.
 
-`privilege` is REQUIRED on every pair — there is no privilege-less call (a GLOBAL grant for any privilege
-yields `(1=1)`: no security at all). Never invent a privilege, never pass `read`, never ask the end user
-which privilege to use. When the pod cannot produce a pair's condition, `runSecuredSql` refuses the whole
-call naming the pair (as it does for a truncated answer): relay it — never fill a slot yourself, never drop
-the slot or the table's CTE to make the statement run.
+Every pair names its privilege — there is no privilege-less condition (a GLOBAL grant for any privilege
+yields no security at all). Never invent a privilege, never pass `read`, never ask the end user which
+privilege to use. When the pod cannot produce a pair's condition, `runSecuredSql` refuses the whole call
+naming the pair: relay it — never fill a slot yourself, never drop the slot or the table's CTE to make the
+statement run.
 
-## Reading the plan
-- **Grade** — where the pair came from; it goes on the `Data access:` line: `trace` (proven by an OTBI
-  LOGLEVEL-7 trace) · `inferred` (curated from the demo crawl, untraced) · `rule` (the only privilege of
-  the table's module granted to the BI server identity) · `duty` (the HCM analysis-duty map) ·
-  `equivalent` (one of several names with the identical grant set = the same predicate) · `consensus`
-  (keyed on an area: the job roles Oracle's TBI guides name for the area agree on the privilege — every
-  holder, or a unique majority — where the module rule found several or none) · `granted` (the only
-  grant-set class of the module among ALL the pod's grants — not granted to the BI identity, so not
-  OTBI-proven; say so) · `sensitive` (the table's own sensitive pair). End-user plans add `strictest` and
-  `structural` (End-user mode below).
-- **Keying `table`** — one condition per table: its own security object, or its PRIMARY context column.
-  A table with several context columns is secured only when its prefix's primary context is audited
-  (AP → BU from an OTBI trace; GL → ledger and DOO → business unit from the demo crawl's grant blocks) —
-  the other context columns are then not applied, as OTBI does; otherwise the table is `blocked` and the
-  reason says which audit is missing (keying on the subject area may decide it).
-- **Keying `area`** (`subjectArea`) — OTBI's one reference entity per (subject area, table): the table's
-  own security object, or the ONE context the area binds — a curated (area, entity) row, the table's
-  only context, the area's VO evidence (a VO of the area joins exactly one context's entity), else the
-  audited primary; otherwise `blocked`. A trace that names the column of THIS table (e.g.
-  `AP_INVOICES_ALL.ORG_ID`) decides the column. The area's known (curated) privilege on an object applies to
-  every table of the area on that object. The same table can take different privileges in two areas (the
-  payment table: the Payables privilege in a Payables area, the orchestration privilege where it is a
-  dimension of Supply Chain Financial Orchestration). An HCM table takes the privilege the AREA's duty
-  roles hold (Oracle's TBI guide codes mapped to the pod's roles) — keyed on the table alone the HCM duty
-  map must be unambiguous, else `blocked` asking for the area. A table the area does not read is
-  `blocked`.
-- **anyOf** — a cte with two or more `pairs` (supplier PII tables) ORs their predicates inside ONE
-  condition (`where ({PRED:…|p1}) or ({PRED:…|p2})`): keep every slot; either privilege opens a row.
-- **strictest** (end-user plans only) — a cte graded `strictest` ANDs its pairs inside ONE condition
-  (`where ({PRED:…|p1}) and ({PRED:…|p2})`): the privilege is ambiguous, so a row shows only when the user
-  holds EVERY candidate; keep every slot. The developer plan never ANDs — it blocks with the candidates.
+## Rules on the plan's entries
+- **Grade + keying** go on the `Data access:` line (below); relay a `granted` grade as "not OTBI-proven".
+- **Several pairs on one CTE** (anyOf — supplier PII tables): keep every slot; either privilege opens a row.
 - **Sensitive tables** (national identifiers, passports, visas, driver licences, salary, supplier PII,
-  bank accounts) are read ONLY through their own pair — never through a person / duty privilege; a
-  `blocked` sensitive table is not read unsecured as a workaround.
-- **`masked`** `[{column, use}]` — never select `column`, select `use` (the masked twin: e.g.
-  `MASKED_BANK_ACCOUNT_NUM`, not `BANK_ACCOUNT_NUM`).
-- **`blocked`** — the developer is ASKED (needs-input, with the `reason` and the `candidates` when there
-  are some: "INV_ORG_PARAMETERS carries 4 INV privileges with distinct grant sets — which one?"), or the
-  table is left out / replaced by a used alternative (`findSimilarQueries` / `validateTable`). It is read
+  bank accounts) are read ONLY through their own pair — never through a person / duty privilege; a blocked
+  sensitive table is not read unsecured as a workaround.
+- **Masked columns** — never select the raw column; select its masked twin.
+- **Blocked** — the developer is ASKED (needs-input, with the reason and the candidates when there are
+  some: "INV_ORG_PARAMETERS carries 4 INV privileges with distinct grant sets — which one?"), or the table
+  is left out / replaced by a used alternative (`findSimilarQueries` / `validateTable`). It is read
   unsecured only on the user's explicit word, labelled. A disallowed table (unknown context, unused) is
   never in secured SQL.
-- **`unsecured`** — reference data, read directly; say so on its line.
+- **Unsecured** — reference data, read directly; say so on its line.
 
-## End-user mode — getSecuredQueryPlan (the overlay owns the flow)
+## End-user mode — the overlay owns the flow
 A user WITHOUT the developer role gets the end-user overlay (`instructions.end-user.md`): the answer is the
-data, never the SQL. The plan is **`getSecuredQueryPlan({instance, tables, subjectAreas?})`** — without
-areas it returns the candidate subject areas (you settle one; never ask the end user), with them the
-same CTE + rewrite contract keyed on the area, every CTE PROJECTING only the area's exposed columns
-(`columns.<alias>.allowed`) plus join keys (`joinOnly`) and the corpus filter columns the area does not
-show (`filterOnly`) — joinOnly / filterOnly columns go in JOIN / WHERE conditions only, never in the select
-list — and `gate` — the subject areas (with their duty codes) to pass as `runSecuredSql`'s `gate`
-(`{areas: gate.areas}`): every area must be held, else the call is refused naming the area — re-plan on a
-held alternate or refuse.
-- **`strictest`** — an ambiguous privilege of a table of the area's own modules: every candidate AND-ed
-  (`strictest.privileges`). When `dataAccess` reports `access: "none"` for ONE of its pairs the table is empty for the
-  user: say "access cannot be confirmed for <table> (ambiguous privilege, you lack <privilege>)" — never
-  "no data", never plain "no access". The same ambiguity on a foreign dimension of the area is `blocked`.
-- **`structural`** — a table with no security of its own (a `none` table) read WITHOUT a condition (no slot,
-  no pair): it has no declared or mined relationship to secured data, or it is reference data (lookup,
-  translation of reference data, calendar, currency, territory / geography). A `none` table that is a
-  child of secured data (e.g. POZ_SUPPLIERS) is `blocked`.
-- **No subject area reads the table** — a business table is never read by an end user (`blocked`, with
-  `readInstead` = the equivalent a subject area reads: re-ground on it); a reference-family `none` table
-  is read whole (its non-sensitive columns), keying `table`, no gate area.
-- An end user never gets a pool-2 pick (grade `granted` is `blocked`) and never an unsecured statement.
+data, never the SQL, through `getSecuredQueryPlan` (the subject-area plan: the area is settled by you,
+never asked of the end user) and ONE `runSecuredSql` with the plan's gate. An end user never gets a
+pool-2 pick (grade `granted`), a blocked table or an unsecured statement; a reference table no subject area
+reads is read whole (its non-sensitive columns).
 
 ## Joins — the fact drives, dimensions LEFT JOIN
 A secured DIMENSION read for names / attributes (business unit, supplier site, person, item …) joins
@@ -157,21 +94,21 @@ cannot see show empty"); keep an inner join only where the user's question needs
 sign-in; in CloudBeaver the editor connection's user): a secured run returns exactly that user's rows. A
 **data model** never carries a condition: its dataset generates the RUNNING user's condition each time the
 report runs (below) — so a model built by one user secures correctly for every other user. **Sign-in**
-follows the kernel's pod-identity rule — an `auth-required` reply from `runSecuredSql` included. Never emit
+follows the kernel's pod-identity rule — an auth-required reply from `runSecuredSql` included. Never emit
 the SQL unsecured as a substitute.
 
 ## Secured data models — the condition is generated at RUN time
 A secured data model is ONE dataset: the general XML-function dataset of **datamodel-authoring**
-("XML-function dataset — return pure XML, no wrapping": the canonical SQL, spec columns and data
-properties live there; its subsection "Secured data model = XML-function dataset + FND_DATA_SECURITY at
-run time" shows the security delta). Inside the report, the function calls `FND_DATA_SECURITY.GET_SECURITY_PREDICATE` for every pair of the plan, for
-whoever runs the report, splices each condition into the plan's CTEs and returns the rows as XML. This
-REPLACES the authoring-time shapes — a condition filled into a plain dataset, or a parent dataset
-handing the text to a child through a lexical: they are not built any more, and an existing model in
-one of those shapes is rebuilt as the XML function, not patched.
-- The plan is the same `getDataAccessPredicate` plan: every cte with its rewrite, in the business SQL the
+("XML-function dataset — return pure XML, no wrapping"; its subsection "Secured data model =
+XML-function dataset + FND_DATA_SECURITY at run time" shows the security delta). Inside the report, the
+function calls `FND_DATA_SECURITY.GET_SECURITY_PREDICATE` for every pair of the plan, for whoever runs the
+report, splices each condition into the plan's CTEs and returns the rows as XML. This REPLACES the
+authoring-time shapes — a condition filled into a plain dataset, or a parent dataset handing the text to a
+child through a lexical: they are not built any more, and an existing model in one of those shapes is
+rebuilt as the XML function, not patched.
+- The plan is the same `getDataAccessPredicate` plan: every CTE with its rewrite, in the business SQL the
   function builds. Each `{PRED:<object>|<privilege>}` becomes one API call on that pair (object and
-  privilege as literals, `p_table_alias => 'sec$'`) into its own `l_pred_n`, appended at the slot's place;
+  privilege as literals, table alias `sec$`) into its own `l_pred_n`, appended at the slot's place;
   anyOf / strictest keep their OR / AND around the pair variables.
 - Fail closed inside the function: a status other than `T` or an empty text → `1=2` (no rows); a slot is
   never dropped and a table is never read unsecured to make the report run.
@@ -181,28 +118,26 @@ one of those shapes is rebuilt as the XML function, not patched.
   `setDatasetSql`. Its test is `runSql` / `run_sql` of the same statement (it secures itself for the
   session's user) and the pod run of the model.
 - The condition text still never enters the conversation — it exists only inside the pod at run time.
-- `blocked`, `unsecured`, `masked` and the sensitive-table rules are unchanged: a `blocked` table is asked
-  about BEFORE the model is built.
+- The blocked, unsecured, masked and sensitive-table rules are unchanged: a blocked table is asked about
+  BEFORE the model is built.
 
 ## Deliverables — the slotted SQL is shown, the executable text is delivered by the tool
 Show the SLOTTED statement in the answer's ```sql block with its `Data access:` lines; the filled text
-exists only server-side and reaches its destination through `deliver`:
-- `"run"` (default) — the rows come back (`maxRows` as runSql);
-- `"file"` — a `.sql` session file (fileId): present it with `ui_present_file` for SQL the user runs elsewhere;
-- a data model is NOT delivered: its dataset is the XML function (Secured data models above), written
-  as-is — no slot stays in a dataset and no condition is ever filled into one.
-Never read a filled statement back (opening the delivered file): keep working from your slotted SQL and
-deliver again after any change.
+exists only server-side and reaches its destination only through `runSecuredSql`: the rows of a run, or a
+`.sql` file for SQL the user runs elsewhere (present it with `ui_present_file`). A data model is NOT
+delivered: its dataset is the XML function (Secured data models above), written as-is — no slot stays in a
+dataset and no condition is ever filled into one. Never read a filled statement back (opening the delivered
+file): keep working from your slotted SQL and deliver again after any change.
 
 ## What the answer says
 - Name what was applied: "limited to your business units (FUN_ALL_BUSINESS_UNITS_V /
   AP_REPORT_PAYABLES_DATA, trace)".
-- A pair with `access: "none"`: "no access to <object> for <privilege>" — the table returns no rows
-  because the user holds no grant, NEVER "no data" / "no matching rows". On a `strictest` cte: "access
-  cannot be confirmed for <table> (ambiguous privilege, you lack <privilege>)". `access: "global"`: "no
-  restriction on <object> for <privilege>".
+- A pair with no access: "no access to <object> for <privilege>" — the table returns no rows because the
+  user holds no grant, NEVER "no data" / "no matching rows". On a strictest (ambiguous-privilege) CTE:
+  "access cannot be confirmed for <table> (ambiguous privilege, you lack <privilege>)". A global grant:
+  "no restriction on <object> for <privilege>".
 - GL segment-value (balancing-segment) security is NOT covered — say so when the query reports GL
-  balances. Relay a `granted` grade as "not OTBI-proven".
+  balances.
 
 ## Plain SQL inside a secured flow
 SQL the kernel's data-access rule leaves plain — the analysis runs (a lookup, a grain probe, a query run
@@ -211,16 +146,16 @@ lines; it runs through `runSql` / `run_sql`.
 
 ## Filter-check lines (mandatory for secured SQL)
 In the kernel's Filter check before every ```sql block of secured SQL, one line per table instance:
-- `Data access: <table>.<column> → <object> / <privilege> [<grade>, keying table]` — a reference cte,
+- `Data access: <table>.<column> → <object> / <privilege> [<grade>, keying table]` — a reference CTE,
   e.g. `Data access: AP_INVOICES_ALL.ORG_ID → FUN_ALL_BUSINESS_UNITS_V / AP_REPORT_PAYABLES_DATA [trace,
   keying table]`; keyed on an area: `[<grade>, keying area <subject area>]`; append `(no access)` when the
-  pair's `access` is `none`, `(no restriction)` when `global`;
-- `Data access: <table> → <object> / <privilege> [<grade>, keying table]` — a direct cte (the table is its
-  own security object); anyOf: `<object> / <p1> | <p2>`; masked: `(masked: <column> → <use>)`;
-- `Data access: <table> unsecured (reference data)` — an `unsecured` entry;
+  pair has no access, `(no restriction)` when the grant is global;
+- `Data access: <table> → <object> / <privilege> [<grade>, keying table]` — a direct CTE (the table is its
+  own security object); anyOf: `<object> / <p1> | <p2>`; masked: `(masked: <column> → <masked twin>)`;
+- `Data access: <table> unsecured (reference data)` — an unsecured entry;
 - `Data access: <table> → <object> / <p1> AND <p2> [strictest, keying area <subject area>]` and
   `Data access: <table> read without a condition [structural, …]` — end-user plans (the line stays in the
-  tool log; the end user sees the `limits` sentence);
+  tool log; the end user sees the limits sentence);
 - `Data access: <table> BLOCKED — <reason>` — only while asking the user, never in emitted SQL;
 - on a data model, after its table lines: `Data access: generated at run time for the running user
   (XML-function dataset)`.

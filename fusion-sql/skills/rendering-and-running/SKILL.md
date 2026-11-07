@@ -7,93 +7,64 @@ description: Use to render an authored/uploaded template + data to a real PDF/HT
 
 Turn an authored artifact into something the user can SEE, verify it WITH YOUR OWN EYES, and prove it
 runs on the live pod. Render/pod tools are gated — each errors clearly when its service isn't
-configured.
+configured. Each tool's description is the reference for its arguments and results; this skill is the
+order and the rules.
 
 ## 0. SEEING files — the `path` + Read loop (MANDATORY verification)
 Tool results that produce a viewable file (rendered PDF/HTML/XML, extracted entries, uploads, pod
-outputs) include a **`path`** field. Open it with the built-in **Read** tool — PDFs render as PAGES
-(images), pictures as pixels, XML/text as text.
+outputs) include a **`path`**. Open it with the built-in **Read** tool — PDFs render as PAGES (images),
+pictures as pixels, XML/text as text.
 
 - **After EVERY render you MUST Read the output and LOOK at it before claiming success**: borders,
   fills, alignment, wrapping, page breaks, formatted dates/amounts — compared against what the user
   asked (and their mockup image, which also carries a `path`).
-- **PDFs: ALWAYS pass `pages` (start `pages:"1-3"`)** — never read a PDF whole; a large unpaged PDF
-  overflows the conversation (the gate will refuse it).
+- **PDFs: ALWAYS a few pages at a time (start with the first three)** — never read a PDF whole; a large
+  unpaged PDF overflows the conversation (the gate will refuse it).
 - Read accepts ONLY `path` values returned by this session's tools; anything else is denied.
-- A render result may carry `warning: "output looks EMPTY…"` — the template's for-each matched 0
-  nodes; re-check group paths (`summarizeReportLayout`) against the data XML before re-rendering.
+- A render that warns the output looks EMPTY = the template's for-each matched 0 nodes; re-check the
+  group paths (`summarizeReportLayout`) against the data XML before re-rendering.
 - Fix → re-render → Read again. Iterate until it matches; only then report success.
 
 ## 0b. Showing files to the USER — `ui_present_file`
-Every file tool returns `{ fileId, name, mime, size, … }` (several files: `files:[…]`) — no link. The
-user sees a file ONLY when you call `ui_present_file({ files:[{ fileId, name }], mode })`; mode from the
-request — preview / show / open / look at → `view`; download / send / give / export → `download`;
-unclear → `both`. Present the FINAL version only (never an intermediate of an edit chain), pass `name`
-as the tool returned it, never invent a fileId, never write a link for a file in your text. Embedded
-hosts show a download button only — never claim the file was opened there.
+The user sees a file ONLY when you present it with `ui_present_file`, in the mode the request implies
+(preview vs download). Present the FINAL version only (never an intermediate of an edit chain), never
+invent a fileId, never write a link for a file in your text. Embedded hosts show a download button
+only — never claim the file was opened there.
 
 ## 1. Local render — `renderTemplate` (bip-render engine, RTF + XSL)
-`renderTemplate({ fileId, label?, locale?, xml? | dataFileId, format?, subtemplateFileIds? })` renders
-an RTF template (from a `.xdoz` by label/locale, or a bare `.rtf`) + XML data to
-**pdf / html / rtf / xlsx / xml / csv**. Returns `{ fileId, name, mime, size, path?, warning? }` → Read
-the `path` (rule 0), then present the final version with `ui_present_file` (rule 0b).
-An **xsl** template (report-authoring) is compiled and run by BIP's own XSL engine in secure mode, as on
-the pod, to **text / txml / html** (default: its declared output method). A compile/XPath error comes
-back as `error` — this render is the stylesheet's only pre-upload check, so always run it.
+`renderTemplate` renders an RTF template (from a `.xdoz`, or a bare `.rtf`) or an **xsl** template
+(report-authoring) with XML data to a real file → Read it (rule 0), then present the final version
+(rule 0b). The xsl template is compiled and run by BIP's own XSL engine in secure mode, as on the pod —
+this render is the stylesheet's only pre-upload check, so always run it.
 `.xpt` (interactive) layouts do NOT render locally — pod only (below). Say so; never silently
 substitute an RTF approximation.
 
 ## 2. The live Fusion pod — `fusion-pod` MCP
-- **`listCatalogFolder(path)`** — browse. Read-only.
-- **`downloadCatalogObject(path)`** — fetch a real `.xdoz`/`.xdmz`. The bytes go to the session file
-  store; you get `{fileId, name, size, instance, instancePath}` — NOT raw bytes. It is filed in that
-  pod's folder under its full catalog path; downloading the same path again replaces that entry (new
-  fileId). Inspect via `summarizeReportLayout` / `getFileSummary`, pull one entry with
-  `extractEntry`, or render it by fileId. Read-only.
-- **`runReport(path, format?, parameters?)`** — execute on the real pod. Output lands in the store →
-  `{fileId, path, contentType, instance, instancePath}`; **Read the `path`** to see the data XML /
-  rendered PDF. Non-mutating; the STRONGEST verification. `format` must be one of the report's DEFAULT
-  template's output formats: `text` exists only on an xsl template, so make the xsl layout the default
-  (`makeDefault` / `setDefaultTemplate`) before `runReport format:"text"` (saved as `.txt`; `txml` as
-  `.xml`). The pod's "Invalid format requested: <fmt>" = the default template doesn't offer that format —
-  fix the template, never drop the requested format.
-- **`runSql(sql, binds?, maxRows?)`** — run a SELECT/WITH directly on the pod (through the
-  pre-deployed generic SQL report); rows come back INLINE as JSON `{columns, rows, rowCount,
-  truncated, instance}` (default 200 rows, cap 5000; >256 KB also lands in a session file `{fileId,
-  path, instancePath}` in that pod's folder).
-  Use it for grain COUNT-probes, to sanity-run a grounded query before building a data model, for
-  small lookups, and to run existing SQL as is (no review — the kernel's review rule) — it runs the
-  SQL as written (plain); SQL the kernel's data-access rule secures
-  runs through `runSecuredSql` instead (**data-access-security**). List
-  every `:name` in `binds` (DATE binds need `format`). DML is refused.
-  Errors carry `oraError` + `errorPosition` (0-based char offset) — fix the SQL and retry.
-- **Live metadata, search → describe** (see `datamodel-authoring` for when):
-  **`searchFlexfields(table? | flexfieldCode? | name?)`** → compact flexfield list;
-  **`describeFlexfield(table | flexfieldCode)`** → the exact flexfield's segment rows;
-  **`searchCustomObjects(objectName? | columnName?)`** → distinct custom objects;
-  **`describeCustomObject(object)`** → the exact object's field rows. search* takes patterns
-  (case-insensitive, `%`/`_` wildcards, a bare word = contains); describe* needs the EXACT name —
-  **0 rows from describe* means the name is not exact → search first**. All four are flat ROWS and
-  run through whichever SQL executor is active for this conversation (the pod `runSql`, or the
-  caller's own `run_sql` when one is declared, e.g. CloudBeaver). **Never hand-write `ADF_*` /
-  `FND_DF_*` joins — these tools are those joins.** Read-only.
-- **`uploadCatalogObject(path, fileId?, type?)`** — create a catalog object. **MUTATES the pod.** In
-  **step-by-step** mode CONFIRM path + payload with the user first; in **everything-at-once** mode the
-  mode choice already authorized uploads under your per-user area — proceed without a per-upload ask.
-  Pass the session artifact's `fileId` (bytes attach on our side); `base64` only for bytes you actually
-  hold; NEVER a fileId inside `base64`. **Uploads do NOT overwrite an existing path** ("already
-  exists") — never re-upload to the same path after a fix; use a FRESH per-run subfolder (the prepare
-  tools hand you fresh paths). The uploaded file is also filed in that pod's folder under the upload
-  path (`instance`, `instancePath`).
-- **`listSessionFolders(folder?)`** — this conversation's `working` folder plus one folder per pod
-  (its domain), every entry with its full catalog path and fileId, whichever identity is bound now.
-- **`compareCatalogObjects(left, right)` → `compareCatalogDetail(compareId, ref)`** — THE way to
-  compare two data models or two reports (never diff them yourself). Download both sides first
-  (`identity_select` between pods / users), then name each side by `{fileId}` or `{instance,
-  instancePath}`. The summary gives one row per changed element (`dataModel > dataSet[EMP_DS] > sql`,
-  added / removed / changed, `whitespaceOnly` for text) plus changed archive files; the detail gives
-  attribute values and a line diff of the SQL / PL/SQL / template text. `needs-load` = download that
-  side; `stale` = its folder entry was replaced — compare again.
+- **`listCatalogFolder`** — browse. Read-only.
+- **`downloadCatalogObject`** — fetch a real `.xdoz`/`.xdmz` into a session file (filed in that pod's
+  folder under its catalog path; downloading again replaces that entry). Inspect it with
+  `summarizeReportLayout` / `getFileSummary`, pull one entry with `extractEntry`, or render it. Read-only.
+- **`runReport`** — execute on the real pod: non-mutating, the STRONGEST verification; **Read the
+  output**. A format the user asked for that the report's default template does not offer is fixed in
+  the template (text output = an xsl layout made the default) — never dropped.
+- **`runSql`** — run a query directly on the pod, rows inline. Use it for grain COUNT-probes, to
+  sanity-run a grounded query before building a data model, for small lookups, and to run existing SQL
+  as is (no review — the kernel's review rule) — it runs the SQL as written (plain); SQL the kernel's
+  data-access rule secures runs through `runSecuredSql` instead (**data-access-security**). An Oracle
+  error points into your SQL — fix it and retry.
+- **Live metadata, search → describe** (see `datamodel-authoring` for when): `searchFlexfields` →
+  `describeFlexfield`, `searchCustomObjects` → `describeCustomObject` — search with the words you have,
+  describe the exact hit. **Never hand-write `ADF_*` / `FND_DF_*` joins — these tools are those joins.**
+  Read-only.
+- **`uploadCatalogObject`** — create a catalog object. **MUTATES the pod.** In **step-by-step** mode
+  CONFIRM path + payload with the user first; in **everything-at-once** mode the mode choice already
+  authorized uploads under your per-user area — proceed without a per-upload ask. Upload the session
+  artifact by its fileId. Uploads never overwrite: after a fix, prepare again for fresh paths.
+- **`listSessionFolders`** — this conversation's `working` folder plus one folder per pod, whichever
+  identity is bound now.
+- **`compareCatalogObjects` → `compareCatalogDetail`** — THE way to compare two data models or two
+  reports (never diff them yourself). Download both sides first (`identity_select` between pods / users),
+  compare, then fetch the detail of the rows you need and quote them.
 
 Pod caveats: WAF-throttled — keep calls sequential; a `403 text/html "Access Denied"` is a rate ban,
 not permissions.
@@ -105,22 +76,20 @@ it yourself: **the prepare tools compute every path**. Any absolute catalog path
 
 ## 4. Test a DATA MODEL on the pod — `prepareDataModelTest` (ALWAYS before building the report)
 The pod has no run-datamodel op, so the tool builds a no-layout report bound to the model.
-1. `prepareDataModelTest({fileId})` → `{reportFileId, dataModelPodPath, reportPodPath, params}` —
-   aligned per-user paths; the test report's dataModelUrl already equals `dataModelPodPath`.
-2. `params` non-empty → ASK the user a value per param. Step-by-step mode: CONFIRM (mutation) first;
+1. `prepareDataModelTest` → the test report, the aligned per-user paths, the model's parameters.
+2. Parameters → ASK the user a value per parameter. Step-by-step mode: CONFIRM (mutation) first;
    everything-at-once: proceed. Then upload BOTH by fileId to the returned paths.
-3. `runReport(reportPodPath, format="xml", parameters)` → **Read the returned XML** — real rows prove
+3. Run the test report for its data XML (`runReport`) → **Read the returned XML** — real rows prove
    the SQL runs. Errors here mean FIX THE MODEL before any layout work.
 
 ## 5. Run a REAL report (with layouts) on the pod — `prepareReportForPod`
-Never set a report's dataModelUrl by hand and never upload a report+DM pair without this:
-1. `prepareReportForPod({reportFileId, dataModelFileId})` → rebinds the report's `<dataModel url>` to
-   the DM's actual pod path; returns `{reportFileId (rebound), dataModelPodPath, reportPodPath,
-   rebound, params}`.
+Never bind a report to a pod path by hand and never upload a report+DM pair without this:
+1. `prepareReportForPod` with the report and its data model → the report rebound to the model's pod
+   path, the aligned paths, the parameters.
 2. Upload BOTH by fileId to those exact paths (step-by-step mode: CONFIRM first; skip the DM upload
    if this very fileId was already uploaded to that exact path in this session).
-3. `runReport(reportPodPath, format:"pdf", parameters)` (xsl default template: its `text` / `txml` /
-   `html`) → **Read the render (pages!) and verify** per rule 0.
+3. `runReport` the report (PDF; an xsl default template: its text / txml / html output) → **Read the
+   render (a few pages) and verify** per rule 0.
 
 ## 6. Pod down ≠ dead end: RTF and XSL ALWAYS render locally
 An RTF or xsl layout renders locally regardless of the pod. If the pod is unavailable or failing (401, WAF
@@ -134,13 +103,12 @@ ban, not configured), do **NOT** stop and do NOT ask permission to render — de
 ## 7. Modifying after you've SHARED it — RTF / XSL iterate LOCALLY until approved
 Once you've shared a rendered output and the user asks to change the layout, and the template is **RTF**
 or **xsl**:
-edit → `renderTemplate` **LOCALLY** (reuse the real data XML via `dataFileId` from the earlier pod
-run — full fidelity, §6) → **Read + verify** (§0) → share the new PDF → repeat until the user
-**APPROVES**. Do NOT re-upload / re-run on the pod per tweak: pod uploads never overwrite (a fresh
-subfolder each time), are WAF-throttled, and prove nothing while the layout is still changing. Go to
-the pod (`prepareReportForPod` → upload → `runReport format:"pdf"`, §5) **only ONCE, AFTER approval**,
-and only when the deliverable is a runnable report object on Fusion. (`.xpt` can't render locally —
-those still modify on the pod.)
+edit → `renderTemplate` **LOCALLY** (reuse the real data XML file from the earlier pod run — full
+fidelity, §6) → **Read + verify** (§0) → share the new PDF → repeat until the user **APPROVES**. Do NOT
+re-upload / re-run on the pod per tweak: pod uploads never overwrite (a fresh subfolder each time), are
+WAF-throttled, and prove nothing while the layout is still changing. Go to the pod (`prepareReportForPod`
+→ upload → `runReport`, §5) **only ONCE, AFTER approval**, and only when the deliverable is a runnable
+report object on Fusion. (`.xpt` can't render locally — those still modify on the pod.)
 
 ## The loop
 Author (grounded) → render locally → **Read + verify visually** → fix/iterate → live delivery →

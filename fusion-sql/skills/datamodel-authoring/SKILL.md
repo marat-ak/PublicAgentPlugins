@@ -17,11 +17,10 @@ opt-in data-access rule secures).
 When the user ATTACHES files you get a note with `fileId`s. A `.xdmz` is recognised by its extension
 (the announced type may be generic); a `.zip` is not unpacked — `extractEntry` the model out of it first
 (kernel rule on uploaded BIP files).
-1. **`getFileSummary(fileId)`** first — the model's COMPACT summary (datasets + type + tables;
-   parameters; triggers; bursting). Reason from the summary. **Do not ask for the SQL** — it is fetched
-   on demand.
-2. **`getDataset(fileId, dataset)`** — the full SQL of ONE dataset, only when you need to show, run,
-   explain or change it. Ground its tables/columns with `validateTable`/`getColumns` before rewriting.
+1. **`getFileSummary`** first — reason from the model's compact summary. **Do not ask for the SQL** — it
+   is fetched on demand.
+2. **`getDataset`** — the SQL of ONE dataset, only when you need to show, run, explain or change it.
+   Ground its tables/columns with `validateTable`/`getColumns` before rewriting.
 3. Decide from the request:
    - **Analyze / explain** → describe in business terms what the model returns (datasets, parameters,
      triggers, bursting) from the summary (+ `getDataset` where needed). No file output.
@@ -29,7 +28,7 @@ When the user ATTACHES files you get a note with `fileId`s. A `.xdmz` is recogni
      unchanged — shown with the dataset name, its binds and the file / catalog path, or run with its
      binds — the kernel's review rule: no review, no checks.
    - **Modify** → write the new grounded SQL (**fusion-sql-review**; secured only when the user chose
-     data access — **data-access-security**), then apply it (below). Each edit returns a NEW `fileId`.
+     data access — **data-access-security**), then apply it (below). Each edit returns a NEW file.
    Several models at once (separate attachments, or entries extracted from one `.zip`) are fine —
    operate across them by their own `fileId`s.
 
@@ -40,42 +39,30 @@ the output group/element structure, master-detail **group links**, **parameters*
 byte-preserving splice — the change touches ONLY the targeted node; all other bytes of the `.xdmz` are
 preserved. No full rebuild.
 
-- **Inspect first, always.** `getDataModel(fileId, section)` reads any part as compact JSON — `section`:
-  `overview` (section names + output tree) · `structure` · `groupLinks` · `parameters` · `lexicals` ·
-  `datasets` · `triggers` · `valueSets` · `bursting` · `properties` · `validations`. The real structure
-  is often deeply nested — never assume the shape; read it.
-- **Then change exactly one part** with the matching `edit*` tool (each takes an `action`):
-  `editStructure` (elements + groups + group links) · `editParameters` · `editLexicals` · `editDatasets`
-  (setSql / setSource / rename / add / remove) · `editTriggers` · `editValueSets` · `editBursting`
-  (set / update / clear) · `editProperties` · `editValidations`. For a quick single-dataset SQL swap use
-  `setDatasetSql(fileId, dataset, sql, columns?)`; to batch many edits into ONE re-zip use
-  `updateDataModelFile` (params / triggers / bursting / rename / setSql together). Non-SQL datasets
-  (file/Excel/OTBI/CSV) are read + name/source only — their bodies are not authored.
+- **Inspect first, always.** `getDataModel` reads any part of the model (the section you are about to
+  change). The real structure is often deeply nested — never assume the shape; read it.
+- **Then change exactly one part** with the matching `edit*` tool: `editStructure` (elements + groups +
+  group links) · `editParameters` · `editLexicals` · `editDatasets` · `editTriggers` · `editValueSets` ·
+  `editBursting` · `editProperties` · `editValidations`. A quick single-dataset SQL swap is
+  `setDatasetSql`; many edits in ONE re-zip are `updateDataModelFile`.
+- **Read back** the changed part (`getDataModel`) and confirm it landed.
 
-Example:
-```
-getDataModel(fileId, "parameters")            // read current params
-editParameters(fileId, { action:"add", name:"P_REGION", dataType:"string", … })
-editStructure(fileId, { action:"addGroupLink", parent:"G_HEADER", child:"G_LINES", … })
-getDataModel(newFileId, "parameters")         // read back — confirm it landed
-```
-
-**Every edit returns a NEW fileId — ALWAYS chain the next edit on the fileId the PREVIOUS edit
+**Every edit returns a NEW file — ALWAYS chain the next edit on the fileId the PREVIOUS edit
 returned.** Re-using an older id forks the lineage (your later edits silently miss the earlier ones).
-If a reply carries `staleWarning`/`latestFileId`, you targeted an old version — switch to
-`latestFileId`. When the chain is done, present ONE file — the FINAL one — with `ui_present_file`;
-never present (or link) intermediate files.
+A reply warning that you targeted an old version names the latest one — switch to it. When the chain is
+done, present ONE file — the FINAL one — with `ui_present_file`; never present (or link) intermediate
+files.
 
 ## Placing a field in a SPECIFIC output group
 The output `<dataStructure>` is a **hierarchy** — groups nest (G_1 may contain G_2 which contains G_3);
-it is NOT flat. `setDatasetSql`'s auto-reconcile only APPENDS a new column to the **innermost/leaf**
+it is NOT flat. A SQL swap (`setDatasetSql`) only appends a new column to the **innermost/leaf**
 group, so it CANNOT honor "put field X in group Y".
-1. `getDataStructure(fileId)` — see the real (possibly nested) hierarchy; never assume flat or guess
-   which group is "the top one".
-2. `addStructureElement(fileId, group, name, …, after?)` inserts the field EXACTLY in the named group
-   (byte-level splice, no rebuild); `moveStructureElement(fileId, element, toGroup, after?)` relocates
-   an existing field (e.g. lift one that landed in the leaf group up to G_1). Do NOT rebuild the whole
-   model via `createDataModelFile` just to move one element, and do NOT rely on the leaf-append.
+1. `getDataStructure` — see the real (possibly nested) hierarchy; never assume flat or guess which
+   group is "the top one".
+2. `addStructureElement` inserts the field EXACTLY in the named group (byte-level splice, no rebuild);
+   `moveStructureElement` relocates an existing field (e.g. lift one that landed in the leaf group up to
+   G_1). Do NOT rebuild the whole model via `createDataModelFile` just to move one element, and do NOT
+   rely on the leaf-append.
 
 ## Verify before you claim; report the outcome, not the tooling
 After ANY structure/SQL edit, call `getDataStructure` (or `getFileSummary`/`getDataModel`) on the
@@ -95,15 +82,10 @@ When the user asks to build one ("build me a data model for …"):
    attribute X"): resolve via `getFlexfields`** (fusion-schema) — it maps business names to the real
    context_code + attribute column + value set from the customer's registry. Never guess a
    context_code and never ship a placeholder when the registry answers; registry empty or the
-   customer pod differs from the registry snapshot → read the LIVE definition with the pod tool
-   the live pod tools (fusion-pod): **`searchFlexfields(table | flexfieldCode | name)`** with a
-   pattern (`%item%`, a bare word = contains) to find the FLEXFIELD_CODE, then
-   **`describeFlexfield(flexfieldCode | table)`** with the EXACT code/table — flat rows, one per
-   segment (`ROW_KIND='SEGMENT'`: CONTEXT_CODE, COLUMN_NAME, VALUE_SET_CODE…) plus EFF
-   category/usage rows. 0 rows from describe = the name is not exact → search. They run on
-   whichever SQL executor is active (pod `runSql` or the caller's `run_sql`); **never hand-write
-   `FND_DF_*` joins**. Still nothing → ASK. ALWAYS filter EFF tables by the resolved
-   `context_code` (+ dedup/pre-aggregate multirow EFF before joining).
+   customer pod differs from the registry snapshot → read the LIVE definition with the live pod tools
+   (fusion-pod): **`searchFlexfields`** to find the flexfield, then **`describeFlexfield`** for its
+   segments; **never hand-write `FND_DF_*` joins**. Still nothing → ASK. ALWAYS filter EFF tables by
+   the resolved `context_code` (+ dedup/pre-aggregate multirow EFF before joining).
    **Custom OBJECTS and custom fields: resolve via `getCustomObjects`** — a custom object lives in
    a GENERIC table (e.g. HZ_REF_ENTITIES) with a mandatory row filter (`context column =
    'Object_c'`) and EXTN_ATTRIBUTE_* column mappings; a custom field on a built-in object lives in
@@ -112,38 +94,31 @@ When the user asks to build one ("build me a data model for …"):
    object/field is not a standard Fusion object (or getColumns doesn't show it), search
    `getCustomObjects`/`getFlexfields` with the user's own words (the search de-camelizes API names:
    "ticket contact" finds TicketContact_c). The registry is a DEMO-POD snapshot — on a customer
-   pod go LIVE: **`searchCustomObjects(objectName | columnName)`** (fusion-pod) with a pattern from
-   the user's words (`%error%`, `%ticket%`; a field pattern finds the object owning it) → the
-   exact `_c` OBJECT_NAME → **`describeCustomObject(object)`** for the flat field rows (TABLE_NAME,
-   CONTEXT_COLUMN_NAME = OBJECT_NAME filter, ATTRIBUTE_NAME → COLUMN_NAME EXTN_ATTRIBUTE_*,
-   DATA_TYPE — no display labels). **Never guess an API name into describeCustomObject and never
-   hand-write `ADF_*` joins** — 0 rows means search first. Same executor rule as above.
+   pod go LIVE: **`searchCustomObjects`** (fusion-pod) with the user's own words (a field name finds
+   the object owning it), then **`describeCustomObject`** for the exact object's fields. **Never guess
+   an API name and never hand-write `ADF_*` joins.**
    **Still nothing → ASK (AskUserQuestion)** which object/field they mean or its API
    name — never assume it's a standard column and never invent one.
    **Found SEVERAL candidates → ASK (AskUserQuestion) with the candidate API names as options** (e.g.
    TicketContact_c vs TicketToContact_c vs Ticket_c) — only a single unambiguous hit proceeds
    without confirmation.
-3. Build a **`DataModelSpec`** (datasets with the grounded SQL, secured only when the user chose data access (**data-access-security**) —
-   a SECURED model is the XML-function dataset (section below) with FND_DATA_SECURITY inside; LOV `sql` too; parameters; output structure; event
-   triggers and bursting if the request needs them) and call **`createDataModelFile(spec)`**.
-   - **LOVs at CREATE time:** declare dropdowns directly in the spec — `spec.valueSets:[{id, sql | 
-     values}]` plus `parameter.valueSet: "<id>"` on the parameter that uses it (and `parameter.format`
-     for date masks). Do NOT create the model bare and then chain editValueSets/editParameters — the
-     create-time path is one file, no edit chain.
-   - **`defaultDataSource` — classify the DOMAIN into ONE of three pod-level sources.** The JDBC data
-     source is chosen per POD, NOT per subledger: **Financials / Procurement / SCM** (AP, AR, GL,
-     invoices, POs, inventory) → **`ApplicationDB_FSCM`**; **HCM** (workers, payroll, absence,
-     positions) → **`ApplicationDB_HCM`**; **CRM / Sales / Service** → **`ApplicationDB_CRM`**. AP/AR/GL
-     ALL use `ApplicationDB_FSCM` — there is **no** `ApplicationDB_AR`/`ApplicationDB_AP`. Never invent a
-     per-subject name and never use a placeholder or ask the user for it. If you truly can't classify,
-     OMIT it → defaults to `ApplicationDB_FSCM`. (Unknown names are coerced to the pod default anyway.)
+3. Build the model in ONE **`createDataModelFile`** call: the datasets with the grounded SQL (secured
+   only when the user chose data access (**data-access-security**) — a SECURED model is the XML-function
+   dataset (section below) with FND_DATA_SECURITY inside; LOV SQL too), parameters, output structure,
+   event triggers and bursting if the request needs them.
+   - **LOVs at CREATE time:** declare the dropdowns in that same call, each bound to its parameter. Do
+     NOT create the model bare and then chain editValueSets/editParameters — the create-time path is one
+     file, no edit chain.
+   - **The data source is per POD DOMAIN, not per subledger** (Financials / Procurement / SCM, HCM, or
+     CRM / Sales / Service — the create tool's description names the three): classify it yourself; never
+     invent a per-subject name, never a placeholder, never ask the user.
 4. Report what you built and present the `.xdmz` with `ui_present_file`.
 5. **Then pod-TEST it** (when the `fusion-pod` MCP is available): everything-at-once mode → run the
-   datamodel test flow directly (`prepareDataModelTest` → upload both → `runReport` as XML → verify
-   the data) as part of the same turn; step-by-step mode → offer it first. See the
+   datamodel test flow directly (`prepareDataModelTest` → upload both → run the test report → verify its
+   data XML) as part of the same turn; step-by-step mode → offer it first. See the
    **rendering-and-running** skill for the exact steps and parameter prompting. An XML-function model's
-   output STARTS with the function's own root (`<ROWSET>`); `<RESULT>&lt;ROWSET&gt;…` means the two LOB
-   data properties are not `true`.
+   data STARTS with the function's own root (`<ROWSET>`); the XML arriving escaped inside a `RESULT`
+   element means its LOB data properties are missing.
 Never hand-wave a data model as prose — the deliverable is a real `.xdmz`.
 
 ## XML-function dataset — return pure XML, no wrapping
@@ -154,7 +129,7 @@ shape) and BIP emits it AS-IS as the report's data. Choose it whenever the decla
 short: SQL text assembled at run time, a run-time-generated predicate (the secured model below),
 arbitrary or data-driven nesting, pre-built XML from an API, a CLOB over 4,000 characters that must
 cross into the query (a lexical is a VARCHAR2 and a CLOB does not substitute). A plain SELECT with
-`groupBy` stays the default for everything else.
+group-by stays the default for everything else.
 
 Canonical dataset SQL (the business SQL and the nesting are yours):
 ```sql
@@ -184,29 +159,23 @@ END;
 SELECT xx_<name>_xml(:P_BU) AS RESULT FROM dual
 )
 ```
-The spec that carries it — every line is required:
-```
-datasets:   [{ name: "DATA", sql: <above>, columns: [{ name: "RESULT", dataType: "clob" }] }]
-parameters: the report parameters as usual — each one is an argument of the function; `:P_X` appears
-            ONLY in the closing `SELECT fn(:P_X) AS RESULT FROM dual`
-properties: { exclude_tags_for_lob: "true", EXCLUDE_LINE_FEED_AND_CARRIAGE_RETURN_FOR_LOB: "true",
-              include_parameters: "false", include_null_Element: "false", include_rowsettag: "false",
-              xml_tag_case: "upper" }
-```
-- **Output shape.** The two LOB properties make BIP emit the clob element's XML as the WHOLE data
+The model around it: ONE dataset with that SQL and its one clob column `RESULT`, the report parameters
+as usual — each one an argument of the function, `:P_X` ONLY in the closing `SELECT fn(:P_X) AS RESULT
+FROM dual` — and the XML-function data properties `createDataModelFile` describes; every one is required.
+- **Output shape.** The LOB data properties make BIP emit the clob element's XML as the WHOLE data
   document: root `<ROWSET>`, one `<ROW>` per row of the cursor — no `DATA_DS`, no `G_*` group, no
-  `<RESULT>` wrapper, no parameter elements. With either property `false` (or a non-clob `RESULT`) the
-  XML arrives escaped inside `<RESULT>` and no layout can bind to it.
+  `<RESULT>` wrapper, no parameter elements. Without them (or with a non-clob `RESULT`) the XML arrives
+  escaped inside `<RESULT>` and no layout can bind to it.
 - **Nested groups = nested `CURSOR(…) AS <NAME>`.** A cursor column becomes `<NAME><NAME_ROW>…
   </NAME_ROW></NAME>` under its parent `<ROW>` — the master → detail hierarchy of this pattern (any
-  depth); `groupBy` and group links do not apply. The parent query's `ORDER BY` orders the groups, each
+  depth); group-by levels and group links do not apply. The parent query's `ORDER BY` orders the groups, each
   cursor's its details. Any other document shape is the function's to build (`XMLELEMENT` /
   `XMLAGG`, a package returning XMLTYPE) — the model side is identical.
 - **Layout bindings.** XPaths are `/ROWSET/ROW/<COL>` and `/ROWSET/ROW/<NAME>/<NAME>_ROW/<COL>` (or
   the root and tags the function emits) — the model's declared structure (`DATA_DS/G_DATA/RESULT`)
   is NOT the data shape; name the paths explicitly when the layout is built, and use the pod run's
   XML as the sample data.
-- **Always pass `columns`** (create and `setDatasetSql`): the outer `SELECT /*+ with_plsql */ * FROM (…)`
+- **Always pass the column list** (create and `setDatasetSql`): the outer `SELECT /*+ with_plsql */ * FROM (…)`
   has no parseable column list, so nothing can be reconciled from the SQL.
 - **Body rules.** No `:=` (the BIP parser — `SELECT … INTO … FROM dual`); every `q'[…]'` piece is under
   32K characters and contains no `]'` (split long SQL across several `DBMS_LOB.APPEND`, or switch the
@@ -263,9 +232,9 @@ constructs — Oracle SQL is rich, pick the STRONGEST fit:
 - ranking/running totals/first-non-null → window functions (`ROW_NUMBER`, `RANK`, `KEEP (DENSE_RANK
   FIRST …)`, `SUM() OVER`); hierarchies → recursive `WITH`; string rollups → `LISTAGG`; complex
   row-wise math → `MODEL`.
-Only when SQL genuinely fits worse: **datamodel group-aggregate element** (`function="summation"|
-"count"|"average"` on a group — RESTRUCTURE the `groupBy` levels when that unlocks the need, e.g.
-currency as its own level) — the data engine computes it, the template just prints `<?FIELD?>`.
+Only when SQL genuinely fits worse: **datamodel group-aggregate element** (an aggregation function on a
+group's element — RESTRUCTURE the group levels when that unlocks the need, e.g. currency as its own
+level) — the data engine computes it, the template just prints `<?FIELD?>`.
 Layout-side (XSLT) aggregation is the last rung — a single trivial summary line at most,
 **never a wide pivot** (per-cell cross-group sums across many columns are unmaintainable by a human).
 This priority order IS the **AGGREGATION LADDER** — its canonical form + the mandatory visible
@@ -305,14 +274,12 @@ always means a grouped **hierarchy**. Three shapes:
 1. **Summary** (SQL `GROUP BY`) — one dataset, one row per B with totals. Flat. Only if the user
    explicitly wants totals/counts.
 2. **Grouped output over ONE dataset** — the DEFAULT for "invoices grouped by supplier". Fetch the flat
-   detail rows (the invoice query, WITH the supplier columns) in **one** dataset and set
-   `groupBy: ["SUPPLIER_ID","VENDOR_NAME"]` on it → the output XML nests each supplier's invoices
-   underneath it. **ORDER BY the group columns in the SQL.** Use this whenever ranking/filtering B
-   requires scanning A anyway (e.g. "top 10 suppliers by unpaid invoice amount" — one query grouped by
-   supplier, NOT two datasets). Multi-LEVEL nesting (customer > invoice > line, for an RTF `blocks[]`
-   document) = layered `groupBy` levels — each level's columns listed in ORDER BY too. A `groupFilter`
-   condition is written with **bare operators** (`AMOUNT_DUE > 0`, `STATUS != 'CLOSED'`) — plain text,
-   NOT XML-escaped `&gt;`/`&lt;` (the tools escape correctly; pre-escaped input becomes a WRONG filter).
+   detail rows (the invoice query, WITH the supplier columns) in **one** dataset grouped by the supplier
+   columns → the output XML nests each supplier's invoices underneath it. **ORDER BY the group columns
+   in the SQL.** Use this whenever ranking/filtering B requires scanning A anyway (e.g. "top 10 suppliers
+   by unpaid invoice amount" — one query grouped by supplier, NOT two datasets). Multi-LEVEL nesting
+   (customer > invoice > line, for an RTF block document) = nested groups over the same rows — one level
+   per break, each level's columns listed in ORDER BY too.
 3. **Master + detail (two linked datasets)** — ONLY when the master (B) is an independent entity you do
    NOT need to scan the detail (A) to select/filter/rank, and the detail is fetched per-master. Rare
    for "top-N B by A" requests.
@@ -320,5 +287,5 @@ always means a grouped **hierarchy**. Three shapes:
 If the shape is unclear, ASK:
 > *"Do you want a **summary** (one row per supplier with totals) or a **grouped layout** (each supplier
 > with its open invoices listed underneath)?"*
-Then: summary → SQL `GROUP BY`; grouped layout → one dataset + `groupBy` (option 2, the usual answer);
+Then: summary → SQL `GROUP BY`; grouped layout → one grouped dataset (option 2, the usual answer);
 reserve two datasets for the independent-master case.

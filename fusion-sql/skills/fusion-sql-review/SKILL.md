@@ -13,7 +13,7 @@ change, and SQL the user asks you to review; existing SQL used unchanged (shown 
 is) is outside it (kernel Hard rules).
 
 ## Part 0 — the SQL build workflow (produces the query; Part B then verifies it)
-1. **`findSimilarQueries(<intent>)` FIRST** — handle its result per the CORE rule in the base
+1. **`findSimilarQueries` FIRST** — handle its result per the CORE rule in the base
    instructions (`ambiguous:false` → adopt matches; `ambiguous:true` → Part A: ask or per-domain-
    combine). Use `getReportQuery` / `listQueriesForSubjectArea` if the user named a report or
    subject-area table.
@@ -21,7 +21,7 @@ is) is outside it (kernel Hard rules).
    `getColumns` / `validateColumns` before using columns; `getRelatedTables` for real join keys (never
    guess FKs). Reuse the corpus example's joins/filters where they fit.
 2b. **CHECK GRAIN before any GROUP BY / SUM / COUNT — never assume one-row-per-key.** `validateTable`
-   returns a `grainWarning` for multi-row tables (or call `getTableGrain(table)`). A driving/fact table
+   warns on multi-row tables (or call `getTableGrain`). A driving/fact table
    that is NOT `single_row` KEEPS MULTIPLE rows per business key, and summing it blind DOUBLE-COUNTS:
    - `effective_dated` (`_F`/`_M`): add `SYSDATE (or :as_of) BETWEEN effective_start_date AND
      effective_end_date` on EVERY date-tracked table in the join — a missing one MULTIPLIES; open row
@@ -59,12 +59,10 @@ is) is outside it (kernel Hard rules).
    3. **Derive** — no single match is close → compose from the mechanics of several matches; keep
       the effective-date filters the real reports use (data security, when chosen, comes from 4c).
    4. **From scratch** — nothing grounds → say so explicitly before writing.
-   **When you adopt/adapt a BIG report, GET ITS REAL SQL FIRST.** `findSimilarQueries` omits the SQL
-   of large exemplars (`cleanSqlOmitted:true` + `sqlChars` + the match's `id`) — the mechanics text is
-   a MAP, not a substitute. Before adopting/adapting such a match, call `getReportQuery` passing the
-   match's **`id` VERBATIM** (e.g. `getReportQuery({id:"sql:c999…"})`) — NEVER guess a human title
-   ("Aging 4 Bucket Report" is not a title; it will 404). That returns the full SQL (never clipped);
-   a `.xdm` with several datasets returns the main one plus a `datasets[]` list to fetch by id.
+   **When you adopt/adapt a BIG report, GET ITS REAL SQL FIRST.** A large `findSimilarQueries` match
+   comes without its SQL — its mechanics text is a MAP, not a substitute. Before adopting/adapting such
+   a match, fetch its full SQL with `getReportQuery` (by the match's id, verbatim — never a guessed
+   human title).
    **Dropping a table the exemplar joins requires a STATED, SPECIFIC reason** — read the real SQL and
    for EACH omitted table say why it is safe to drop (it serves a grain you excluded: site/address,
    GL-account breakdown, a receipts UNION branch; OR it only supplies display labels). NEVER drop a
@@ -84,7 +82,7 @@ is) is outside it (kernel Hard rules).
    1. **SQL** — the first candidate, always: carry the aggregation in the ONE existing/detail query
       (`ROLLUP` / `GROUPING SETS` with `GROUPING()` tags, `GROUP BY`, window functions,
       `SUM(CASE …)`, `PIVOT`).
-   2. **Dataset group levels + group-aggregate elements** — the model's `groupBy` hierarchy,
+   2. **Dataset group levels + group-aggregate elements** — the model's group-by hierarchy,
       RESTRUCTURED when that unlocks the need (e.g. currency as its own group level), with
       summation/count/average elements (mechanics: datamodel-authoring).
    3. **Template/XSLT-side** — last rung: a single trivial line at most (wide template pivots stay
@@ -98,14 +96,13 @@ is) is outside it (kernel Hard rules).
    below rung 1. One line per need is the whole ceremony — no essays. This list survives terse mode.
 4c. **DATA-ACCESS STEP — only for SQL the kernel's opt-in data-access rule secures** (the user asked
    for data access or said yes to the align-ask offer; load **data-access-security**):
-   ONE `getDataAccessPredicate({instance, tables})` call with every table instance of the statement
-   (`instance` = the pod host a runSql / run_sql reply reports) → one secured CTE per secured table + the
-   `rewrite` map + the distinct `pairs`; all ctes in ONE leading `WITH` with their
+   ONE `getDataAccessPredicate` call with every table instance of the statement (on the pod instance a
+   runSql / run_sql reply reports) → its secured CTEs in ONE leading `WITH` with their
    `{PRED:<object>|<privilege>}` slots LEFT IN PLACE, the rewrite applied to every FROM / JOIN / subquery /
    UNION arm, secured dimensions LEFT JOINed; the statement is run or delivered through ONE
    `runSecuredSql` call (the server fills Oracle's own condition for the running user — you never see
-   it); `unsecured` → the table directly; `blocked` → ask the user (reason + candidates), never a guess;
-   `masked` → the masked twin column only; an `auth-required` reply → sign in and call again, never
+   it); an unsecured table → read directly; a blocked one → ask the user (reason + candidates), never a
+   guess; a masked column → its masked twin only; an auth-required reply → sign in and call again, never
    unsecured silently. A DATA MODEL dataset is not delivered: it is the XML-function dataset of
    **datamodel-authoring** — the same CTEs inside an inline function that fetches each pair's condition
    at run time for the running user (no slot, no embedded condition, no lexical hand-off). Secured
@@ -125,9 +122,7 @@ warning you is wrong. Resolve the domain first; never emit SQL from memory in th
 
 **Step 1 — did the USER already name the domain?** `ambiguous:true` only means the *retrieval*
 overlapped; it does not override an explicit user cue. If the user's words pin the domain, treat it as
-resolved: call `findSimilarQueries(intent, {domain:"<that domain>"})` and **do NOT ask.** The `domain`
-param takes a top level (`"Financials"`, `"HCM"`), a sub-domain (`"AP"`, `"AR"`), or a full key
-(`"Financials/AP"`).
+resolved: call `findSimilarQueries` narrowed to that domain and **do NOT ask.**
 
 Cue → domain:
 
@@ -161,13 +156,12 @@ than a question.
 > (HCM). They are entirely different SQL. Which do you mean?"*
 
 Once the user answers (or if they already corrected you, e.g. "I mean the financial department
-segment"), call `findSimilarQueries(intent, {domain:"<their choice>"})` to get real example SQL, then
-build on it.
+segment"), call `findSimilarQueries` narrowed to their choice to get real example SQL, then build on it.
 
 **Step 3 — genuinely multi-part request spanning domains → do NOT ask.** E.g. "budget **spend** by
 cost center for the **service department's** open **service requests**" is a Financials part AND a
-Service part. Call `findSimilarQueries` once per domain (`{domain:"Financials"}`, then
-`{domain:"CRM-Service"}`), then combine the two grounded examples into one query (join / subquery /
+Service part. Call `findSimilarQueries` once per domain (Financials, then CRM-Service), then combine
+the two grounded examples into one query (join / subquery /
 UNION as the request needs). If you cannot tell whether it is one term or two parts, ASK.
 
 ## Part B — pre-flight checklist (run on the drafted query before presenting it)
@@ -230,9 +224,8 @@ UNION as the request needs). If you cannot tell whether it is one term or two pa
       To DISPLAY as HH:MI:SS, keep the interval (don't coerce it to NUMBER) or build it via `NUMTODSINTERVAL`.
       Never feed a raw `ts_end - ts_start` into number arithmetic or `AVG`/`SUM`.
 
-> The authoring engine also runs a deterministic lint on `createDataModelFile` / `setDatasetSql` and
-> returns `sqlWarnings` for the `:date_param + n` hazard — if you see them, FIX the flagged dataset and
-> re-create before offering to run the model.
+> `createDataModelFile` also flags the `:date_param + n` hazard in its reply — when it does, FIX the
+> flagged dataset and re-create before offering to run the model.
 
 ### 5. Output
 - [ ] Oracle dialect (`FETCH FIRST n ROWS ONLY`, not `LIMIT`).
@@ -247,23 +240,20 @@ actually demands it — never for show.
 - **Inline PL/SQL**: `/*+ WITH_PLSQL */` + `WITH FUNCTION … / WITH PROCEDURE …` in the statement — the
   ONLY way to run procedural logic (loops, multi-step fallback rules, calling PL/SQL APIs) in SaaS,
   where creating DB objects is impossible. Mark functions `DETERMINISTIC` when they are.
-  `findSimilarQueries("inline PL/SQL WITH FUNCTION technique")` has working examples.
+  `findSimilarQueries` on "inline PL/SQL WITH FUNCTION technique" finds working examples.
 - **Oracle-shipped PL/SQL APIs from SQL — FIRST priority** (the rule lives in the kernel; this is
-  the how). Before deriving any business value with joins, look the API up:
-  `findPlsqlApi({query:"<words of the computation>"})` (name search over the real-corpus
-  inventory, e.g. "convert qty", "closest rate", "format address", "user partyid"),
-  `findPlsqlApi({table})` for the packages real reports call alongside a table (the pushed
-  `mostlyUsedApis`), `findPlsqlApi({package})` to confirm a package exists and list its functions.
-  Adopt a returned `sampleCalls[].call` as the call shape (argument order, literals such as
-  `'Corporate'` rate types or profile option names) and `getReportQuery({id})` for the full
-  statement around it. Call rules: a function with a scalar RETURN and IN parameters is called
+  the how). Before deriving any business value with joins, look the API up with `findPlsqlApi` (the
+  words of the computation — e.g. "convert qty", "closest rate", "format address", "user partyid" —,
+  the table, or the package) and adopt a real call snippet it returns as the call shape (argument
+  order, literals such as `'Corporate'` rate types or profile option names); `getReportQuery` gives
+  the full statement around it. Call rules: a function with a scalar RETURN and IN parameters is called
   inline in the SELECT/WHERE (`FND_PROFILE.VALUE('FND_CURRENCY')`,
   `INV_CONVERT.INV_UM_CONVERT(...)`, `GL_CURRENCY_API.GET_CLOSEST_RATE_SQL(from, to, date,
   'Corporate', 366)`); a parameterless package function is referenced without parens
   (`FND_GLOBAL.USER_NAME`, `HZ_SESSION_UTIL.GET_USER_PARTYID`); a PROCEDURE or a function with OUT
   parameters is wrapped in an inline `/*+ WITH_PLSQL */ WITH FUNCTION … RETURN … ` that declares
   the OUT locals and returns the one the question asks for; a collection-returning API goes through
-  `TABLE(...)`. A package that exists but has no corpus usage (`statements: 0`) is still the right
+  `TABLE(...)`. A package that exists but has no corpus usage is still the right
   answer — take the signature from Oracle documentation and prove the call with one probe before
   emitting it. **Quantities**: `INV_QUANTITY_TREE_PUB.QUERY_QUANTITIES` inside a `WITH FUNCTION …
   RETURN NUMBER` called per item/org/subinventory/locator with `p_api_version_number => 1.0`,
