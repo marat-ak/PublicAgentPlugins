@@ -141,14 +141,13 @@ The `select` field (inside `fields`; the renderer stringifies the whole block):
 
 ### Finding the BOSS object and its attribute names
 
-- Corpus: `fai_bo_search {q, resourcePath:'/api/boss/data/objects/'}` → Studio BOs whose functions
-  call a BOSS object; `fai_bo_get {code}` → their resource paths
+- Corpus: `fai_bo_search` narrowed to BOSS resource paths (`/api/boss/data/objects/`) → Studio
+  BOs whose functions call a BOSS object; `fai_bo_get` → their resource paths
   (`…/objects/ora/<family>/<product>/v1/<object>`).
 - Pod (when the user asked for the pod — **pod-operations**): `fai_cli`
-  `list-supported-business-objects {query, family, product}` → `get-business-object-functions
-  {objectCode}` (resource paths) → `get-bo-function-output-specification {objectCode,
-  functionName}` on the object's GET collection function → its attribute names (from a saved
-  response example, else the object's OpenAPI).
+  `list-supported-business-objects` → `get-business-object-functions` (resource paths) →
+  `get-bo-function-output-specification` on the object's GET collection function → its attribute
+  names (from a saved response example, else the object's OpenAPI).
 - An object no Studio BO wraps is out of every tool's reach, and no tool runs the datasource url
   itself: ask the user for the object path and the exact attribute names (value, label, searched
   attribute). Never derive them from the Fusion REST resource of the same data (another API, its
@@ -374,8 +373,8 @@ return { submitted: true, id: m[1], values: JSON.parse(m[2]) };
 
 ## Oracle's follow-up chips
 
-The workflow's follow-up questions (`followupEnabledFlag`, `fai_workflow_followup {op:'set',
-enabled:false}`) are unrelated to the block and render beside it. When the block is the expected
+The workflow's follow-up questions (`followupEnabledFlag`, switched off with
+`fai_workflow_followup`) are unrelated to the block and render beside it. When the block is the expected
 answer, disabling them is the recommendation — stated, not enforced; a chip click arrives as a
 plain message and takes the `IS_SUBMIT` false path.
 

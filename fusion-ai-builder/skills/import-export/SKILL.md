@@ -27,8 +27,8 @@ unverified. Saving to / fetching from a pod instead: skill **instance-import-exp
   id (`agentId`, `toolId`, `topicId`, `deepLinkId`, `supportedObjectId`, policy `id`).
 - **App export = one JSON file** with `code`, `name`, `internalName`, `internalDescription`,
   `status`, `version` and `specification` as a STRING (no server ids, no `description`). Oracle's
-  local `.app` stores `specification` as an object; `fai_import` parses the string,
-  `fai_export {kind:'app'}` stringifies it back. Do not "fix" either form.
+  local `.app` stores `specification` as an object; `fai_import` parses the string, an app's
+  `fai_export` stringifies it back. Do not "fix" either form.
 - **Identity is the code** (`workflowCode`, `code`, `objectCode`, `toolCode`, `agentCode`,
   `topicCode`, `deepLinkCode`, `moduleIdentifier` for an approval process); a Connector Definition
   has only its server `connectorDefinitionId`. Import matches on the code: same code = update the
@@ -39,13 +39,12 @@ unverified. Saving to / fetching from a pod instead: skill **instance-import-exp
 
 ## Deliver a build
 
-1. `fai_validate` every artifact in the closure (`ok:true`), then
-   `fai_export {ws, kind, code, version:<n>}` — any of the 14 kinds →
-   `{fileId, name, mime, size, files[], missing[], warnings[]}`.
+1. `fai_validate` every artifact in the closure (it answers ok), then `fai_export` the root with
+   this delivery's version — any of the 14 kinds.
 2. Form: an app → one JSON (`specification` a string — the pod export form) plus `requires[]`,
    its backing workflows (from `applicationMetadata.agents.<slot>.agent`), each exported as its own
    zip. Every other kind → a zip of `src/<kindDir>/<file>` with the root first and its full
-   dependency closure (`withDeps:false` = the root alone, only when the user asks for exactly that).
+   dependency closure (the root alone only when the user asks for exactly that).
 3. Closure rules beyond Studio's own: `HUMAN.approvalProcessCode` → approval process,
    reusable-function `CODE.functionTemplateCode` → function template, `policyTemplateCode` →
    policy template, a connector instance's `connectorDefinitionArticleId` → connector definition
@@ -84,20 +83,20 @@ unverified. Saving to / fetching from a pod instead: skill **instance-import-exp
 
 ## Work on an uploaded file
 
-`fai_import {ws, fileId}` accepts a Studio export zip (entries under `src/<kindDir>/` of the 14
-types), any single artifact file of the 14 types, and an app export JSON (string `specification` →
-object under `src/apps/<code>.app`). Entries that are not artifacts come back in `skipped[]` with
-the reason — mention them. Then `fai_workspace_tree`, the README of each workflow/app
-(`fai_file_read {path, select:'description'}` / `'internalDescription'`; missing or stale → tell
-the user) and `fai_validate` before touching anything —
+`fai_import` takes the uploaded file: a Studio export zip (entries under `src/<kindDir>/` of the
+14 types), any single artifact file of the 14 types, or an app export JSON (string
+`specification` → object under `src/apps/<code>.app`). Entries that are not artifacts come back in
+`skipped[]` with the reason — mention them. Then `fai_workspace_tree`, the README of each
+workflow/app (its `description` / `internalDescription` with `fai_file_read`; missing or stale →
+tell the user) and `fai_validate` before touching anything —
 imported pod content often fails Oracle's stricter validator (**validation-and-debugging**). A
 non-artifact upload (a document, a spec) goes in with `fai_file_put` instead.
 
 ## Copies and codes
 
 - `ORA_` codes are Oracle-seeded. Never export a workflow/app under an `ORA_` code (Import would
-  overwrite the seeded DRAFT): create yours with `do-create-workflow {workflowCode}` and rebuild
-  the nodes from the example (`fai_example_get {view:'node:<CODE>'}`), or — if
+  overwrite the seeded DRAFT): create yours with `do-create-workflow` under your own code and
+  rebuild the nodes from the example (`fai_example_get`, node by node), or — if
   `do-modify-workflow-metadata` cannot change the code — `fai_file_write` the renamed copy once
   (the sanctioned raw edit), then `fai_validate`.
 - Referenced `ORA_` BOs, tools, topics keep their codes: they are references to seeded content.

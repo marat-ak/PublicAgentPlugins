@@ -137,9 +137,9 @@ test('gnimsys-chat-widgets: unverified BOSS points are stated where they change 
 
 test('gnimsys-chat-widgets: the BOSS object and attribute names come from the corpus or the pod, else from the user — never derived or invented', () => {
   const d = sub('Finding the BOSS object and its attribute names');
-  assert.match(d, /`fai_bo_search \{q, resourcePath:'\/api\/boss\/data\/objects\/'\}` → Studio BOs whose functions call a BOSS object; `fai_bo_get \{code\}` → their resource paths/);
+  assert.match(d, /`fai_bo_search` narrowed to BOSS resource paths \(`\/api\/boss\/data\/objects\/`\) → Studio BOs whose functions call a BOSS object; `fai_bo_get` → their resource paths/);
   assert.match(d, /Pod \(when the user asked for the pod — \*\*pod-operations\*\*\)/);
-  assert.match(d, /`list-supported-business-objects \{query, family, product\}` → `get-business-object-functions \{objectCode\}` \(resource paths\) → `get-bo-function-output-specification \{objectCode, functionName\}`/);
+  assert.match(d, /`list-supported-business-objects` → `get-business-object-functions` \(resource paths\) → `get-bo-function-output-specification` on the object's GET collection function/);
   assert.match(d, /An object no Studio BO wraps is out of every tool's reach, and no tool runs the datasource url itself: ask the user for the object path and the exact attribute names/);
   assert.match(d, /Never derive them from the Fusion REST resource of the same data \(another API, its own names\), never invent them/);
   assert.match(d, /A pod read runs as the developer's sign-in: it proves the object and the names, not the end user's access/);
@@ -353,7 +353,7 @@ test('gnimsys-chat-widgets: hidden fields carry turn state; Back/Cancel validate
   assert.match(flat, /`hidden` carries what the next turn needs and the user does not choose/);
   assert.match(flat, /accumulated wizard state as ONE JSON string in one field/);
   assert.match(flat, /Back \/ Cancel buttons carry `validate: false`/);
-  assert.match(flat, /`fai_workflow_followup \{op:'set', enabled:false\}`/);
+  assert.match(flat, /`followupEnabledFlag`, switched off with `fai_workflow_followup`/);
   assert.match(flat, /disabling them is the recommendation — stated, not enforced/);
 });
 

@@ -33,9 +33,9 @@ Skill **aistudio** is Oracle's own authoring skill exactly as Oracle ships it, w
 agent with a shell; it stays the artifact FORMAT authority (law 1). On how THIS agent works —
 tools and CLI invocation, workspace layout, sign-in and pod access, publishing, when tests run —
 where it or a reference it points to conflicts with this plugin's text, THIS PLUGIN WINS:
-- CLI: its command lines (`aistudio <command>`, the script run by path, npm scripts) mean `fai_cli
-  {ws, command, args}` (or the `fai_*` tool `fai_cli_help` names for it); its "project root" is the
-  workspace `ws` (`fai_workspace_create`, legacy `src/` layout) — never `init`, no `app-pkg/`.
+- CLI: its command lines (`aistudio <command>`, the script run by path, npm scripts) mean a `fai_cli`
+  run of that command (or the `fai_*` tool `fai_cli_help` names for it); its "project root" is the
+  workspace (`fai_workspace_create`, legacy `src/` layout) — never `init`, no `app-pkg/`.
 - Sign-in: its auth commands and `AUTH_REQUIRED` recovery (passwords, basic auth, sandbox escalation)
   do not exist here — pod access = the identity sign-in + `fai_pod_connect` (skill **pod-operations**).
 - Publishing: never, for any artifact, even where a reference allows it on explicit ask.
@@ -46,55 +46,53 @@ where it or a reference it points to conflicts with this plugin's text, THIS PLU
 ## Build through the CLI, never by hand
 
 - **Never hand-write a `.wf`/`.app` when an `aistudio` command or a `fai_*` editing tool exists.**
-  Mutations go through `fai_cli {ws, command, args}` (`do-create-workflow`, `do-create-node`,
+  Mutations are `fai_cli` runs of the CLI's commands (`do-create-workflow`, `do-create-node`,
   `do-modify-node`, `do-modify-node-edges`, `do-delete-node`, `do-create-app`, `do-add-agent`,
   `do-add-action`, `do-modify-app-config`, `do-create-bo`, `do-create-tool`, `do-create-agent`, …).
   `fai_file_write` is the raw escape hatch: only when neither covers the change — say so in the report.
 - **Change part of an existing field in place — never resend it whole** (a prompt, CODE source,
   README, `aiAppOutputSpecification`, `modelConfiguration`, an AGENT `specification`, `chatChannelInput`):
-  `fai_wf_field_edit` — `edits:[{old, new}]` (exact text, each `old` once) or `merge:{…}` (null removes a key).
-  `fai_cli` node patches replace objects whole, refuse a partial one (`partial-object-patch`) and keep patched
-  inputs' declared types. `fai_workflow_node_struct`: `convergenceTargetId` by node code, an input's type,
-  removing an input; `fai_workflow_triggers`: REST trigger inputs; `fai_workflow_variables`: variable declarations;
+  `fai_wf_field_edit` (exact text replacements or a merge patch). `fai_cli` node patches replace
+  objects whole, refuse a partial one (`partial-object-patch`) and keep patched inputs' declared types.
+  `fai_workflow_node_struct`: `convergenceTargetId` by node code, an input's type, removing an input;
+  `fai_workflow_triggers`: REST trigger inputs; `fai_workflow_variables`: variable declarations;
   `fai_workflow_followup`: the workflow's follow-up questions (`followupEnabledFlag` + `followupPrompt`).
-- `args` = camelCase keys → `--kebab-case` flags (`{file:'src/workflows/x.wf', nodeCode:'A1'}`);
-  objects, arrays and expression strings become `@file` for you — never shell-quote or pre-stringify.
+- A command's flags come ONLY from its `fai_cli_help` seen in the current context (others are
+  refused); after a summary/compaction check the help again first. Which commands need a pod: the
+  `fai_cli_help` table. Uploads reach a command via `fai_file_put`.
 - Artifact paths are relative to the workspace root: `src/<kindDir>/<code>.<ext>` per Oracle's
-  "Local Layout" table in skill **aistudio**. `fai_workspace_tree {ws}` lists what exists.
-- Flags/examples: `fai_cli_help {command, grep?}`; pod need: `fai_cli_help {filter}`. Pass ONLY
-  flags seen in `fai_cli_help` output in the current context (others are refused); after a
-  summary/compaction check the help again first. Uploads reach a command via `fai_file_put`.
+  "Local Layout" table in skill **aistudio**. `fai_workspace_tree` lists what exists.
 - Mutating commands run serially per file; after each mutation the updated file is the truth
   (`fai_file_read` or `get-nodes-metadata-by-code` to re-read, never memory).
-- An EXISTING `.wf`/`.app` (fetched, imported, found in the workspace) is read README-FIRST:
-  `fai_file_read {path, select:'description'}` (`'internalDescription'` for an app) before any
-  node — its Known issues are authoritative context; missing or stale → tell the user, offer a rewrite.
-- `--dry-run` only on an asked diff preview; auth, `init*`, `do-publish-*`, `do-create-*-tool` are
-  denied (the answer names the replacement). Narrow big results with `select` (JMESPath) / `grep` on
-  `fai_cli` and `fai_file_read`; over 16 KB they arrive as `resultFile` + `resultShape` — filter those.
-  A CODE node's source: `get-nodes-metadata-by-code` + `select:'nodes[0].mainConfig.sourceCode'`.
+- An EXISTING `.wf`/`.app` (fetched, imported, found in the workspace) is read README-FIRST: its
+  top-level `description` (an app's `internalDescription`) before any node — its Known issues are
+  authoritative context; missing or stale → tell the user, offer a rewrite.
+- A dry run only on an asked diff preview; auth, `init*`, `do-publish-*`, `do-create-*-tool` are
+  denied (the answer names the replacement). Big results: narrow them with the tool's filters —
+  never read a large result or file whole to find one field.
 
 ## Work loop (every build follows it)
 
 1. **Intake** — classify the artifact (skill **aistudio** §Artifact Routing); decide standalone
    vs app-backed (below); collect REQUIRED inputs (below).
-2. **Discover** — `fai_examples_search` for the closest shipped pattern (`archetype`, `nodeType`,
-   `hint`, `layout`, `boCode` filters), `fai_example_get {view:'summary'|'graph'|'node:<CODE>'}`
-   to read it (the summary carries inputs, variables and run profiles; `select`/`grep` narrow any
-   view — never read a whole example to find one field); `fai_bo_search` / `fai_bo_get` for business objects and their functions (corpus first; on
-   a pod only `list-*` with filters — never a text search, ask for the code). `family`/`product`
-   come from `list-workflow-families` / `list-workflow-products --family <F>`; no exact match → ask.
-3. **Build** — `fai_workspace_create {name}` (this conversation's scratch: starts empty, invisible
+2. **Discover** — `fai_examples_search` for the closest shipped pattern (by archetype, node type,
+   hint, layout or business object), `fai_example_get` to read it (its summary, graph or one node;
+   the summary carries inputs, variables and run profiles — narrow any view, never read a whole
+   example to find one field); `fai_bo_search` / `fai_bo_get` for business objects and their
+   functions (corpus first; on a pod only `list-*` with filters — never a text search, ask for the
+   code). Family and product come from `list-workflow-families` / `list-workflow-products`; no
+   exact match → ask.
+3. **Build** — `fai_workspace_create` (this conversation's scratch: starts empty, invisible
    to other conversations, gone with the conversation or a restart — deliverables leave it via
    `fai_export` / `fai_file_export` / `fai_pod_save` before any pause), then `fai_cli` mutations
    node by node, wiring edges in the same pass (data dependency = execution dependency).
 4. **Prettify** — one `do-prettify-workflow` after the structural batch (not between edits).
-5. **Validate** — `fai_validate {ws, path}` on every touched artifact; fix until `ok:true`; then
+5. **Validate** — `fai_validate` on every touched artifact; fix until it answers ok; then
    the README in `description` (apps: `internalDescription`) reflects this version — skill
    **workflow-authoring** §README (Purpose · Callers · Flow · Inputs & state · Known issues · Changelog).
-6. **Export** — `fai_export {ws, kind, code, version:<n>}` (any of the 14 kinds; the zip carries
-   the full dependency closure) → `{fileId, name, mime, size, files[], missing[], warnings[]}`.
-   A non-empty `warnings[]` (missing dependency) is reported, never hidden.
+6. **Export** — `fai_export` with this delivery's version (any of the 14 kinds; the zip carries
+   the full dependency closure). A non-empty `warnings[]` (missing dependency) is reported, never
+   hidden.
 7. **Deliver** — present each file with `ui_present_file` and name it by its `name` (see
    **Delivering files**), the version, the import steps (skill **import-export**), the
    **Validation** section (Reporting below), then the DRAFT-save offer.
@@ -121,8 +119,8 @@ answer: execute it now, never re-offer the options or ask them to choose again.
 ## Versioning — every delivered build carries `v<n>`
 
 - The first export is `v1`; **every change after a delivered export bumps the number** (`v2`,
-  `v3`, …), even a one-line prompt fix. Pass it as `fai_export {version}` — the export stamps
-  ` v<n>` on the name and `Version <n>.` on the description of the exported copy only.
+  `v3`, …), even a one-line prompt fix. Every `fai_export` of a delivery carries it; the stamp lands
+  on the exported copy only.
 - State the version in the reply ("Exported `ABSENCE_GREETING` **v2** → `absence_greeting_v2.zip`"); never re-deliver a number.
 
 ## Never publish · pod only on explicit ask
@@ -132,12 +130,11 @@ answer: execute it now, never re-offer the options or ask them to choose again.
 - Pod operations (`fai_pod_connect`, `fai_pod_fetch`, `fai_pod_save`, `fai_workflow_run`, pod
   searches, remote lists, tests) happen ONLY when the user explicitly asks for the pod and names
   the instance — skill **pod-operations**. Instances come from `identity_targets`, never hosts;
-  `fai_pod_connect {ws, instance}` takes no credentials. A tool result
-  `{state:"auth-required", target}` means: sign in with the identity tools (`identity_select`, or
-  `identity_login_start` + `identity_login_poll`; one sign-in covers every scope, no browser from
-  the CLI), then repeat the call; `cli-login-lost` → repeat the call once. `pod-required` (no
-  connection): connect first. `confirm-required` (a remote delete/unpublish): ask, then
-  `confirm:true`. Never ask for or repeat a password or token.
+  `fai_pod_connect` takes no credentials. A tool result in the `auth-required` state means: sign
+  in with the identity tools (`identity_select`, or `identity_login_start` + `identity_login_poll`;
+  one sign-in covers every scope, no browser from the CLI), then repeat the call; `cli-login-lost`
+  → repeat the call once. `pod-required` (no connection): connect first. `confirm-required` (a
+  remote delete/unpublish): ask, then repeat it confirmed. Never ask for or repeat a password or token.
 - Keep artifacts local by default; a save creates or patches a DRAFT and happens only on the user's
   yes — their request, or their pick of the DRAFT-save offer (skill **instance-import-export**). The chat debugger panel is the USER's run (skill **chat-debugger**; yours: **run-and-debug**); its record (`pod_call_log`) is read only when the user asks what happened there — never on your own.
 
@@ -163,9 +160,12 @@ words — never a workspace path: the workspace dies with this conversation). Co
 
 ## Using the fai tools
 
-- Each tool's own schema is the authoritative argument reference — do not guess arguments (ask
-  before `fai_workspace_delete`). Tool
-  results are JSON; read the WHOLE result: `ok:false` inside a successful `fai_cli` call is a
+- **A tool's own description and input schema are its manual** — arguments, values, result shape,
+  limits, errors; this plugin says only when, why and in which order. Before a tool's FIRST call in
+  a conversation, load its schema with `ToolSearch` (`select:<full tool name>`, e.g.
+  `select:mcp__fai__fai_workflow_run`) unless it is always loaded; never guess an argument. Ask
+  before `fai_workspace_delete`.
+- Tool results are JSON; read the WHOLE result: `ok:false` inside a successful `fai_cli` call is a
   FAILURE; corpus tools answering `needs-input` = the index is not built — report, never fabricate.
 - An UPLOADED file arrives as a `fileId`: an artifact or export → `fai_import`; anything else a
   command reads (document, spec, parameters) → `fai_file_put`. Files fetched or saved through a pod
@@ -185,8 +185,8 @@ rules above apply. Ours: **workflow-authoring** · **app-authoring** · **widget
 
 ## Delivering files
 
-- A `fai_export` / `fai_file_export` result is the stored file `{fileId, name, mime, size}`; the
-  user sees NOTHING until you present it: `ui_present_file {files:[{fileId, name}], mode}` (full
+- A `fai_export` / `fai_file_export` result is a file stored for this conversation; the user sees
+  NOTHING until you present it: `ui_present_file {files:[{fileId, name}], mode}` (full
   name `mcp__ui__ui_present_file`), `fileId` and `name` exactly as the tool returned them — never
   invented. Several files of one answer go in ONE call.
 - `mode` from the request: preview / show / open / look at → `view`; download / send / give /

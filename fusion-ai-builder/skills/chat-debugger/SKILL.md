@@ -37,8 +37,8 @@ their counterpart is the record's node frames — an empty sidecar answer never 
     its `.wf` (never the file name or display name). Several candidates (sub-workflows, an app's
     workflows) and the user's words do not pick one → `AskUserQuestion` with the codes.
   - A workflow that is not in this conversation (the user names one on the pod by its title) →
-    its code from the pod's workflow list: `fai_pod_workflows {ws, query}` on a workspace connected
-    to the signed-in instance — skill **pod-operations** §Find a workflow by name or code. Ask the
+    its code from the pod's workflow list: `fai_pod_workflows` on a workspace connected to the
+    signed-in instance — skill **pod-operations** §Find a workflow by name or code. Ask the
     user for the code only when that list has no match; `search-workflows` is a suggestions agent,
     not a lookup — its empty answer proves nothing.
   - `version` = `DRAFT` (the copy being built); `PUBLISHED` only when the user says published,
@@ -60,7 +60,7 @@ their counterpart is the record's node frames — an empty sidecar answer never 
   approvals the workflow makes happen on the pod.
 - It speaks to the workflow as a chat user: message turns and HITL decisions only — no app stage,
   REST, email or schedule inputs. A workflow that needs those runs as its real caller through
-  `fai_workflow_run` (`triggerType`).
+  `fai_workflow_run` (its trigger types).
 - Answers:
   - `{opened:true, label, …}` = the request reached the chat page — NOT a confirmation the user
     sees it (the engine cannot see the page; a client without side panels, or another
@@ -133,7 +133,7 @@ ids and timestamps, credential values masked. It never reaches you; what you rea
   or ask first.
 - Codes = node codes of the version the panel runs, at any nesting level
   (`get-workflow-node-structure` on its `.wf`; a pod workflow not in the workspace:
-  `fai_pod_workflows` → `fai_pod_fetch` with that `status`) — never guessed. The panel runs the pod's copy: a node added after the last save does
+  `fai_pod_workflows` → `fai_pod_fetch` of that version) — never guessed. The panel runs the pod's copy: a node added after the last save does
   not exist there.
 - A turn stops BEFORE the first named node it reaches and ends `stop` with the last executed node's
   output, not the agent's reply; nothing continues a stopped turn. A stopped turn leaves that
@@ -283,7 +283,7 @@ not node by node.
   run to the user. To see a node the full reply does not hold, reproduce the turn with
   `fai_workflow_run` in a NEW conversation — never the panel's `conversationId`, which would post
   into the user's live chat
-  (the recorded `message` verbatim, the same version, `nodeCodes` for that node; a multi-turn chat
+  (the recorded `message` verbatim, the same version, the node results of that node; a multi-turn chat
   replays its earlier turns first, all on the new run's one `conversationId` — skill
   **run-and-debug**), only on the user's yes: a rerun repeats the run's effects on the pod. On the
   reproduced turn only, pass `stopBefore` with the side-effect nodes AFTER the node to see

@@ -41,11 +41,11 @@ pills tag (below).
 - `aiAppOutputSpecification.dataDisplay.layouts` = the widget ids the node may emit;
   `enableActions` for `oraInsight`; `enableCommunications` (+ `enablePowerPoints` for `ppt`) for
   `oraComms`; `customNotes` = the App Experience instructions.
-- Pass it as `do-create-node {aiAppOutputSpecification:{dataDisplay:{…}}}` — a top-level argument,
-  not `metadataPatch`; change it later with `fai_wf_field_edit {node, field:'aiApp',
-  merge:{dataDisplay:{…}}}` (`do-modify-node` replaces the whole object and refuses one that drops
-  keys). A prompt that expects a widget on a node without the matching layout is an incomplete
-  node. A `RETURN` needs no licensing.
+- It is the node's App Experience specification, set at `do-create-node` (its own flag, not node
+  metadata — the command's help); change it later with a `fai_wf_field_edit` merge
+  (`do-modify-node` replaces the whole object and refuses one that drops keys). A prompt that
+  expects a widget on a node without the matching layout is an incomplete node. A `RETURN` needs
+  no licensing.
 - The platform injects the widget "knowledge base" when a layout is selected; the prompt only
   needs the mapping rules. The app-side `displayPrompt` is the same idea one level up.
 - App side: `agents[key].displayWidgetList` (or a container's `initDisplayWidgetListOverride`)
@@ -86,15 +86,13 @@ by the workflow setting `llmGUI`:
   stages show the same view (Oracle's shared-data topology); stages showing the same view carry
   the same renderer body — change them together.
 - **The setting.** `llmGUI` is a workflow variable `{id, name:"llmGUI", type:"boolean",
-  scope:"JOB"}` in `specification.dataPipeline.variables`, declared with `fai_workflow_variables
-  {ws, file, op:'add', variables:[{name:'llmGUI', type:'boolean', scope:'JOB'}]}` — new or
-  existing workflow alike (the tool edits only the declarations; `op:'list'` shows what is
-  declared and which nodes read/write it). Oracle's contract has no `defaultValue`: the value comes
-  from a `SET_FIELDS` `SET_WORKFLOW_SETTINGS` placed directly after `START`
-  (`inputsPatch:{llmGUI:'{{false}}'}`), so every path has it before any stage reads it. Default
-  `false`. Switch it with `do-modify-node {nodeCode:'SET_WORKFLOW_SETTINGS',
-  inputsPatch:{llmGUI:'{{true}}'}}` (or in Studio) — a new `v<n>` like any change. The README's
-  `## Inputs & state` names `llmGUI`, its value and how to switch it.
+  scope:"JOB"}` in `specification.dataPipeline.variables`, declared with `fai_workflow_variables`
+  — new or existing workflow alike (the tool edits only the declarations and shows which nodes
+  read or write a variable). Oracle's contract has no `defaultValue`: the value comes from a
+  `SET_FIELDS` `SET_WORKFLOW_SETTINGS` placed directly after `START` whose `llmGUI` input is
+  `{{false}}`, so every path has it before any stage reads it. Default `false`. Switch it by
+  setting that input to `{{true}}` (`do-modify-node`, or in Studio) — a new `v<n>` like any
+  change. The README's `## Inputs & state` names `llmGUI`, its value and how to switch it.
 - **Not affected:** an `LLM` that genuinely writes — the `Summary` sentence, a chat answer, an
   extraction, a confirmation text. When a widget must show model-written content (an explanation,
   a suggested value), the model writes it upstream as data (`outputSpecification`) and the dual

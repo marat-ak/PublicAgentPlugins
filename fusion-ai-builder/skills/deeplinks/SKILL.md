@@ -6,18 +6,18 @@ description: Use when the request involves a deeplink artifact (.dl — a Fusion
 # Deeplinks and deep link tools
 
 Format authority: `skills/aistudio/references/prompts/artifact-conventions.md` (file shape) and
-the CLI's own help (`fai_cli_help {command:'do-create-deeplink'}`); tools:
+the CLI's own help (`do-create-deeplink` in `fai_cli_help`); tools:
 `skills/aistudio/references/prompts/tools-builder.md`.
 
-- A `.dl` is the source artifact: `do-create-deeplink {name, description, family, product,
-  destinationUrl, deeplinkCode?, message?, usageType?, parameters?}`. Each `{TOKEN}` in
-  `destinationUrl` becomes a `deepLinkProperties.parameterDefinitions` entry that needs a
-  `description` and a `sampleValue` (`do-modify-deeplink-parameter {parameterName, patch}`) or
-  `validate-deeplink` fails. Changing the URL (`do-update-deeplink {patch}`) resyncs the tokens.
+- A `.dl` is the source artifact: `do-create-deeplink` (name, description, family, product and the
+  destination URL are the user's). Each `{TOKEN}` in `destinationUrl` becomes a
+  `deepLinkProperties.parameterDefinitions` entry that needs a `description` and a `sampleValue`
+  (`do-modify-deeplink-parameter`) or `validate-deeplink` fails. Changing the URL
+  (`do-update-deeplink`) resyncs the tokens.
   `deepLinkProperties` is JSON locally and stringified only on save. In shipped `.dl` files the
   `message` carries a `{deepLink}` placeholder where the link goes.
-- A deep link TOOL is a different artifact: `do-create-tool {toolType:'deep-link', deepLinkId}`
-  references an EXISTING, saved deeplink by server id (`list-deep-links`, pod) and shows its
+- A deep link TOOL is a different artifact: `do-create-tool` of the deep-link type references an
+  EXISTING, saved deeplink by server id (`list-deep-links`, pod) and shows its
   message read-only — never set a message on the tool. A new URL is a `.dl` first, saved, then
   the tool.
 - Workflows reach a deeplink only through a tool (`TOOL` node → deep link tool → deeplink).

@@ -10,8 +10,8 @@ Format authority: `skills/aistudio/references/prompts/app-ingestion.md` (intake 
 communications, templates, swimlanes, and §Backing workflow contract — the authority for
 everything below except one rule), `app-vibe-widgets.md` (widget schemas), `app-vibe-actions.md`,
 `app-vibe-templates.md` — all under `skills/aistudio/references/prompts/`. Pattern authority:
-`fai_examples_search {archetype:'app-router'}`, `fai_examples_search {kind:'app'}` and the shipped
-contract below; widgets and forms: **widgets-and-forms**. The one override: a stage whose output
+`fai_examples_search` for app-router workflows and for shipped apps, and the shipped contract
+below; widgets and forms: **widgets-and-forms**. The one override: a stage whose output
 is widgets ends in the `llmGUI` dual path (**widgets-and-forms** §Dual path), not in Oracle's
 terminal-`LLM`-only shape.
 
@@ -110,9 +110,8 @@ switching.
   does not document that key on `SWITCH` — keep the explicit case as the real route and let
   `fai_validate` judge the extra key.
 - The `llmGUI`-path `LLM` of a widget stage carries `aiAppOutputSpecification.dataDisplay.layouts`
-  (+ `enableActions` for `oraInsight`, `enableCommunications` for `oraComms`) via
-  `do-create-node {aiAppOutputSpecification}`, changed later with a `fai_wf_field_edit` `aiApp`
-  merge — see **widgets-and-forms**; the default-path `RETURN` needs none; a node that stops
+  (+ `enableActions` for `oraInsight`, `enableCommunications` for `oraComms`), set at
+  `do-create-node` and changed later with `fai_wf_field_edit` — see **widgets-and-forms**; the default-path `RETURN` needs none; a node that stops
   rendering loses its layouts.
 - Do not paste raw `$OraAppContext`/`$OraUserContext` into prompts; extract the fields needed.
 
@@ -138,22 +137,22 @@ switching.
 The Studio test chat sends no hint: the resolver's default case runs and widgets print as raw XML.
 Run a stage the way the app calls it instead: a Studio run profile (`specification.dtRunProfiles`,
 `type: "agentic-app"`, `agenticAppMode` `initDisplay` / `query` / `invokeAction` / `summary` /
-`initActions`, `invokeActionPayload`) or `fai_workflow_run {triggerType:'app',
-parameters:{appHint:'<Stage>', OraAppContext, OraUserContext}, message}` — for `InvokeAction` the
-message is the action payload or the `<oraFormSubmit …>` block (**run-and-debug**); check on the
-run's node inputs how the parameters reached `$context.$app.*`. Shipped profiles hold realistic
-payloads: `fai_example_get {view:'full', select:'json.specification.dtRunProfiles'}`. Do not build
+`initActions`, `invokeActionPayload`) or a `fai_workflow_run` as the app's stage call (the app
+trigger with the stage's hint and the app and user context) — for `InvokeAction` the message is
+the action payload or the `<oraFormSubmit …>` block (**run-and-debug**); check on the run's node
+inputs how the parameters reached `$context.$app.*`. Shipped profiles hold realistic payloads
+(`fai_example_get`, the example's `dtRunProfiles`). Do not build
 test-chat shortcuts (a typed keyword routed to `InvokeAction`, CONVERSATION variables standing in
 for form state): app-trigger runs exercise the real path, and shipped form state never lives in
 CONVERSATION variables.
 
 ## App artifact (`.app`) — CLI surface
 
-`fai_cli {ws, command:'do-create-app', args:{…}}` then `do-add-agent` (an app agent is an
-EXISTING workflow: confirm the code exists in the workspace tree or corpus; several plausible →
-ask), `do-add-action` (initial `onInvokeSteps` array), `do-add-template` + `do-add-communication`
-(every app-config communication needs a `templateId` and `applicableAgent` codes),
-`do-modify-app-config` for role fields, then `validate-app {file}` once, then `fai_validate`.
+`do-create-app` (through `fai_cli`) then `do-add-agent` (an app agent is an EXISTING workflow:
+confirm the code exists in the workspace tree or corpus; several plausible → ask), `do-add-action`
+(initial `onInvokeSteps` array), `do-add-template` + `do-add-communication` (every app-config
+communication needs a `templateId` and `applicableAgent` codes), `do-modify-app-config` for role
+fields, then `validate-app` once, then `fai_validate`.
 Serial mutations; the returned app state is the truth.
 
 - `pageConfig` references agents by app-local key; `queryAgent` / `summary.agentCode` /
@@ -184,9 +183,8 @@ Serial mutations; the returned app state is the truth.
   `events.onInvoke[]` decide what happens); `agentCommand` with `sendPayloadAsContext:true` means
   the payload must carry the instruction and the ids. A form submit needs no action — the runtime
   posts it.
-- Delivery: `fai_export {ws, kind:'app', code, version}` (JSON with `specification` stringified)
-  plus a separate workflow export for each backing workflow — all files presented in one
-  `ui_present_file` call.
+- Delivery: the app's `fai_export` (JSON with `specification` stringified) plus a separate
+  workflow export for each backing workflow — all files presented in one `ui_present_file` call.
 
 ## README in `internalDescription`
 
@@ -197,10 +195,10 @@ actions and communications, the launch context it expects, which backing workflo
 and the app's own limits. Each backing workflow keeps its own README in its `description`; do
 not duplicate one into the other.
 
-- `do-create-app {description}` writes the first draft into `internalDescription`. No CLI command
-  changes it afterwards (`do-modify-app-config` has no such key): update it with
-  `fai_wf_field_edit {file:'src/apps/<code>.app', field:'internalDescription', edits}` (the changed
-  lines only; edited in place) — it answers with the `fai_validate` verdict.
+- `do-create-app` writes the first draft (its description) into `internalDescription`. No CLI
+  command changes it afterwards (`do-modify-app-config` has no such key): update it with
+  `fai_wf_field_edit` on the app's `internalDescription` (the changed lines only; edited in place)
+  — it answers with the `fai_validate` verdict.
 - The export version stamp lands only on a `description` field, never on `internalDescription`:
   the app README's `## Changelog` carries the `v<n>` itself.
 - Keep it current on every material app change and before every export or DRAFT save, under

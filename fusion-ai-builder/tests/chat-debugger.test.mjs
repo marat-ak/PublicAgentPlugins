@@ -244,7 +244,7 @@ test('chat-debugger: breakpoints on request — codes from the workflow, stop BE
   assert.match(flat, /Your message REPLACES the whole set, the user's included \(the panel's banner names what it replaced\): to add, send the user's current codes with yours — the last recorded run request's `debugParams\.breakPoints` \(`pod_call_log`; a change since that run is not recorded\) — or ask first/);
   assert.match(flat, /or to keep the user's breakpoints when they ask you to add some \(§Breakpoints\)/);
   assert.doesNotMatch(flat, /where the user can remove them/);
-  assert.match(flat, /`get-workflow-node-structure` on its `\.wf`; a pod workflow not in the workspace: `fai_pod_workflows` → `fai_pod_fetch` with that `status`\) — never guessed/);
+  assert.match(flat, /`get-workflow-node-structure` on its `\.wf`; a pod workflow not in the workspace: `fai_pod_workflows` → `fai_pod_fetch` of that version\) — never guessed/);
   assert.match(flat, /A turn stops BEFORE the first named node it reaches and ends `stop` with the last executed node's output, not the agent's reply/);
   assert.match(flat, /a fresh conversation \(`reset`\) is the safe default before the next test turn/);
   assert.match(flat, /A run you make and read stops with `fai_workflow_run` `stopBefore` \(skill \*\*run-and-debug\*\*\)/);

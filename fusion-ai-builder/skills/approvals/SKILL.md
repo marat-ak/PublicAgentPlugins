@@ -19,9 +19,9 @@ the builder UI) with the CLI overrides and UI→CLI command map in
 
 ## Build (offline; lookups need the pod)
 
-`do-create-approval-process {name, processCode}` → payload (`do-create-approval-payload`,
+`do-create-approval-process` (name and process code) → payload (`do-create-approval-payload`,
 `do-create-approval-attribute`, `do-modify-approval-attribute`; every leaf carries
-`attributeType`) → levels (`do-create-approval-rule`, `do-modify-approval-rule {levelNumber}`
+`attributeType`) → levels (`do-create-approval-rule`, `do-modify-approval-rule` — levels are
 1-based, `do-delete-approval-rule`) → approver per level (`do-modify-approver-type`: `User`,
 `Management Hierarchy`, `Representative`) → `do-modify-notification-channel` →
 `do-modify-email-account` → `validate-approval-process` (issues are keyed by UI focus ids; an
@@ -35,10 +35,10 @@ email account and at least one level are required).
 
 ## Save, conflicts, delete
 
-- Save only on an explicit ask (`fai_pod_save {kind:'approval'}`). `conflictType:
-  existing-remote | duplicate-create` → ask whether to update the existing process; only after a
-  yes, `do-save-approval-process {file, allowConflictUpdate:true}`. `duplicate-unavailable` → ask
-  for another code.
-- `do-delete-approval-process` deletes the remote process too: ask, then `confirm:true`.
+- Save only on an explicit ask (`fai_pod_save`). A conflict `existing-remote` or
+  `duplicate-create` → ask whether to update the existing process; only after a yes, save it again
+  as a conflict update (`fai_pod_save` names the flag). `duplicate-unavailable` → ask for another
+  code.
+- `do-delete-approval-process` deletes the remote process too: ask, then repeat it confirmed.
 - An app-backed workflow never resumes a paused run, so a `HUMAN` approval node does not work
   behind an app (**app-authoring**).

@@ -1,6 +1,7 @@
 // Finding a pod workflow by its name: fai_pod_workflows is the lookup (pod-operations holds the
-// recipe, chat-debugger points at it); search-workflows is a suggestions agent, not a lookup; no
-// plugin text tells the user that workflows cannot be listed.
+// procedure, chat-debugger points at it; the tool's own schema holds its arguments);
+// search-workflows is a suggestions agent, not a lookup; no plugin text tells the user that
+// workflows cannot be listed.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
@@ -14,15 +15,15 @@ test('pod-operations: a "Find a workflow by name or code" recipe built on fai_po
   const sec = pod.split(/\r?\n## /).find((s) => /^Find a workflow by name or code/.test(s));
   assert.ok(sec, 'section missing');
   const f = flat(sec);
-  assert.match(f, /`fai_pod_workflows \{ws, query\}`/);
+  assert.match(f, /`fai_pod_workflows` with a distinctive part of the name or the code/);
   assert.match(f, /substring match on name OR code/);
-  assert.match(f, /`paging\.nextOffset` while `hasMore`/);
+  assert.match(f, /paging on while it has more/);
   assert.match(f, /`AskUserQuestion` with code, name and status/);
   assert.match(f, /Ask the user for the code only when the list has no match/);
   assert.match(f, /`search-workflows` is NOT a lookup/);
   assert.match(f, /`list-policy-workflow-contexts` returns only PUBLISHED workflows .* it misses every workflow that has only a DRAFT/);
   assert.match(f, /never tell the user there is no way to list or find them/);
-  assert.match(flat(pod), /\| Find a workflow by name or code \(the pod's workflow list\) \| `fai_pod_workflows \{ws, query\}` \|/);
+  assert.match(flat(pod), /\| Find a workflow by name or code \(the pod's workflow list\) \| `fai_pod_workflows` \|/);
 });
 
 test('pod-operations: the "What becomes possible" table is one table (no prose between its rows)', () => {
@@ -36,7 +37,7 @@ test('pod-operations: the "What becomes possible" table is one table (no prose b
 
 test('chat-debugger: a workflow named by its title is looked up with fai_pod_workflows, not asked for first', () => {
   const f = flat(dbg);
-  assert.match(f, /`fai_pod_workflows \{ws, query\}` on a workspace connected to the signed-in instance — skill \*\*pod-operations\*\* §Find a workflow by name or code/);
+  assert.match(f, /`fai_pod_workflows` on a workspace connected to the signed-in instance — skill \*\*pod-operations\*\* §Find a workflow by name or code/);
   assert.match(f, /Ask the user for the code only when that list has no match/);
   assert.match(f, /`search-workflows` is a suggestions agent, not a lookup/);
   assert.doesNotMatch(f, /none in this conversation → ask the user for the code/);

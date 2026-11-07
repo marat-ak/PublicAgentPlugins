@@ -9,21 +9,21 @@ Connection and auth: skill **pod-operations**. Lifecycle rules:
 `skills/aistudio/references/prompts/artifact-conventions.md` §Lifecycle Rules. File delivery
 instead of a pod: skill **import-export**.
 
-## Instance → workspace: `fai_pod_fetch {ws, kind, code, withDeps?, status?, force?}`
+## Instance → workspace: `fai_pod_fetch`
 
 - Fetches the root by code plus every referenced dependency the workspace lacks. Dependencies
   already in `src/` are kept, never overwritten (`present[]`). The root follows the CLI: when the
-  local file differs it stops; `force:true` only after the user agreed to lose local edits.
-  `status:'PUBLISHED'` fetches the published workflow or app.
+  local file differs it stops; overwrite it (forced) only after the user agreed to lose local
+  edits. The DRAFT is the default; the published workflow or app only when the user asks for it.
 - Listed instead of fetched: dependencies referenced only by server id (a CLI-created tool's
   deeplink or BO), connector bindings (`missing[]`), and whatever the pod refused (`failed[]`).
   Connector definitions/instances and signals are fetched by id through `fai_cli`
   (`do-fetch-connector-definition`, `do-fetch-connector-instance`, `do-fetch-signal`).
 - Fetched files are the server's canonical form and carry server ids. Read the README first
-  (`fai_file_read {path, select:'description'}`; apps: `internalDescription` — skill
-  **pod-operations** §Rules), then `fai_validate` before editing.
+  (`description`; apps: `internalDescription` — skill **pod-operations** §Rules), then
+  `fai_validate` before editing.
 
-## Workspace → instance: `fai_pod_save {ws, kind, code, withDeps?}`
+## Workspace → instance: `fai_pod_save`
 
 - Saves the closure as DRAFTs, dependencies first, and stops at the first failure or conflict
   (`failed`, `notAttempted[]`). Oracle-seeded dependencies are skipped (they exist on every pod);
@@ -31,9 +31,8 @@ instead of a pod: skill **import-export**.
 - Only on the user's yes — their own request, or their "save now" pick of the offer below; never
   unasked. Report which DRAFTs were saved on which instance. Each save rewrites the local file
   with the server's canonical content.
-- Conflicts are the user's call — a newer remote workflow DRAFT (`overwriteRemoteDraft` +
-  `expectedRemoteVersion`, or `force`), an existing approval process (`allowConflictUpdate`):
-  ask, then repeat that single save with `fai_cli`.
+- Conflicts are the user's call — a newer remote workflow DRAFT, an existing approval process:
+  ask, then repeat that single save as the `fai_pod_save` conflict answer describes.
 - `missing[]` must already exist on the target, or the saves that need it fail.
 
 ## Offer a DRAFT save after each good block

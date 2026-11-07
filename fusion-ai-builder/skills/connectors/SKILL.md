@@ -7,7 +7,7 @@ description: Use when the request involves a connector definition (generated fro
 
 Format authority: `skills/aistudio/references/prompts/connector-definition-cli-compat.md`,
 `skills/aistudio/references/prompts/connector-instance-cli-compat.md`; the tool side:
-`skills/aistudio/references/prompts/tools-builder.md`. Exact flags: `fai_cli_help {command}`.
+`skills/aistudio/references/prompts/tools-builder.md`. Exact flags: each command's `fai_cli_help`.
 Everything here except local patching and validation needs the pod (**pod-operations**).
 
 ## What they are
@@ -18,21 +18,21 @@ Everything here except local patching and validation needs the pod (**pod-operat
 - A **Connector Instance** is always bound to one definition (`connectorDefinitionArticleId`); its
   `code` is the content type reference key. For form-backed definitions `do-create-connector-instance`
   writes a local draft; for custom/internal definitions it creates the server record directly.
-- A **connector tool** (`do-create-tool {toolType:'connector'}`) binds a KM connector instance by
+- A **connector tool** (`do-create-tool` of the connector type) binds a KM connector instance by
   server ids (`specification.kmConnectorConfig.connectorId` / `connectorReferenceKey`). Exports
   always list that binding in `missing[]`: it cannot be packaged and must exist on the target.
 
 ## Flow (Oracle's staged flow — one question per stage)
 
-1. Reuse first: `search-connector-definitions {query}` → offer Name + Overview, never internal
-   ids; the user picks one.
+1. Reuse first: `search-connector-definitions` → offer Name + Overview, never internal ids; the
+   user picks one.
 2. A new definition only when nothing fits or the user asks: the spec comes from the user
-   (`fai_file_put {fileId}` → `do-generate-connector-definition {specFile:'inputs/<file>', name}`)
-   or an MCP server URL (`mcpInstanceUrl`). Failure before an id is returned → one retry with
-   `verbose:true`, then report. An id returned but the detail fetch failed →
-   `do-fetch-connector-definition {connectorDefinitionId, verbose:true}`; never generate twice.
-3. Before EVERY instance create: `prepare-connector-instance-create {connectorDefinitionId, name,
-   …values collected so far}` and ask ONLY for the returned `nextStage` (family → product →
+   (`fai_file_put` the upload → `do-generate-connector-definition` from that workspace file) or an
+   MCP server URL. Failure before an id is returned → one verbose retry, then report. An id
+   returned but the detail fetch failed → `do-fetch-connector-definition` of that id (verbose);
+   never generate twice.
+3. Before EVERY instance create: `prepare-connector-instance-create` with the definition, the name
+   and the values collected so far, and ask ONLY for the returned `nextStage` (family → product →
    syncFields → config → optionalConfig → ready). Families/products from `list-workflow-families`
    / `list-workflow-products`; user groups from `list-connector-user-groups` (All Users `-5` stands
    alone); the prefix from `suggest-connector-instance-prefix`.
@@ -42,10 +42,10 @@ Everything here except local patching and validation needs the pod (**pod-operat
 ## Rules
 
 - A secret config value: warn first that it is stored in the local draft and sent on save; never
-  repeat it; pass it through a `files` blob, not inline text.
+  repeat it; pass it as a file blob of the `fai_cli` call, never inline in the arguments.
 - `do-unpublish-connector-definition` and `do-delete-connector-instance` change server state: ask,
-  then `confirm:true`. Publishing a definition is denied.
-- Local edits: `do-update-connector-definition` / `do-update-connector-instance {patch}`; the CLI
+  then repeat confirmed. Publishing a definition is denied.
+- Local edits: `do-update-connector-definition` / `do-update-connector-instance` (a patch); the CLI
   names any field it does not support.
 
 ## Common mistakes

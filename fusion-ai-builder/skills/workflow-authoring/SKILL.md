@@ -16,11 +16,11 @@ authority where they differ).
 
 1. Standalone or app-backed? (instructions.md quotes Oracle's boundary.) App-backed → also invoke
    **app-authoring**; the router and the dedicated stage terminals are part of the build.
-2. Family/product: `fai_cli {ws, command:'list-workflow-families'}` then
-   `list-workflow-products` with `{family}`; exact match only, else `AskUserQuestion`.
-3. Find the closest shipped shape: `fai_examples_search {archetype, nodeType, q}` →
-   `fai_example_get {kind:'workflow', code, view:'graph'}` → `view:'node:<CODE>'` for the nodes
-   you will imitate. Imitate structure and prompts; never copy an `ORA_` code.
+2. Family/product: `list-workflow-families`, then `list-workflow-products` of the chosen family
+   (both through `fai_cli`); exact match only, else `AskUserQuestion`.
+3. Find the closest shipped shape: `fai_examples_search` (archetype, node type, the request's
+   words) → `fai_example_get` for its graph, then each node you will imitate. Imitate structure and
+   prompts; never copy an `ORA_` code.
 4. Data source: any workflow that displays, ranks, summarizes or acts on records needs a real
    producer node (`BO_FUNCTION`, `TOOL`, `EXTERNAL_REST`, `RAG_DOCUMENT_TOOL`, `VECTOR_DB_READER`,
    `WORKFLOW`). Confirm the BO with the user (**business-objects-and-tools**) before building
@@ -28,29 +28,28 @@ authority where they differ).
 
 ## The build loop (one implementation pass, no partial states)
 
-`do-create-workflow {name, family, product, workflowCode?}` → for each node
-`do-create-node {file, type, name, code?, metadataPatch?, inputsPatch?, outputSpecification?,
-aiAppOutputSpecification?}` → `do-modify-node` for bindings → `do-modify-node-edges` for wiring →
-`do-delete-node` for removals → ONE `do-prettify-workflow {file}` → `fai_validate {ws, path}`.
+`do-create-workflow` (the user's family and product) → `do-create-node` for each node →
+`do-modify-node` for bindings → `do-modify-node-edges` for wiring → `do-delete-node` for removals →
+ONE `do-prettify-workflow` → `fai_validate`. Each command's flags: its `fai_cli_help`.
 
 - Producer for a consumer? Insert it upstream in the same pass. "Would you like me to connect
   it?" is a violation — wire it.
-- `inputsPatch.<name>` values are the raw final value (string / expression), never
-  `{type, value}` wrappers or full input entries. Prompts, `condition`, `caseExpression`,
-  `message`, `returnValue` are INPUTS; `chatHistoryEnabled`, `modelConfiguration`,
-  `businessObjectCode`, `functionName`, `sourceCode`, `returnType` are METADATA.
-- Serial mutations per file; re-read with `get-nodes-metadata-by-code {file, nodeCodes:[…]}`
-  (never from memory) before editing an existing node — modify, do not rewrite. A BO node's
-  stringified `outputSpecification` makes that answer large: `select` the fields you need.
+- A node input is set to its raw final value (string / expression), never a `{type, value}`
+  wrapper or a whole input entry. Prompts, `condition`, `caseExpression`, `message`, `returnValue`
+  are INPUTS; `chatHistoryEnabled`, `modelConfiguration`, `businessObjectCode`, `functionName`,
+  `sourceCode`, `returnType` are METADATA.
+- Serial mutations per file; re-read the node with `get-nodes-metadata-by-code` (never from
+  memory) before editing an existing node — modify, do not rewrite. A BO node's stringified
+  `outputSpecification` makes that answer large: narrow it to the fields you need.
 - Changing part of an existing field — a line of `sourceCode`, a sentence of a prompt, one key of
   `aiAppOutputSpecification` / `modelConfiguration` / an AGENT `specification` / `chatChannelInput`
-  — is `fai_wf_field_edit {file, node, field, edits | merge}`, never a resend of the whole value
-  (`do-modify-node` replaces objects whole and refuses a partial one). A value patch keeps the
-  input's declared type; a type change or an input removal is `fai_workflow_node_struct`.
+  — is `fai_wf_field_edit`, never a resend of the whole value (`do-modify-node` replaces objects
+  whole and refuses a partial one). A value patch keeps the input's declared type; a type change or
+  an input removal is `fai_workflow_node_struct`.
 - `do-create-node` writes no `convergenceTargetId`: set it on every `CONDITION` / `SWITCH` /
-  `PARALLEL` with `fai_workflow_node_struct {op:'set-convergence', node, target}` (target = the
-  code of the node where the branches rejoin, in the same scope, or `end`).
-- `get-workflow-node-structure {file}` reconstructs the true execution path when you inherit a
+  `PARALLEL` with `fai_workflow_node_struct` — the node where the branches rejoin, in the same
+  scope, or `end`.
+- `get-workflow-node-structure` reconstructs the true execution path when you inherit a
   workflow; explain workflows semantically, not edge by edge.
 
 ## README in `description` — the workflow documents itself
@@ -71,14 +70,14 @@ documentation survives.
   validator warnings, pod facts such as "unpublished → the chat endpoint answers `FAI-40300`") ·
   `## Changelog` (one line per `v<n>`, newest first: what changed and why). Do not end it with a
   `Version <n>.` sentence — the export stamp appends that itself.
-- The first draft goes in with `do-create-workflow {description}` (or `do-modify-workflow-metadata
-  {file, description}` right after it). Update it on EVERY material edit (a node added, removed or
-  re-routed, an input or BO changed, a prompt contract changed, a limitation found or fixed) and on
-  every version bump — BEFORE `fai_export` or `fai_pod_save` — with `fai_wf_field_edit {file,
-  field:'description', edits}` (the changed lines only: a Changelog line, a Known issue, a Flow
-  step). The README in the file is what the user gets; an outdated one is a defect, report it in
-  **Validation**.
-- Per-node `description` (`metadataPatch.description`) = the WHY of that node in one or two
+- The first draft goes in with `do-create-workflow` (its description) or with
+  `do-modify-workflow-metadata` right after it. Update it on EVERY material edit (a node added,
+  removed or re-routed, an input or BO changed, a prompt contract changed, a limitation found or
+  fixed) and on every version bump — BEFORE `fai_export` or `fai_pod_save` — with
+  `fai_wf_field_edit` on the workflow's `description` (the changed lines only: a Changelog line, a
+  Known issue, a Flow step). The README in the file is what the user gets; an outdated one is a
+  defect, report it in **Validation**.
+- A node's own `description` (node metadata) = the WHY of that node in one or two
   sentences; it is not repeated in the README, and the README does not list nodes one by one.
 - Length: no documented limit (the CLI and Oracle's references give none; Oracle's samples are a
   sentence). Write the README in full. If `fai_pod_save` (or a Studio import) rejects the
@@ -97,8 +96,8 @@ documentation survives.
   `$context.$triggers.REST.$input.<name>` (other trigger types: the fixed paths in
   `workflow-vibe.md` §Workflow Trigger Inputs; `SCHEDULE` exposes none), `$context.$system.$inputMessage` (+ the built-in list
   in `workflow-vibe.md` §Built-in `$context` expressions), `$context.$app.*` only when app-backed.
-  `$context.$system.$chatHistory` / `$conversationHistory` are NOT allowed — set
-  `metadataPatch.chatHistoryEnabled = true` instead (many shipped workflows read it directly; do not copy that).
+  `$context.$system.$chatHistory` / `$conversationHistory` are NOT allowed — turn on the node's
+  `chatHistoryEnabled` metadata instead (many shipped workflows read it directly; do not copy that).
 - `CODE` bodies are plain JS with `return`; output lives under
   `$context.$nodes.<CODE>.$output.result` (fixed wrapper `result|timeout|error`, persisted on the node); `LLM`/`AGENT`/`BO_FUNCTION`/`EXTERNAL_REST`
   are editable-schema producers — every field a downstream node references must be declared in the
@@ -150,7 +149,7 @@ documentation survives.
 - Node `code` = UPPER_SNAKE of the display name; node ids are epoch-millis strings; input ids
   `"<nodeId>_<n>"`. Identity on export is the `*Code`; ids are null.
 
-## Archetypes (`fai_examples_search {archetype}`)
+## Archetypes (what `fai_examples_search` filters by)
 
 | Archetype | Shape | Typical size | Signature |
 |---|---|---|---|
@@ -223,8 +222,8 @@ Declared but unused anywhere in shipped content — do not build on them: tool-l
 `userInputRequiredFlag` / `specification.uiInput`, `waitFlag`, `chatExpThirdPartyDetails`.
 
 Follow-up questions (Studio "Follow-up Questions") = workflow-level `followupEnabledFlag` +
-`followupPrompt`, set with `fai_workflow_followup {op:'set', enabled, prompt}` (no CLI command
-writes them; never `fai_file_write`). The prompt generates the questions from the conversation and
+`followupPrompt`, set with `fai_workflow_followup` (no CLI command writes them; never
+`fai_file_write`). The prompt generates the questions from the conversation and
 returns only a JSON array `[{"question": "..."}]`; it may read `{{$context.$system.$chatHistory}}`,
 `{{$context.$system.$inputMessage}}` and declared `{{$context.$variables.<name>}}`
 (`ORA_DEAL_ADVISOR_WORKFLOW` gates on a JOB variable and returns `[]` when it is empty). Enabling
@@ -245,7 +244,7 @@ needs a prompt; disabling keeps it.
 - An `EMAIL` trigger (fires per new mail in the workflow's registered inbound mailbox) has fixed
   paths `$context.$triggers.EMAIL.$input.subject` / `fromAddress` / `content` / `headers` /
   `attachments`; no shipped workflow uses one.
-- **Outbound**: an `EMAIL` node (`email.md`), an email tool (`do-create-tool {toolType:'email'}`,
+- **Outbound**: an `EMAIL` node (`email.md`), an email tool (`do-create-tool` of the email type,
   delivery `HCM_EMAIL` / `HCM_ALERTS`), a `HUMAN` node's EMAIL channel (`human-approval.md`; every
   shipped `HUMAN` uses `CHAT`), the workflow's `errorHandlers` EMAIL entry (on most workflows,
   almost always blank). `do-modify-email-account` sets an approval process's account only.

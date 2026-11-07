@@ -9,8 +9,8 @@ Format authority: `skills/aistudio/references/prompts/workflow-node-prompts/agen
 `skills/aistudio/references/prompts/artifact-conventions.md` (`.agent`/`.topic` file shapes and
 commands), `skills/aistudio/references/prompts/policy-store-builder.md` (+
 `policy-store-cli-compat.md`), `skills/aistudio/references/prompts/function-builder.md` (+
-`function-cli-compat.md`). Patterns: `fai_examples_search {nodeType:'AGENT'}` and
-`fai_examples_search {kind:'agent'}` / `{kind:'topic'}`.
+`function-cli-compat.md`). Patterns: `fai_examples_search` for workflows with `AGENT` nodes, and
+for shipped agents and topics.
 
 ## AGENT node vs LLM node (Oracle's rule)
 
@@ -18,9 +18,9 @@ No tools attached → `LLM`. `AGENT` only when tool-backed behavior is required 
 tool code is attached. Private is the default: `metadata.type = PRIVATE`, inputs `prompt` +
 `message` (raw strings), `metadata.specification.{maxInteractions (1–20, required), agentRole,
 summarizationMode Default|Custom|Disabled, summarizationPrompt, outputSpecification}`, top-level
-`metadata.toolCodes[]` / `topicCodes[]`. Chat memory = `metadataPatch.chatHistoryEnabled`. On an
-existing node, change part of `metadata.specification` with `fai_wf_field_edit {node,
-field:'metadata:specification', merge:{…}}` — a `metadataPatch` replaces it whole.
+`metadata.toolCodes[]` / `topicCodes[]`. Chat memory = the node's `chatHistoryEnabled` metadata.
+On an existing node, change part of `metadata.specification` with `fai_wf_field_edit` (a merge
+into that metadata key) — a node metadata patch replaces it whole.
 
 Reusable mode only when the user explicitly wants an existing reusable agent: `metadata.type =
 REUSABLE`, `metadata.agentCode` = the real code, `message` input, plus ONLY the variable inputs
@@ -29,7 +29,7 @@ output schema is read-only.
 
 ## `.agent` artifact
 
-`do-create-agent {…}` → `do-add-agent-tool {…}` per tool → topics via mappings. Local shape:
+`do-create-agent` → `do-add-agent-tool` per tool → topics via mappings. Local shape:
 `specification` is an object; `agentToolMappings` / `agentTopicMappings` are arrays. Shipped
 agents that gather input multi-turn use step-wise prompts ("ask one question at a time, never
 repeat answered questions"), a terminate sentinel, and the pills tag for selectable answers
@@ -49,19 +49,19 @@ them; author a new topic only for domain instructions.
 - Policy: `do-create-policy` (ask template code, roles, generation prompt when missing;
   `ORA_GENERIC_POLICY_TEMPLATE` for a generic document-derived policy; the template itself: skill
   **policy-templates**) → documents (`fai_file_put` the user's upload, then
-  `do-add-policy-documents {documents:[{path, description}]}`) and function generation need the
-  pod → workflow use via `do-create-policy-node {policyFile}` (a `POLICY` node stores `policyCode`
-  + `functionCode`; several functions → ask which). `validate-policy` after edits. Save is a user
-  decision; publish is denied.
+  `do-add-policy-documents` with each document's workspace path and description) and function
+  generation need the pod → workflow use via `do-create-policy-node` from the policy file (a
+  `POLICY` node stores `policyCode` + `functionCode`; several functions → ask which).
+  `validate-policy` after edits. Save is a user decision; publish is denied.
 - Function template: `do-create-function` → `do-generate-function-implementation` (pod) →
-  `validate-function`; `run-function {functionCode, input}` and `run-function-test-cases` execute
-  it offline; in workflows use `do-create-function-node {functionFile}` — not a hand-built `CODE`
-  node (the node's `functionTemplateCode` is the reference `fai_export` follows).
+  `validate-function`; `run-function` and `run-function-test-cases` execute it offline; in
+  workflows use `do-create-function-node` from the function file — not a hand-built `CODE` node
+  (the node's `functionTemplateCode` is the reference `fai_export` follows).
 
 ## Common mistakes
 
 - `AGENT` with empty `toolCodes`; `maxInteractions` at top-level metadata; `prompt` under
-  `metadataPatch`.
+  node metadata.
 - Inventing reusable-agent inputs the agent does not declare; leaving stale inputs after switching
   agents.
 - Wrapping a topic in `specification`.

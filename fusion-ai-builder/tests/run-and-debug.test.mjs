@@ -9,10 +9,10 @@ const skill = fs.readFileSync(new URL('../skills/run-and-debug/SKILL.md', import
 const flat = skill.replace(/\s+/g, ' ');
 
 test('run-and-debug: stopBefore is Studio\'s breakpoint — stop BEFORE the node, debug endpoint only, codes of the workflow file', () => {
-  assert.match(flat, /a breakpoint set on a node in Studio's debugger → `stopBefore:\['<CODE>'\]`/);
+  assert.match(flat, /a breakpoint set on a node in Studio's debugger → a run with `stopBefore` naming that node/);
   assert.match(flat, /stops BEFORE the first named node it reaches — Studio's debugger breakpoint, sent as `debugParams\.breakPoints`/);
   assert.match(flat, /`pathAssertions\.mustNotExecute`/);
-  assert.match(flat, /Debug endpoint only: refused with `chat:true`/);
+  assert.match(flat, /Debug endpoint only: refused on the chat endpoint/);
   assert.match(flat, /an unknown code is `invalid-arg`/);
 });
 
@@ -22,7 +22,7 @@ test('run-and-debug: when to use it — short of the side-effect nodes, right af
 });
 
 test('run-and-debug: reading the answer — a stop looks like a normal end on that node; only the established label forbids relaying the output', () => {
-  assert.match(flat, /`breakpoints` = `\{requested, notExecuted, lastExecuted\}`; a node off the turn's path also lands in `notExecuted`/);
+  assert.match(flat, /`breakpoints` names the requested, the not-executed and the last executed node; a node off the turn's path also lands in `notExecuted`/);
   assert.match(flat, /A stop shows as `finishReason:'stop'` whose `output` is the LAST EXECUTED node's output — the same shape as a turn that ended normally on that node \(an LLM reply\), so the stream alone does not tell them apart/);
   assert.match(flat, /`outputIs` without `unverified` = the stop is established \(the requested node is what the graph runs right after the last executed one, or the server named it as `pausedNode`\): `output` is not the agent's reply — never relay it as the workflow's answer/);
   assert.match(flat, /`outputIs` starting with `unverified` = not established: either `output` equals the last node's output but the graph does not run a requested node next \(it may be the real reply\), or it does not equal it/);
@@ -43,7 +43,7 @@ test('run-and-debug: a stopped turn leaves the conversation UNVERIFIED — inves
 });
 
 test('run-and-debug: rerun repeats stopBefore AND the conversationId — a stopped turn is investigated again on a fresh conversation, not rerun', () => {
-  assert.match(flat, /`rerun:true` repeats the last request exactly — `stopBefore` AND its `conversationId` — so rerunning a stopped turn continues that UNVERIFIED conversation: investigate again on a fresh conversation instead \(above\); other breakpoints = a full request there\. A `resume` may carry `stopBefore` too/);
+  assert.match(flat, /A rerun repeats the last request exactly — `stopBefore` AND its `conversationId` — so rerunning a stopped turn continues that UNVERIFIED conversation: investigate again on a fresh conversation instead \(above\); other breakpoints = a full request there\. A `resume` may carry `stopBefore` too/);
 });
 
 // Scenario runs: a batch from the user's file, run alone — the open questions are asked before the
@@ -63,13 +63,13 @@ test('run-and-debug scenario runs: conversation policy, improvise permission and
 });
 
 test('run-and-debug scenario runs: the upload reaches the workspace via fai_file_put, read with fai_file_read; CSV columns mapped by meaning and shown', () => {
-  assert.match(scen, /`fai_file_put \{ws, fileId, path:'inputs\/<name>'\}`, then `fai_file_read \{ws, path\}`/);
+  assert.match(scen, /`fai_file_put` places it under `inputs\/`, then `fai_file_read` reads it/);
   assert.match(scen, /Show the mapping and the scenario and step counts before running; a column that fits two meanings, or none, → ask/);
 });
 
 test('run-and-debug scenario runs: one run at a time (the pod\'s firewall bans bursts), pacing told to the user; approvals resume; a stopped turn ends its scenario', () => {
   assert.match(scen, /ONE CALL AT A TIME — the next only after the previous answer, never two runs in parallel: the pod's firewall bans request bursts\. Tell the user this pacing/);
-  assert.match(scen, /An approval step answers a `paused` run with `waitingNode` → `resume:\{action, content\?\}`/);
+  assert.match(scen, /An approval step answers a `paused` run with `waitingNode` → a resume with that decision \(and its feedback text\)/);
   assert.match(scen, /A stopped turn leaves its conversation UNVERIFIED, so its scenario ends there/);
   assert.match(scen, /`responseFile` holds only the LAST run: diagnose a step before running the next one/);
 });
@@ -84,5 +84,5 @@ test('run-and-debug scenario runs: per-step record + diagnosis from the full run
   assert.match(scen, /the executed nodes, `breakpoints` \(`requested`, `notExecuted`, `lastExecuted`\) and `outputIs` when present/);
   assert.match(scen, /`passed` \(the expected result holds\), `diverged`/);
   assert.match(scen, /Diagnose every `failed`, `diverged` or unexpected question from the full run \(`responseFile`: node input and output, `nodeContext`, `nodeStepInfo`/);
-  assert.match(scen, /`fai_file_export \{ws, path:'test-reports\/scenarios\/<batch>'\}` \(one zip\) and offer to turn each stable scenario into a mode-1 regression test \(`fai_test_scaffold`\)/);
+  assert.match(scen, /Deliver the folder `test-reports\/scenarios\/<batch>` with `fai_file_export` \(one zip\) and offer to turn each stable scenario into a mode-1 regression test \(`fai_test_scaffold`\)/);
 });

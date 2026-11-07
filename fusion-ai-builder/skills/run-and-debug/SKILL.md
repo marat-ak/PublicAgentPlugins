@@ -18,47 +18,42 @@ are offline.
 
 - A run executes the SERVER copy of the workflow, never the local file. To run local changes,
   save the DRAFT first with `fai_pod_save` (ask the user before this pod write, like every save),
-  then `fai_workflow_run {ws, file, message, workflowStatus:'DRAFT'}` (the orchestrator debug
-  endpoint — this server posts to the orchestrator itself; the CLI's `run-workflow` /
-  `run-workflow-chat` are denied). `chat:true` is the chat endpoint and runs only the PUBLISHED
-  version: a workflow that was never published answers `errorCode` `FAI-40300` there (the answer's
-  `hint` says which copy is missing).
-- Run it as its real caller does — the input of Oracle's run profiles: `triggerType:'rest'` +
-  `parameters` = the REST inputs; `'app'` + `parameters:{appHint:'<Stage>', OraAppContext,
-  OraUserContext}` with `message` = the query or the action payload (**app-authoring** §Testing
-  without an app); `'email'` + `parameters:{subject, body, from, to, cc}`; `'schedule'` with
-  `message:''` and no parameters; omitted = a chat turn. Oracle's `rest`, `email` and `schedule`
-  profiles add `singleTurnOnly:true`. A shipped workflow's own profiles show realistic inputs
-  (`fai_example_get {view:'full', select:'json.specification.dtRunProfiles'}`).
-- The answer is the run read from its own event stream: `finishReason` (`stop`, `error`, `paused`),
-  `output` (the final answer; on `error` the orchestrator's error record verbatim plus `errorCode`),
-  `conversationId`, `nodes` (the executed node occurrences in order, with `outputChars`) and, for
-  `nodeCodes:[…]`, those nodes' runs with decoded input/output. The full run is `responseFile`:
-  read parts of it with `fai_file_read {path, select, grep}` (e.g. select
-  `nodeOccurrences[?nodeCode=='X'].output`). `rerun:true` repeats the last request exactly,
-  `conversationId` included. The message is the user's text, verbatim — never invent one (the one
-  exception: an improvised answer in a scenario run, with the user's permission — below).
-- Oracle's debug prompt names UI tools; their equivalents here: `do-run-chat` → `fai_workflow_run
-  {message, workflowStatus:'DRAFT'}` on the saved DRAFT; `do-rerun-last-chat` → `{rerun:true}`;
-  `get-debugger-results-for-nodes` → the run answer's `nodeCodes`; `get-last-chat-response` /
-  `get-last-user-message` → the run answer and `.debug/fai-runs/<workflow>/last-*.json`;
-  a breakpoint set on a node in Studio's debugger → `stopBefore:['<CODE>']` (below);
-  `do-select-node` has none. The CLI commands `get-nodes-executed-on-last-debug` and
-  `get-debugger-results-for-nodes` read the local debugger sidecar, which runs never fill.
+  then run the saved DRAFT with `fai_workflow_run` on the orchestrator's debug endpoint (this server
+  posts to the orchestrator itself; the CLI's `run-workflow` / `run-workflow-chat` are denied). The
+  chat endpoint runs only the PUBLISHED version: a workflow that was never published answers
+  `errorCode` `FAI-40300` there (the answer's `hint` says which copy is missing).
+- Run it as its real caller does — the trigger types and inputs of Oracle's run profiles (REST,
+  app stage, email, schedule; none = a chat turn); for an app stage the message is the query or the
+  action payload (**app-authoring** §Testing without an app). A shipped workflow's own run profiles
+  (`fai_example_get`, `dtRunProfiles`) show realistic inputs.
+- Read the WHOLE answer: the outcome (`finishReason` `stop`, `error`, `paused`), the final output
+  (on `error` the orchestrator's error record verbatim plus `errorCode`), the `conversationId`, the
+  executed nodes in order, and the input/output of the nodes you asked for. The full run is its
+  `responseFile` — read parts of it, never the whole. The message is the user's text, verbatim —
+  never invent one (the one exception: an improvised answer in a scenario run, with the user's
+  permission — below).
+- Oracle's debug prompt names UI tools; their equivalents here: `do-run-chat` → a `fai_workflow_run`
+  of the saved DRAFT; `do-rerun-last-chat` → its rerun; `get-debugger-results-for-nodes` → the
+  node results a run answer carries; `get-last-chat-response` / `get-last-user-message` → the run
+  answer and its last-request / last-response files; a breakpoint set on a node in Studio's
+  debugger → a run with `stopBefore` naming that node (below); `do-select-node` has none. The CLI
+  commands `get-nodes-executed-on-last-debug` and `get-debugger-results-for-nodes` read the local
+  debugger sidecar, which runs never fill.
 
 ## Stop before a node — `stopBefore` (Studio's breakpoint)
 
-- `fai_workflow_run {ws, file, message, workflowStatus:'DRAFT', stopBefore:['<CODE>', …]}` runs
-  the turn and stops BEFORE the first named node it reaches — Studio's debugger breakpoint, sent
-  as `debugParams.breakPoints` (Oracle's test runner sets the same breakpoints from
-  `pathAssertions.mustNotExecute`). Debug endpoint only: refused with `chat:true`. Each code must
-  be a node of the workflow file, at any nesting level; an unknown code is `invalid-arg`.
+- A `fai_workflow_run` with `stopBefore` naming node codes runs the turn and stops BEFORE the
+  first named node it reaches — Studio's debugger breakpoint, sent as `debugParams.breakPoints`
+  (Oracle's test runner sets the same breakpoints from `pathAssertions.mustNotExecute`). Debug
+  endpoint only: refused on the chat endpoint. Each code must be a node of the workflow file, at
+  any nesting level; an unknown code is `invalid-arg`.
 - Use it to see how a turn is handled without reaching its side-effect nodes (creates, updates,
   business-object writes, notifications): stop at the node right AFTER the one under suspicion,
-  then read the suspect's input, output and `nodeContext` (`nodeCodes`, or `responseFile`).
+  then read the suspect's input, output and `nodeContext` (the run's node results, or
+  `responseFile`).
 - Reading the answer:
-  - `breakpoints` = `{requested, notExecuted, lastExecuted}`; a node off the turn's path also
-    lands in `notExecuted` — name nodes the path reaches.
+  - `breakpoints` names the requested, the not-executed and the last executed node; a node off
+    the turn's path also lands in `notExecuted` — name nodes the path reaches.
   - A stop shows as `finishReason:'stop'` whose `output` is the LAST EXECUTED node's output — the
     same shape as a turn that ended normally on that node (an LLM reply), so the stream alone
     does not tell them apart.
@@ -77,7 +72,7 @@ are offline.
   investigate a stopped turn on a fresh conversation — replay the earlier turns there (mode 2,
   below), then the turn with `stopBefore` — and never continue a real interaction on a
   conversation that had a stopped turn until its state is verified.
-- `rerun:true` repeats the last request exactly — `stopBefore` AND its `conversationId` — so
+- A rerun repeats the last request exactly — `stopBefore` AND its `conversationId` — so
   rerunning a stopped turn continues that UNVERIFIED conversation: investigate again on a fresh
   conversation instead (above); other breakpoints = a full request there. A `resume` may carry
   `stopBefore` too.
@@ -89,18 +84,18 @@ within one conversation (Oracle's own test planner treats routes that need "stat
 an earlier conversation turn" as multi-turn only). Never encode state into the message text and
 never invent a state input (`wizardState` and the like) — the server keeps it.
 
-1. First turn: `fai_workflow_run {ws, file, message, workflowStatus:'DRAFT'}` — the answer carries
-   the `conversationId` this server generated.
+1. First turn: a `fai_workflow_run` of the saved DRAFT with the user's message, no conversation
+   id — the answer carries the `conversationId` this server generated.
 2. Read `output` and `followUpQuestions`; put the workflow's question to the user with
    `AskUserQuestion` (its options VERBATIM when it offers any).
-3. Every later turn: the same call with the user's answer as `message` and the SAME
+3. Every later turn: the same call with the user's answer as the message and the SAME
    `conversationId`. A new conversation only when the user starts over.
 4. `finishReason:'paused'` with `waitingNode` = the run waits on a `HUMAN` or `WAIT` node (a
    `paused` at a requested breakpoint is a stopped turn — above): `waitingNode` holds the node
    and its `initialMessage`, `resume.actions` the decisions it accepts (`approve`, `reject`,
-   `feedback`, `timeout`). Ask the user, then `fai_workflow_run {ws, file, conversationId,
-   resume:{action, content?}}` — no message; feedback text goes in `content`. A conversation that
-   is not paused cannot be resumed (`needs-input`).
+   `feedback`, `timeout`). Ask the user, then resume that conversation with their decision —
+   no message; feedback text travels with the decision. A conversation that is not paused cannot
+   be resumed (`needs-input`).
 5. `finishReason:'error'` + `errorCode` `FAI-40300`: the server copy is missing or not runnable
    for this user — follow the answer's `hint` (save the DRAFT; or the chat endpoint needs the
    PUBLISHED version).
@@ -111,29 +106,25 @@ Mode 2 explores; mode 1 is the regression form of a dialogue once its path is st
 conversation identity across scripted steps, run on the pod, every step asserted. Read
 `skills/aistudio/references/prompts/workflow-conversation-test-authoring.md` first.
 
-1. Author with `fai_test_scaffold {ws, file, spec}` — never hand-write Oracle's full definition
-   (it demands every assertable node classified in every step and named ids everywhere; the
-   scaffold does that from the CLI's own `get-workflow-conversation-test-context`). The spec is
-   compact: `testName`, `goal`, `steps[]` — a chat step `{stepId, message, expectNodes:[…],
-   output:{contains, notContains}}` per user message in the user's words, `expectWait:'<HUMAN>'`
-   on the step that pauses, a resume step `{stepId, resume:{waitStepId, action, content?},
-   expectNodes, output}` per decision. `stepId` = two lowercase words (`request-move`); no bare
-   numbers in `contains`; when conversation variables matter, a later step relies on a fact given
-   only earlier (Oracle's continuity proof). The answer carries the test file, the definition path and the
-   classification per step; a generator rejection comes back as `cli-error` — repair the spec,
-   call it again (an existing test file is updated in place).
-2. Run it live: `fai_cli run-workflow-test {testFile, dataSource:'live', workflowStatus:'DRAFT'}`
-   (the DRAFT saved first, as for any run). The report tells which step diverged and where.
-3. Report: `get-workflow-test-final-summary {file}`; the reports under `test-reports/` go to the
-   user with `fai_file_export`.
+1. Author with `fai_test_scaffold` — never hand-write Oracle's full definition (it demands every
+   assertable node classified in every step and named ids everywhere; the scaffold does that from
+   the CLI's own `get-workflow-conversation-test-context`). Its spec is compact: one step per user
+   message in the user's words, the step that pauses marked, one resume step per decision; when
+   conversation variables matter, a later step relies on a fact given only earlier (Oracle's
+   continuity proof). A generator rejection comes back as `cli-error` — repair the spec, call it
+   again (an existing test file is updated in place).
+2. Run it LIVE with `run-workflow-test` on the saved DRAFT (saved first, as for any run). The
+   report tells which step diverged and where.
+3. Report: `get-workflow-test-final-summary`; the reports under `test-reports/` go to the user
+   with `fai_file_export`.
 
-Recording and file replay (`do-record-workflow-test`, `do-apply-workflow-test-data`,
-`dataSource:'file'`) are NOT used until further notice: the recorder keeps a node response only up
-to 3,072 bytes, below every Fusion list answer, so it returned `needs-model-test-data` for most
-steps and asked for 0.85–1.1 MB of hand-prepared data per step. Live runs need none of that.
-- Investigate in order: `get-workflow-node-structure` → the run's `nodes` →
-  `get-nodes-metadata-by-code` (configuration; `select` the fields you need) → the node runs
-  (`nodeCodes`). After every rerun read the NEW run — LLM nodes are not deterministic.
+Recording and file replay (`do-record-workflow-test`, `do-apply-workflow-test-data`, a file data
+source) are NOT used until further notice: the recorder keeps a node response only up to 3,072
+bytes, below every Fusion list answer, so it returned `needs-model-test-data` for most steps and
+asked for 0.85–1.1 MB of hand-prepared data per step. Live runs need none of that.
+- Investigate in order: `get-workflow-node-structure` → the run's executed nodes →
+  `get-nodes-metadata-by-code` (configuration, narrowed to the fields you need) → the node runs
+  (their input and output). After every rerun read the NEW run — LLM nodes are not deterministic.
 - Debugger overrides and pinned outputs (`do-modify-node-overrides`, `do-node-override-output`,
   `do-clear-node-override`, `do-clear-node-output-override`, `list-pinned-outputs`;
   `get-debugger-node-override-schema` before saying a field cannot be overridden) edit the local
@@ -161,8 +152,8 @@ in ONE `AskUserQuestion` — never assume, never start a batch with an open ques
   the batch stop?
 
 The file:
-- The upload arrives as a handle `(id=<fileId>, <name>, …)`: `fai_file_put {ws, fileId,
-  path:'inputs/<name>'}`, then `fai_file_read {ws, path}` (`offset`/`limit` page a long file).
+- The upload arrives as a handle `(id=<fileId>, <name>, …)`: `fai_file_put` places it under
+  `inputs/`, then `fai_file_read` reads it (page a long file).
 - CSV first. Map the columns by meaning — scenario id, step order, the message or an approval
   decision (`approve` / `reject` / `feedback` + its text), optionally the expected result or text
   the output must contain. Show the mapping and the scenario and step counts before running; a
@@ -175,7 +166,8 @@ Running:
 - Fresh: the scenario's first step omits `conversationId`, later steps reuse the id its answer
   carried. Same: one `conversationId` for the batch, the reset command between scenarios
   (recorded as a `reset` row).
-- An approval step answers a `paused` run with `waitingNode` → `resume:{action, content?}`.
+- An approval step answers a `paused` run with `waitingNode` → a resume with that decision (and
+  its feedback text).
 - With `stopBefore`, read each answer as "Reading the answer" above says. A stopped turn leaves
   its conversation UNVERIFIED, so its scenario ends there (later steps `not-run`); in a
   SAME-conversation batch it ends the shared conversation — the remaining scenarios then run fresh
@@ -194,28 +186,28 @@ the workflow asked something unexpected), `failed` (`error`), `stopped` (a break
 `blocked`, `not-run`; no expected result → `ran`.
 
 Diagnose every `failed`, `diverged` or unexpected question from the full run (`responseFile`:
-node input and output, `nodeContext`, `nodeStepInfo`, read with `fai_file_read {select, grep}`) in
+node input and output, `nodeContext`, `nodeStepInfo`, read in parts with `fai_file_read`) in
 the order of "Investigate in order" above; the finding names the node, the field and the evidence.
 
 Report: `test-reports/scenarios/<batch>/summary.md` beside the CSV — per scenario `passed` /
 `diverged` / `failed` with its diagnosis, the improvised answers listed as improvised, the
 conversation policy, side-effect mode and version used, and for full runs what they created on the
-pod. Deliver the folder with `fai_file_export {ws, path:'test-reports/scenarios/<batch>'}` (one
-zip) and offer to turn each stable scenario into a mode-1 regression test (`fai_test_scaffold`).
+pod. Deliver the folder `test-reports/scenarios/<batch>` with `fai_file_export` (one zip) and
+offer to turn each stable scenario into a mode-1 regression test (`fai_test_scaffold`).
 
 ## Tests
 
 - Oracle's sync loop, with its recording steps left out: plan (`get-workflow-test-sync-plan`) →
   author (conversation tests: `fai_test_scaffold`; single-turn: `do-generate-workflow-test` /
-  `do-update-workflow-test`) → run LIVE (`run-workflow-test` / `run-workflow-tests` with
-  `dataSource:'live'`) → attach local judge results (`attach-workflow-test-judge-result(s)`) →
+  `do-update-workflow-test`) → run LIVE (`run-workflow-test` / `run-workflow-tests` on the live
+  data source) → attach local judge results (`attach-workflow-test-judge-result(s)`) →
   `get-workflow-test-final-summary`, which is the evidence for the reply's **Validation and
   Insights** section. Apps: `get-app-test-sync-plan` → `do-sync-app-tests` →
   `get-app-test-final-summary`; one panel: `run-app-test`.
 - A preview request runs only the plan command; an execution request finishes the loop. A
   `needs-model-test-data` answer means a recording was attempted — recording is off (above): run
   live instead.
-- `judgeProvider:'remote'` only when asked; `evaluationMode:'deterministic'` only when asked.
+- A remote judge provider only when asked; deterministic-only evaluation only when asked.
 - Masking (`get-test-data-masking-context`, `do-create-test-data-masking-profile`,
   `do-mask-test-data`) applies to recorded data only — nothing to mask while recording is off.
 
@@ -223,16 +215,16 @@ zip) and offer to turn each stable scenario into a mode-1 regression test (`fai_
 
 `get-workflow-model-override-targets`, `list-workflow-model-configurations` (pod),
 `propose-sweep-candidates` (pod; stops for the user's review), labeled test runs,
-`compare-workflow-test-runs`, `analyze-token-usage {report}`, `generate-optimization-report`,
+`compare-workflow-test-runs`, `analyze-token-usage` (over a test report), `generate-optimization-report`,
 `run-optimization-sweep`.
 - For monitoring, the ESS job "Aggregate AI Agent Usage and Metrics" should be scheduled.
 
 ## Results as files
 
-A result over 16 KB arrives as `resultFile` + `resultShape` (its outline): read what you need with
-`fai_file_read {path, select, grep}`.
-Reports live under `test-reports/`; give them to the user with `fai_file_export {ws, path}` (a
-directory becomes one zip) and name each file in the reply — the workspace, its test files, runs
+A large result arrives as a file plus its outline: read only what you need from it with
+`fai_file_read`.
+Reports live under `test-reports/`; give them to the user with `fai_file_export` (a directory
+becomes one zip) and name each file in the reply — the workspace, its test files, runs
 and reports end with the conversation. A test file is re-creatable from its spec
 (`fai_test_scaffold` again, on the fetched workflow); keep the spec in the reply when the user
 will want the test later.

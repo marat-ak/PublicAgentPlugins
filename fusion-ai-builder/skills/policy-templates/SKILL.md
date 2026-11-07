@@ -14,16 +14,14 @@ Format authority: `skills/aistudio/references/prompts/policy-store-builder.md` +
   template-mode generation (`do-generate-policy-functions`) fills the policy's functions from these
   contracts. `ORA_GENERIC_POLICY_TEMPLATE` is the seeded generic template — reference it, never
   copy it.
-- Build: `do-create-policy-template {name, code, prompt}` → contracts
-  `do-create-policy-template-function {function}` / `do-modify-policy-template-function
-  {functionCode, patch}` / `do-delete-policy-template-function` → inputs
-  `do-add-policy-template-function-input {functionCode, parameter}` / modify / delete → return
-  `do-set-policy-template-function-return {functionCode, returnParameter}` →
-  `validate-policy-template`.
-- Remote reads: `list-policy-templates`, `get-policy-template {code}`, `fai_pod_fetch
-  {kind:'policyTemplate'}` (pod). Templates have no publish step.
+- Build: `do-create-policy-template` (name, code, generation prompt) → contracts
+  `do-create-policy-template-function` / `do-modify-policy-template-function` /
+  `do-delete-policy-template-function` → inputs `do-add-policy-template-function-input` / modify /
+  delete → return `do-set-policy-template-function-return` → `validate-policy-template`.
+- Remote reads: `list-policy-templates`, `get-policy-template`, `fai_pod_fetch` of a policy
+  template (pod). Templates have no publish step.
 - `do-save-policy-template` creates when the file has no `id` and patches the record with that
   `id` when it has one — a template fetched from one pod carries that pod's `id`.
-- `do-delete-policy-template {remote:true}` also deletes on the pod: ask, then `confirm:true`.
+- A remote `do-delete-policy-template` also deletes on the pod: ask, then repeat it confirmed.
 - A policy export carries its template when the template is in the workspace; a seeded template
   is listed in `missing[]` (it exists on every pod).
