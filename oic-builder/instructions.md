@@ -65,8 +65,21 @@ No tool infers the scope, and the server remembers none of it between calls — 
 - **Tools on ONE known integration or object** (load, open, verify, get, clone, …) take `project`:
   omitted = the standalone one, `project:<id>` = that project's copy. Take it from the search
   result's `project` tag, never from a guess.
-- **Choose before searching.** When the user has not named the scope, call `oic_list_projects` before
-  the first search. Non-empty → ASK (AskUserQuestion): **Standalone**, **Projects**, or **Both** — and
+- **A run names its own integration and project.** An integration identified by a RUN (an
+  instanceId) is the one Oracle recorded for that run: the `instance` block of
+  `oic_load_flowactivity` / `oic_activity_flow` overview gives `integration.code`, `.version` and
+  `project` (`project.code`; null = standalone), and run rows carry `project` the same way. Use exactly
+  that on every design call for it — no scope question, no `oic_list_projects`.
+- **Run lists carry a scope too.** Oracle lists a project's runs ONLY when the list names that
+  project: `oic_list_instances` / the `oic_runs_load` selector without `project` hold standalone runs
+  only, and every result states which in `filter.scope` (`"standalone"` | the project code).
+  - Runs of a FOUND integration: `project` = that integration's search-result `project` tag; omitted
+    when the tag is null.
+  - Runs WITHOUT a found integration (by time window, status, a tracking value) are a discovery
+    search: the scope choice below applies before listing. Both = one call per scope (standalone +
+    each project), each result labelled by its `filter.scope` and its rows' `project`.
+- **Choose before searching.** The scope question belongs to DISCOVERY searches only. When the user
+  has not named the scope, call `oic_list_projects` before the first search. Non-empty → ASK (AskUserQuestion): **Standalone**, **Projects**, or **Both** — and
   wait. Empty → standalone is the only scope; no question. The answer maps onto `scope`:
   Standalone → `"standalone"`; Projects → a project id, one call per project in the choice (the ones
   the user named, or each project when they meant all of them — ask when unclear); Both → `"all"`.

@@ -29,6 +29,26 @@ routers/routes, scopes), and what calls what. Open the integration read-only for
 archive and blueprint, so `oic_get_blueprint` / `oic_describe_activity` answer from the cache at once).
 Your model of "what SHOULD happen" is built here; the run tells you what DID.
 
+**A run names the design to open.** When the request starts from a run (an instanceId), load it first
+(`oic_load_flowactivity`): its `instance` block is Oracle's record of WHAT ran — `integration {name, code,
+version}` and `project` (`{code}`; null = standalone). Open exactly that: `oic_open_integration {instance,
+code, version, project: <project.code>}`, no `project` when it is null. The run's project is a fact read from
+Oracle — never asked, never searched for (instructions.md §Integration scope).
+
+**The report opens with what ran.** Every run analysis starts with one line per run:
+`Integration name (CODE version) · Project: Name (CODE)` — `Project: CODE` when the block carries no name,
+`· Standalone` when `project` is null. In a call tree (a run whose invokes started other integrations' runs)
+that line is given for the root AND for every child run, each from that child's own `instance` block — a child
+can live in a different project than its parent.
+
+**Child runs of a call tree.** An invoke that called another integration shows `-> CODE [project P |
+standalone]` on its search / children lines (`op:"node"`: `target {code, project}`) — read from the invoke's own
+request path, which always carries the callee's scope. Find the child's run with `oic_list_instances {code:
+target.code, project: target.project (omitted when null), startdate+enddate spanning the parent's received..end}`,
+then load it: its `instance` block confirms integration and project. An invoke without `target` is one whose
+stream names no callee (a native Local Integration invoke, a templated path): say so and take the callee from the
+design or ask — never guess it.
+
 ## 2. Get the instanceId, then the OVERVIEW — never the full tree
 
 A run is addressed by its `instanceId` (from `oic_list_instances` — filter `status:"FAILED"` for a failing
@@ -62,9 +82,11 @@ instance; search and extract read that instance's folder (signed in to it or not
    `oic_list_instances {instance, planId}` writes the full list to a session file; read the file, then
    feed chosen ids to step 1. A plan without `needsConfirmation` is fetched directly.
 1. `oic_runs_load {instance, code, timewindow? | startdate+enddate, status?, version?, project?, limit?}` — OR
-   `{instance, instanceIds:[…]}` (never both). ONE call lists the runs server-side (same filters as
+   `{instance, instanceIds:[…]}` (never both). `project` = the integration's search-result `project` tag,
+   omitted when null: without it only standalone runs are listed (`selector.scope` says which). ONE call lists the runs server-side (same filters as
    `oic_list_instances`, newest first, ≤ 50) and downloads their streams IN PARALLEL (bounded pool,
-   automatic backoff on throttling). Returns one compact row per run — outcome, status, start, duration,
+   automatic backoff on throttling). Returns one compact row per run — integration name, project (null =
+   standalone), outcome, status, start, duration,
    node/error counts, the first error's node + `#identifier` + message, cache state — and NEVER a tree.
    `purged` (410) and `failed` (with HTTP status) are per-run states, not batch failures; `pending`
    rows + `pendingIds` mean the time budget ran out — call again with those ids (loaded runs are hits).
