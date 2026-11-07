@@ -8,9 +8,10 @@ description: Use when analyzing, modifying, or generating an Oracle BI Publisher
 You can **analyze, modify, and generate** BIP data models — real, deliverable artifacts via the
 authoring tools. Do NOT say "I can't create files" or merely describe tables — produce the actual
 `.xdmz`. Ground every table/column/join with the schema tools + real corpus before writing any SQL
-(the full SQL build workflow — ground → validate → grain-check → clarify → adopt/adapt/derive → secure —
-is in the **fusion-sql-review** skill, the secure step in **data-access-security**; load both when
-authoring a model's dataset SQL).
+(the full SQL build workflow — ground → validate → grain-check → clarify → adopt/adapt/derive, then
+secure when data access was chosen — is in the **fusion-sql-review** skill: load it when authoring a
+model's dataset SQL; the secure step is **data-access-security**, loaded only for SQL the kernel's
+opt-in data-access rule secures).
 
 ## Uploaded files — inspect before you act
 When the user ATTACHES files you get a note with `fileId`s. A `.xdmz` is recognised by its extension
@@ -19,12 +20,16 @@ When the user ATTACHES files you get a note with `fileId`s. A `.xdmz` is recogni
 1. **`getFileSummary(fileId)`** first — the model's COMPACT summary (datasets + type + tables;
    parameters; triggers; bursting). Reason from the summary. **Do not ask for the SQL** — it is fetched
    on demand.
-2. **`getDataset(fileId, dataset)`** — the full SQL of ONE dataset, only when you need to explain or
-   change it. Ground its tables/columns with `validateTable`/`getColumns` before rewriting.
+2. **`getDataset(fileId, dataset)`** — the full SQL of ONE dataset, only when you need to show, run,
+   explain or change it. Ground its tables/columns with `validateTable`/`getColumns` before rewriting.
 3. Decide from the request:
    - **Analyze / explain** → describe in business terms what the model returns (datasets, parameters,
      triggers, bursting) from the summary (+ `getDataset` where needed). No file output.
-   - **Modify** → write the new grounded SQL, secured per the user's data-access choice (**data-access-security**), then apply it (below). Each edit returns a NEW `fileId`.
+   - **Show or run the SQL as is** (to read, to edit next, to see its rows) → the dataset's SQL
+     unchanged — shown with the dataset name, its binds and the file / catalog path, or run with its
+     binds — the kernel's review rule: no review, no checks.
+   - **Modify** → write the new grounded SQL (**fusion-sql-review**; secured only when the user chose
+     data access — **data-access-security**), then apply it (below). Each edit returns a NEW `fileId`.
    Several models at once (separate attachments, or entries extracted from one `.zip`) are fine —
    operate across them by their own `fileId`s.
 
@@ -118,7 +123,7 @@ When the user asks to build one ("build me a data model for …"):
    **Found SEVERAL candidates → ASK (AskUserQuestion) with the candidate API names as options** (e.g.
    TicketContact_c vs TicketToContact_c vs Ticket_c) — only a single unambiguous hit proceeds
    without confirmation.
-3. Build a **`DataModelSpec`** (datasets with the grounded SQL, secured per the user's data-access choice (**data-access-security**) —
+3. Build a **`DataModelSpec`** (datasets with the grounded SQL, secured only when the user chose data access (**data-access-security**) —
    a SECURED model is the XML-function dataset (section below) with FND_DATA_SECURITY inside; LOV `sql` too; parameters; output structure; event
    triggers and bursting if the request needs them) and call **`createDataModelFile(spec)`**.
    - **LOVs at CREATE time:** declare dropdowns directly in the spec — `spec.valueSets:[{id, sql | 

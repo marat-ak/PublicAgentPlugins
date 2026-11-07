@@ -1,6 +1,6 @@
 ---
 name: fusion-sql-review
-description: Use before emitting or running ANY Fusion SQL (a final answer, a data model's dataset SQL, a run_sql/explain_plan probe, SQL in prose or in a hand-off prompt), whenever findSimilarQueries returned ambiguous:true, and whenever the required output involves ANY aggregation (totals, subtotals, counts, summaries, per-X blocks, pivots). Provides the end-to-end SQL build workflow (ground -> validate -> grain-check -> clarify -> adopt/adapt/derive -> secure), the AGGREGATION LADDER (SQL -> group levels -> template) with its mandatory visible Aggregation check, the domain cue-table + ask/combine templates, Financials sub-ledger traps, a pre-flight grounding/scoping checklist, and the modern-Oracle-SQL construct menu.
+description: Use before authoring or changing ANY Fusion SQL (a final answer, a data model's dataset SQL, a run_sql/explain_plan probe you write, SQL in prose or in a hand-off prompt), when the user asks for a review of SQL, whenever findSimilarQueries returned ambiguous:true, and whenever the required output involves ANY aggregation (totals, subtotals, counts, summaries, per-X blocks, pivots). Provides the end-to-end SQL build workflow (ground -> validate -> grain-check -> clarify -> adopt/adapt/derive -> secure when data access was chosen), the AGGREGATION LADDER (SQL -> group levels -> template) with its mandatory visible Aggregation check, the domain cue-table + ask/combine templates, Financials sub-ledger traps, a pre-flight grounding/scoping checklist, and the modern-Oracle-SQL construct menu. Not for existing SQL used unchanged (shown as written or run as is).
 ---
 
 # Fusion SQL: build workflow + disambiguation + pre-flight review
@@ -8,7 +8,9 @@ description: Use before emitting or running ANY Fusion SQL (a final answer, a da
 Three jobs: (0) run the **SQL build workflow** that PRODUCES the query; (1) **resolve the domain**
 when the corpus split; and (2) run the **pre-flight checklist** on the drafted query before you
 present it. Fix every failure with the `fusion-schema` MCP tools — do not hand-wave. This is the SQL
-playbook for BOTH a bare SQL request and the dataset SQL inside a data model.
+playbook for BOTH a bare SQL request and the dataset SQL inside a data model — for SQL you author or
+change, and SQL the user asks you to review; existing SQL used unchanged (shown as written or run as
+is) is outside it (kernel Hard rules).
 
 ## Part 0 — the SQL build workflow (produces the query; Part B then verifies it)
 1. **`findSimilarQueries(<intent>)` FIRST** — handle its result per the CORE rule in the base
@@ -55,7 +57,7 @@ playbook for BOTH a bare SQL request and the dataset SQL inside a data model.
       its URDA / FND_GRANTS security is never copied as joins: secured SQL adopts it as the secured
       CTEs (4c); plain SQL drops it.
    3. **Derive** — no single match is close → compose from the mechanics of several matches; keep
-      the effective-date filters the real reports use (data security comes from 4c).
+      the effective-date filters the real reports use (data security, when chosen, comes from 4c).
    4. **From scratch** — nothing grounds → say so explicitly before writing.
    **When you adopt/adapt a BIG report, GET ITS REAL SQL FIRST.** `findSimilarQueries` omits the SQL
    of large exemplars (`cleanSqlOmitted:true` + `sqlChars` + the match's `id`) — the mechanics text is
@@ -94,7 +96,8 @@ playbook for BOTH a bare SQL request and the dataset SQL inside a data model.
    before proposing ANY aggregation mechanism — in a plan or a build — emit one line per
    aggregation need: `<need> → rung N (<mechanism>)`, plus a one-clause reason whenever the pick is
    below rung 1. One line per need is the whole ceremony — no essays. This list survives terse mode.
-4c. **DATA-ACCESS STEP — for the SQL the kernel's data-access rule secures** (load **data-access-security**):
+4c. **DATA-ACCESS STEP — only for SQL the kernel's opt-in data-access rule secures** (the user asked
+   for data access or said yes to the align-ask offer; load **data-access-security**):
    ONE `getDataAccessPredicate({instance, tables})` call with every table instance of the statement
    (`instance` = the pod host a runSql / run_sql reply reports) → one secured CTE per secured table + the
    `rewrite` map + the distinct `pairs`; all ctes in ONE leading `WITH` with their
@@ -105,9 +108,10 @@ playbook for BOTH a bare SQL request and the dataset SQL inside a data model.
    `masked` → the masked twin column only; an `auth-required` reply → sign in and call again, never
    unsecured silently. A DATA MODEL dataset is not delivered: it is the XML-function dataset of
    **datamodel-authoring** — the same CTEs inside an inline function that fetches each pair's condition
-   at run time for the running user (no slot, no embedded condition, no lexical hand-off). Plain SQL
-   under that rule skips the step. Its `Data access:`
-   lines (table[.column] → object / privilege [grade, keying table | keying area <subject area>]) join the Filter check.
+   at run time for the running user (no slot, no embedded condition, no lexical hand-off). Secured
+   SQL's `Data access:` lines (table[.column] → object / privilege [grade, keying table | keying area
+   <subject area>]) join the Filter check. Plain SQL — the default — skips the step and carries no
+   `Data access:` line.
 5. **Explain briefly, then give the final SQL in a single ```sql fenced block.** (Totals/subtotals
    are part of the OUTPUT shape — the 4b Aggregation ladder decides where they live, and its
    Aggregation check precedes the sql block alongside the Filter check.)
@@ -181,11 +185,11 @@ UNION as the request needs). If you cannot tell whether it is one term or two pa
 
 ### 3. Scoping is explicit where it matters
 - [ ] **Multi-org**: does the query need an `ORG_ID` / business-unit filter?
-- [ ] **Data access**: every table instance the plan secured is read through its `<alias>_sec` CTE (the
-      `rewrite` applied in every FROM / JOIN / subquery / UNION arm) whose `{PRED:…}` slots are left in place
-      for `runSecuredSql` to fill — never filled by hand (or the SQL is plain per the kernel's
-      data-access rule); no
-      `blocked` table in secured SQL; masked columns read through their twin; the `Data access:` lines
+- [ ] **Data access** (secured SQL only — plain SQL, the default, skips this item): every table
+      instance the plan secured is read through its `<alias>_sec` CTE (the `rewrite` applied in every
+      FROM / JOIN / subquery / UNION arm) whose `{PRED:…}` slots are left in place for `runSecuredSql`
+      to fill — never filled by hand; no `blocked` table in secured SQL; masked columns read through
+      their twin; the `Data access:` lines
       (object / privilege, grade, keying table or area) are in the Filter check; `none` access worded "no access
       to <object> for <privilege>", never "no data"; a data model is the ONE XML-function dataset
       (clob `RESULT`, the LOB data properties, the condition generated at run time for the running user —

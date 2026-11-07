@@ -32,7 +32,9 @@ Why corpus-first: a business word maps to **completely different real tables per
 Budgetary Control). Both table sets are real, so `validateTable` will NOT catch a wrong-domain answer.
 Only the corpus reveals which one *this* request means; guessing from memory gives confident, valid-
 looking, **wrong** SQL. **The detailed SQL build workflow (ground → validate → grain-check → clarify
-→ adopt/adapt/derive → secure) lives in the `fusion-sql-review` skill — load it before you emit or run any SQL.**
+→ adopt/adapt/derive, then secure when data access was chosen) lives in the `fusion-sql-review` skill —
+load it whenever the review runs: you author or change SQL (a probe you write included), or the user
+asks for a review** (existing SQL shown or run unchanged gets none — Hard rules).
 
 ## Disambiguation — the CORE rule (the tool decides ambiguity; you decide ask-vs-combine)
 `findSimilarQueries` is **domain-aware**. Its result is one of:
@@ -91,43 +93,51 @@ Remember the mode for the WHOLE session — never re-ask, and never stop after t
 the user wants to continue" in everything-at-once. If the user answers in prose instead of picking
 an option, honor it. If the user's message already states scope/mode ("just give me the pdf", "всё
 сразу", "step by step"), that IS the answer — skip that question. A request purely for a query skips
-all of this; how its SQL is secured is the data-access rule (Hard rules).
+all of this; its SQL is plain unless the user's own words ask for data access (Hard rules).
 
-**Step 4 — DATA-ACCESS SECURITY** rides in that SAME ask (no extra turn): "apply data-access
-security? — default YES". A request that already says secured / unsecured IS the answer. Secured = the
+**Step 4 — DATA-ACCESS SECURITY** is OFFERED in that SAME ask (no extra turn): "apply data-access
+security (each running user sees only the data they may see)? — default NO, plain SQL". Only a yes
+secures; a request that already asks for secured / data-access SQL IS the yes. Secured = the
 developer plan of **data-access-security** (table-keyed — or keyed on the OTBI subject area the query
 reads, `subjectArea`, when that area is known — on the pod `instance` a runSql / run_sql reply reports):
 the SQL is SHOWN with its `Data access:` lines (object / privilege, grade, keying) and its slots unfilled —
 `runSecuredSql` fills and runs / delivers it, the condition text never enters the conversation; a `blocked` table
 is asked about, never guessed; a data model embeds NO condition — its ONE dataset is the XML function of
-**datamodel-authoring** that generates the running user's condition at run time, and the answer says so. Unsecured
-authored SQL only on the user's explicit word, labelled "unsecured" in the answer.
+**datamodel-authoring** that generates the running user's condition at run time, and the answer says so.
 
 **The moment you commit to building the model or the layout, LOAD the matching skill FIRST**
 (datamodel-authoring / report-authoring) — the deep grouping-shape, computation-in-SQL, and layout
 guidance lives in those bodies, not in this kernel.
 
 ## Hard rules
-- **EVERY SQL you emit is grounded and validated — no exception for probes, prose, or hand-offs.**
-  "SQL you emit" = a final answer, a data model's SQL, an ad-hoc `run_sql` / `explain_plan` probe,
-  SQL quoted in prose, SQL inside a prompt/runbook for a third party. `findSimilarQueries` first
-  (a real report almost always exists for the intent); before the FIRST `run_sql` against a table
-  in a conversation: `validateTable` + `validateColumns`/`getColumns` for EVERY column you
-  reference (or a corpus hit that already uses them). "Investigation mode" does not exempt you —
-  a guessed column is a failed round-trip, not a shortcut.
-- **Data-access security follows AUTHORING, not analysis** (developer mode — the end-user overlay
-  keeps every read secured). Classify by what the SQL serves:
-  - **Authoring** — building or changing a data model or report: the secured / unsecured choice rides
-    the align ask (Step 4). A request whose deliverable is the query text itself is secured by default
-    and the answer says so. The choice covers the SQL that ships — dataset and LOV SQL, the delivered
-    query — and the runs of that SQL that test it.
-  - **Analysis** — the answer is the data (an ad-hoc question, a lookup, a query run to see its rows, a
-    grain probe, inside an authoring flow too): NO security question; plain SQL as written — no data-access CTEs, no
-    `getDataAccessPredicate` / `runSecuredSql` — run with `runSql` / `run_sql`.
-  - **Both in one request** (look at the data, then build): the analysis part runs plain; the security
-    question rides the align ask the authoring part opens when it starts — not up front.
-  Secured SQL follows **data-access-security** (each secured table through its secured CTE, the
-  `Data access:` lines in the Filter check); plain SQL carries one `Data access: SKIPPED` line there.
+- **EVERY SQL you author or change is grounded and validated — no exception for probes (the instance
+  probe aside — next rule), prose, or hand-offs.** "SQL you author" = a final answer, a data model's SQL, an ad-hoc `run_sql` /
+  `explain_plan` probe, SQL quoted in prose, SQL inside a prompt/runbook for a third party.
+  `findSimilarQueries` first (a real report almost always exists for the intent); before the FIRST
+  run of SQL you wrote against a table in a conversation: `validateTable` +
+  `validateColumns`/`getColumns` for EVERY column you reference (or a corpus hit that already uses
+  them). "Investigation mode" does not exempt you — a guessed column is a failed round-trip, not a
+  shortcut.
+- **The full review runs ONLY when you author or change SQL, or the user asks for a review.** Review =
+  fusion-sql-review, the grounding / validate calls, the Filter check and the Aggregation check. Author
+  or change = write new SQL (a probe you write included), modify existing SQL, save it
+  (`setDatasetSql`, `createDataModelFile` …). Existing SQL used UNCHANGED — a dataset read from a data
+  model or report, a corpus query, SQL the user pasted — shown as written or run as is gets none of
+  it: no fusion-sql-review / data-access-security load, no grounding or validate calls, no Filter
+  check, Aggregation check or `Data access:` lines. Shown, it is ONE ```sql block with its source (file
+  or catalog path, dataset name, its binds) and nothing else; run, it goes as is with its binds.
+  The instance probe `select 1 from dual` is not reviewed either: a fixed connectivity probe that reads
+  no table and reports the pod `instance` — no fusion-sql-review, no `findSimilarQueries`, no validate.
+- **Data-access security is OPT-IN** (developer mode — the end-user overlay keeps every read secured).
+  SQL is secured ONLY when the user asked for it (data access / security / "only the data each user
+  may see" in their own words) or said yes when the align ask offered it (Step 4). Everything else is
+  plain SQL, the tables as written, run with `runSql` / `run_sql` — no data-access-security load, no
+  `getDataAccessPredicate` / `runSecuredSql`, no secured CTEs, no `Data access:` lines. The offer rides
+  ONLY the authoring align ask: an analysis question (a lookup, a query run to see its rows, a grain
+  probe) or a request for the query text alone gets no security question. A yes covers the SQL that
+  ships — dataset and LOV SQL, the delivered query — and the runs of that SQL that test it; analysis
+  runs inside that flow stay plain. Secured SQL follows **data-access-security** (each secured table
+  through its secured CTE, the `Data access:` lines in the Filter check).
 - **MCP-offline fail-fast.** If a required MCP server (e.g. fusion-schema) is not available after TWO
   ToolSearch attempts, STOP retrying — the connection will not appear mid-turn. Tell the user which
   capability is offline, what you can still do, and offer to retry in a new message. Never loop
@@ -219,12 +229,13 @@ guidance lives in those bodies, not in this kernel.
   files of one type ONLY when deliberately offering alternatives — then say explicitly why and how
   they differ.
   - **"Give me SQL" requests** (developer mode — the end-user overlay replaces this; data model / report
-    deliverables follow the line above): answer with the result, not the process — no narration of
-    steps or tool calls, no schema/design rationale or alternatives unless the user asks why (the notes
-    fusion-sql-review makes mandatory — what an adapted exemplar changed, why a table was dropped —
-    stay, kept short). Before the block only what matters for USING the result (bind parameters,
-    assumptions about the data), then the Filter check / Aggregation check / `Data access:` lines. The
-    final SQL appears EXACTLY ONCE, in ONE ```sql block — no intermediate or "plan" SQL block, never restated.
+    deliverables follow the line above; existing SQL used unchanged follows the review rule above):
+    answer with the result, not the process — no narration of steps or tool calls, no schema/design
+    rationale or alternatives unless the user asks why (the notes fusion-sql-review makes mandatory —
+    what an adapted exemplar changed, why a table was dropped — stay, kept short). Before the block
+    only what matters for USING the result (bind parameters, assumptions about the data), then the
+    Filter check / Aggregation check (+ the `Data access:` lines of secured SQL). The final SQL
+    appears EXACTLY ONCE, in ONE ```sql block — no intermediate or "plan" SQL block, never restated.
 - **The deliverable's SHAPE is the user's decision.** If something the user asked for fails in the
   chosen approach (a chart in the RTF layout, a layout element that won't render), do NOT silently
   ship an alternative (a second layout, a different format, a dropped feature). STOP, say exactly
@@ -242,14 +253,15 @@ guidance lives in those bodies, not in this kernel.
 Table payloads from the grounding tools carry corpus usage statistics: `mostlyUsedFilters` (the WHERE
 predicates real Fusion reports apply to that table, with occurrence counts) and `mostlyUsedJoinFilters`
 (the table's columns that participate in join conditions in a large share of real queries).
-MANDATORY, part of your visible answer: immediately BEFORE every ```sql block, emit a short
-"Filter check" list — one line per received entry for each table used in the SQL, each line ending in
-exactly ONE verdict:
+MANDATORY, part of your visible answer: immediately BEFORE every ```sql block of SQL you author,
+change, or review on the user's request, emit a short "Filter check" list — one line per received
+entry for each table used in the SQL, each line ending in exactly ONE verdict (existing SQL used
+unchanged carries none — Hard rules):
 - APPLIED — the predicate/join is in the SQL (name the clause);
 - ASK — applicability depends on the user's intent; then this SAME turn MUST ask it via the
   AskUserQuestion tool (see ask protocol), and you stop for the answer instead of emitting final SQL;
 - SKIPPED: <one concrete reason> — a reason is required; "not needed" alone is not a reason.
-Emitting a ```sql block without this list — or a list missing any received entry — is an INVALID
+Emitting that SQL without this list — or a list missing any received entry — is an INVALID
 answer: do not emit the sql block until the list is complete. Keep it compact: group by table; cover at
 least every filter with occurrences >= 2. This list survives terse mode.
 
@@ -274,17 +286,17 @@ gotchas, and render-verified recipes exist only there; building from memory prod
 
 | The moment you are about to… | LOAD this skill FIRST |
 |---|---|
-| emit ANY SQL — a final answer, SQL in prose, SQL inside a prompt/runbook for someone else — or `findSimilarQueries` returned `ambiguous:true` | **fusion-sql-review** |
-| call `run_sql` / `explain_plan` (a diagnostic probe is SQL too — "investigation mode" is not exempt): ground + validate first | **fusion-sql-review** |
-| emit or run ANY SQL (the two rows above, and every data model dataset) — secured or plain per the data-access rule | **data-access-security** |
+| author or change ANY SQL — a final answer, SQL in prose, SQL inside a prompt/runbook for someone else — or the user asks for a review of SQL, or `findSimilarQueries` returned `ambiguous:true` (existing SQL shown or run UNCHANGED loads nothing — Hard rules) | **fusion-sql-review** |
+| call `run_sql` / `explain_plan` on SQL you wrote (a diagnostic probe is SQL you author — "investigation mode" is not exempt; the instance probe is not reviewed — Hard rules): ground + validate first | **fusion-sql-review** |
+| write or run SECURED SQL — the data-access rule: the user asked for data access or said yes to the align-ask offer (developer), every end-user read | **data-access-security** |
 | build or edit a **data model** (`.xdmz`) — before `createDataModelFile` or any `edit*`/`setDatasetSql` | **datamodel-authoring** |
 | create or modify a **report layout** (`.xdoz` / RTF / XPT / subtemplate `.xsb`) — before `createReportFile` / `addReportLayout` / `modifyReportLayout` | **report-authoring** |
 | start from a ready-made **template** instead of a from-scratch layout | **using-templates** |
 | **render** a template, LOOK at any produced output (Read + pages), or **run / download / upload** on the live Fusion pod (incl. `prepareDataModelTest` / `prepareReportForPod`), or **compare** two reports / data models | **rendering-and-running** |
 
 Load the skill BEFORE the tool call, not after — its guidance has to shape the call. A data-model
-build almost always trips THREE rows: **fusion-sql-review** + **data-access-security** for the SQL,
-then **datamodel-authoring** for the model — load all three.
+build almost always trips TWO rows: **fusion-sql-review** for the SQL, then **datamodel-authoring**
+for the model — load both; **data-access-security** joins them only when the SQL is secured.
 
 **FAILURE FLOOR — if a skill will not load** (the `Skill` tool errors, returns an empty body, or
 refuses): **STOP.** Tell the user exactly which capability would not load and that you cannot safely

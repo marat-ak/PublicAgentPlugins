@@ -19,7 +19,8 @@ output and the developer data-access plan; the grounding rules stay.
 
 ## The one flow for every data question
 1. **Instance** — the pod host exactly as a `runSql` / `run_sql` reply reports `instance` (none yet: run
-   exactly `select 1 from dual` once and take it — the only plain SQL of this mode). Never typed from memory.
+   exactly `select 1 from dual` once and take it — the only plain SQL of this mode, a fixed connectivity
+   probe that reads no table, not reviewed: kernel review rule). Never typed from memory.
 2. **Ground** the tables and columns as the kernel requires (findSimilarQueries / validateTable /
    getColumns …). The pushed payload's `exposure` and per-column `exposedIn` show which subject areas read a
    table and its columns — prefer tables and columns that a subject area exposes.

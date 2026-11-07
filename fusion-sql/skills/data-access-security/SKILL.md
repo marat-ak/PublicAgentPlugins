@@ -1,6 +1,6 @@
 ---
 name: data-access-security
-description: Use before emitting or running ANY Fusion SQL — a final answer, a data model's dataset or LOV SQL, a runSql / run_sql / explain_plan probe, SQL in prose or in a hand-off — to apply the kernel's data-access rule: the SQL it secures reads only the data the running user may see, the rest runs plain. Covers the pod `instance` the plan needs, the developer PLAN from getDataAccessPredicate (one secured CTE per table + the rewrite map, a grade and the keying — table, or the OTBI subject area with `subjectArea` — on every condition, blocked / unsecured tables), the END-USER plan getSecuredQueryPlan (subject-area gate + column whitelist with filter-only columns, the strictest of candidates, the structural none rule, the no-area policy; the end-user overlay owns that flow), running or delivering the statement with the plan's slots left in place through ONE runSecuredSql call (the server fills Oracle's own condition — FND_DATA_SECURITY, by object + privilege NAME, for the user whose session runs the SQL — the text never enters the conversation; deliver run / file), the secured DATA MODEL rule (the ONE XML-function dataset that generates the running user's condition at run time — never an embedded or lexical-passed condition), sensitive tables and masked columns, the three access verdicts (restricted / none / global) and their wording, plain (unsecured) SQL, and the mandatory `Data access:` lines of the Filter check.
+description: Use before writing or running SECURED Fusion SQL — the kernel's opt-in data-access rule: in developer mode only when the user asked for data access / security or said yes when the align ask offered it, and every end-user read — a final answer, a data model's dataset or LOV SQL, a secured run, SQL in prose or in a hand-off; secured SQL reads only the data the running user may see. Plain SQL (the developer default) needs no load. Covers the pod `instance` the plan needs, the developer PLAN from getDataAccessPredicate (one secured CTE per table + the rewrite map, a grade and the keying — table, or the OTBI subject area with `subjectArea` — on every condition, blocked / unsecured tables), the END-USER plan getSecuredQueryPlan (subject-area gate + column whitelist with filter-only columns, the strictest of candidates, the structural none rule, the no-area policy; the end-user overlay owns that flow), running or delivering the statement with the plan's slots left in place through ONE runSecuredSql call (the server fills Oracle's own condition — FND_DATA_SECURITY, by object + privilege NAME, for the user whose session runs the SQL — the text never enters the conversation; deliver run / file), the secured DATA MODEL rule (the ONE XML-function dataset that generates the running user's condition at run time — never an embedded or lexical-passed condition), sensitive tables and masked columns, the three access verdicts (restricted / none / global) and their wording, and the mandatory `Data access:` lines of secured SQL's Filter check.
 ---
 
 # Data-access security — secured SQL reads only the user's data
@@ -14,12 +14,12 @@ side: the catalog knows WHICH object and privilege secure a table on THAT pod; t
 You never see or handle that text: for an ad-hoc run or a `.sql` file you write the plan's
 `{PRED:<object>|<privilege>}` slots and `runSecuredSql` fills them server-side; a DATA MODEL embeds no
 condition at all — its one dataset calls the API itself when the report runs (Secured data models below).
-Which SQL is secured and which runs plain is the kernel's data-access rule; this skill is the how.
+Which SQL is secured (opt-in) and which runs plain is the kernel's data-access rule; this skill is the how.
 
 ## The pod `instance` — required, never guessed
 The plan is per pod. `instance` = the pod host EXACTLY as a `runSql` or `run_sql` reply in this
-conversation reports it (`instance` field). No such reply yet → run one trivial probe (`select 1 from dual`)
-and take its `instance`. A `run_sql` reply without `instance` is not a Fusion pod connection — there is no
+conversation reports it (`instance` field). No such reply yet → run the instance probe `select 1 from dual`
+(a fixed connectivity probe that reads no table — not reviewed, kernel review rule) and take its `instance`. A `run_sql` reply without `instance` is not a Fusion pod connection — there is no
 data-access plan for it; say so. Never type a host from memory, another conversation or a URL guess. An
 "unknown instance / no layer loaded" error names the loaded pods: relay it — the data-access layer of
 that pod has to be loaded first (an admin action) — and do not emit the SQL unsecured as a substitute.
@@ -204,13 +204,13 @@ deliver again after any change.
 - GL segment-value (balancing-segment) security is NOT covered — say so when the query reports GL
   balances. Relay a `granted` grade as "not OTBI-proven".
 
-## Plain (unsecured) SQL
-Where the kernel's data-access rule says plain: the tables as written — no plan call, no CTEs, no
-`runSecuredSql`; it runs through `runSql` / `run_sql`. Its Filter check carries the SKIPPED line
-(below); authored SQL the user chose unsecured is also called "unsecured" in the answer.
+## Plain SQL inside a secured flow
+SQL the kernel's data-access rule leaves plain — the analysis runs (a lookup, a grain probe, a query run
+to see its rows): the tables as written — no plan call, no CTEs, no `runSecuredSql`, no `Data access:`
+lines; it runs through `runSql` / `run_sql`.
 
-## Filter-check lines (mandatory)
-In the kernel's Filter check before every ```sql block, one line per table instance:
+## Filter-check lines (mandatory for secured SQL)
+In the kernel's Filter check before every ```sql block of secured SQL, one line per table instance:
 - `Data access: <table>.<column> → <object> / <privilege> [<grade>, keying table]` — a reference cte,
   e.g. `Data access: AP_INVOICES_ALL.ORG_ID → FUN_ALL_BUSINESS_UNITS_V / AP_REPORT_PAYABLES_DATA [trace,
   keying table]`; keyed on an area: `[<grade>, keying area <subject area>]`; append `(no access)` when the
@@ -222,8 +222,6 @@ In the kernel's Filter check before every ```sql block, one line per table insta
   `Data access: <table> read without a condition [structural, …]` — end-user plans (the line stays in the
   tool log; the end user sees the `limits` sentence);
 - `Data access: <table> BLOCKED — <reason>` — only while asking the user, never in emitted SQL;
-- `Data access: SKIPPED (analysis)` or `Data access: SKIPPED (user chose unsecured SQL)` — plain SQL,
-  one line for the statement;
 - on a data model, after its table lines: `Data access: generated at run time for the running user
   (XML-function dataset)`.
-These lines are never dropped, however terse the answer.
+These lines are never dropped from secured SQL, however terse the answer; plain SQL has none.

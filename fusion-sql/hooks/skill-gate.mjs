@@ -12,8 +12,8 @@
 //   datamodel-mutating tools  -> datamodel-authoring (structural discipline: fileId chain, surgical
 //                                edits, grouping shapes); the SQL-carrying ones (createDataModelFile,
 //                                setDatasetSql) ALSO require fusion-sql-review (grounding workflow +
-//                                the aggregation ladder) and data-access-security (the data-access
-//                                choice of authored SQL)
+//                                the aggregation ladder). data-access-security is never required: data
+//                                access is opt-in (the kernel's data-access rule), plain SQL is the default
 //   report/layout-mutating    -> report-authoring
 //   instantiateTemplate       -> using-templates
 //   FAIL-OPEN by design: a QUALITY backstop (the engine's readGate/askGate are security gates and fail
@@ -30,7 +30,7 @@
 //    carry this rule: runSecuredSql's continuation needs runSql mounted, and the CloudBeaver run_sql is
 //    a caller tool outside the manifest. A SECURITY backstop, so it fails CLOSED: with modes declared, a
 //    turn without AGENT_MODE, or an event the hook cannot read, is denied. No skill is required for
-//    plain SQL (developer analysis runs it as written).
+//    plain SQL (developer-mode SQL runs as written).
 
 import fs from "node:fs";
 import os from "node:os";
@@ -38,11 +38,10 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 
 const DM = "datamodel-authoring", SQL = "fusion-sql-review", RPT = "report-authoring", TPL = "using-templates";
-const DAS = "data-access-security";
 const REQUIRED = [
-  // data model — mutating tools; SQL-carrying ones also re-read the SQL discipline + data access
-  { tool: "createDataModelFile", skills: [DM, SQL, DAS] },
-  { tool: "setDatasetSql", skills: [DM, SQL, DAS] },
+  // data model — mutating tools; SQL-carrying ones also re-read the SQL discipline
+  { tool: "createDataModelFile", skills: [DM, SQL] },
+  { tool: "setDatasetSql", skills: [DM, SQL] },
   { tool: "updateDataModelFile", skills: [DM] },
   { tool: "addStructureElement", skills: [DM] },
   { tool: "moveStructureElement", skills: [DM] },
@@ -151,9 +150,8 @@ if (!canPersist(markerDir)) proceed();       // can't track markers here -> fail
 deny(
   `Load the ${missing.map((s) => `\`${s}\``).join(" and ")} skill${missing.length > 1 ? "s" : ""} ` +
   `FIRST (one Skill-tool call each), then retry ${match.tool}. The build procedure, grouping-shape ` +
-  `rules, SQL discipline (incl. the aggregation ladder and the data-access secured CTEs), and ` +
-  `render-verified recipes are required and are NOT in the always-on instructions — working from ` +
-  `memory produces the wrong shape (e.g. a second summary SELECT instead of one ROLLUP query) or ` +
-  `unsecured SQL. If a skill will not load after you call it, STOP and tell the user; do not build ` +
-  `from memory.`
+  `rules, SQL discipline (incl. the aggregation ladder), and render-verified recipes are required ` +
+  `and are NOT in the always-on instructions — working from memory produces the wrong shape (e.g. a ` +
+  `second summary SELECT instead of one ROLLUP query). If a skill will not load after you call it, ` +
+  `STOP and tell the user; do not build from memory.`
 );

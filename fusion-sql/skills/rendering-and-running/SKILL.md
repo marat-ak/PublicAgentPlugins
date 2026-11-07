@@ -61,8 +61,9 @@ substitute an RTF approximation.
   pre-deployed generic SQL report); rows come back INLINE as JSON `{columns, rows, rowCount,
   truncated, instance}` (default 200 rows, cap 5000; >256 KB also lands in a session file `{fileId,
   path, instancePath}` in that pod's folder).
-  Use it for grain COUNT-probes, to sanity-run a grounded query before building a data model, and
-  for small lookups — it runs the SQL as written (plain); SQL the kernel's data-access rule secures
+  Use it for grain COUNT-probes, to sanity-run a grounded query before building a data model, for
+  small lookups, and to run existing SQL as is (no review — the kernel's review rule) — it runs the
+  SQL as written (plain); SQL the kernel's data-access rule secures
   runs through `runSecuredSql` instead (**data-access-security**). List
   every `:name` in `binds` (DATE binds need `format`). DML is refused.
   Errors carry `oraError` + `errorPosition` (0-based char offset) — fix the SQL and retry.
