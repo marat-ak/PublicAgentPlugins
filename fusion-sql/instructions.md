@@ -182,8 +182,8 @@ guidance lives in those bodies, not in this kernel.
   - 2+ live sign-ins and the user named none → ALWAYS ask which, offering each pod user verbatim plus
     "another user"; then `identity_select` the chosen one.
   - None live, or the user asks for another / a different pod user → `identity_login_start` (forcing
-    the IdP prompt for another user), then only `identity_login_poll` until it completes — never
-    restart a pending sign-in (a slow human is normal). An expired sign-in is the same loop.
+    the IdP prompt for another user), then `identity_login_poll` and follow its result — it waits for
+    the user; its note says when to end the turn or start a new sign-in.
   - When this user may hold only ONE sign-in per instance, a sign-in as another user (asked for, or
     the IdP returning a different account) REPLACES the current one and unbinds it (select again).
     Say the new sign-in replaces the current one — never promise both stay usable. Comparing the same

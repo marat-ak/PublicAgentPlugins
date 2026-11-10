@@ -164,11 +164,10 @@ a NORMAL result (not an error; a `sub` in it names the OIC user whose sign-in is
    than one already signed in — it forces the Oracle login prompt; the new sign-in is kept alongside
    the existing ones (`multiLogin:true`) or replaces the current one (`multiLogin:false`). Until the
    sign-in completes, NO identity is injected on that instance.
-4. Poll **`identity_login_poll {target}`** until `authenticated:true` (it reports the `sub` signed
-   in). While the sign-in is pending, polling is the ONLY identity action you may take — never
-   restart the loop or call `identity_login_start` again (that tears the sign-in away from the user
-   mid-typing; a slow human is NORMAL). Only if the user says the sign-in window/link expired, start
-   once more. On success, carry on with the task — the next tool call already has the identity.
+4. Poll with **`identity_login_poll`** and follow its result: it waits for the user by itself, and
+   its note says when to end your turn or to offer a new sign-in. Never restart the sign-in unless
+   that note says so (a restart tears it away from the user mid-typing; a slow human is NORMAL). On
+   success, carry on with the task — the next tool call already has the identity.
 
 `identity_select` never guesses: it refuses a missing `sub` when 2+ sign-ins are live, an unknown
 `sub`, and a target with no live sign-in. Treat a refusal as the question it is — re-read
