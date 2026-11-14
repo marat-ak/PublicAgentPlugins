@@ -16,9 +16,15 @@ OIC **projects** are a management grouping; project-scoped integrations live und
 - `oic_list_integrations` — in the pinned search scope (one project, standalone, or both, every item named
   with its project; none = standalone). Its search is OIC's own server-side search (case-insensitive
   substring of name, code, description AND keywords — not a regex; alternatives go in separate terms);
-  check code/name before trusting a hit. A truncated answer means a search stopped at its limit — the list
+  check code/name before trusting a hit. Its status / style / last-updated-by filters are OIC's own
+  server-side filters too — use them for "the ACTIVATED ones", "the scheduled ones" instead of listing
+  everything and sorting by hand. A truncated answer means a search stopped at its limit — the list
   is incomplete. The scope — and every later project — is the user's pinned choice (instructions.md
   §Integration scope).
+- Style and pattern on a row are Oracle's own words — report them as Oracle gives them. Neither names the
+  trigger's adapter: never call an integration "REST-triggered" (or SOAP, …) from its style or pattern.
+- One integration's endpoint URL (endPointURI) and its endpoints come from `oic_get_integration` — not
+  from `oic_raw_api`.
 - Lookups (DVMs): `oic_list_lookups` takes the same search scope; the tools on ONE lookup
   (`oic_get_lookup`, `oic_create_lookup`, `oic_update_lookup`, `oic_delete_lookup`, `oic_clone_lookup`,
   `oic_lookup_usage`, `oic_export_lookup`, `oic_import_lookup`) act on a project's lookups when given the
@@ -33,8 +39,8 @@ The designer's "Add to project" = `POST /projects/{projectId}/integrations/copy`
 - The tool copies ONE integration per call by default and reports each: copied / already in the project
   (safe to re-run — idempotent-ish) / an error with its body. All-or-nothing in a single call exists —
   avoid it unless you want exactly that.
-- Typical flow: `oic_list_integrations` in the SOURCE scope (standalone or its project) → filter (e.g.
-  status ACTIVATED) → `oic_copy_integrations_to_project` with that list → confirm with
+- Typical flow: `oic_list_integrations` in the SOURCE scope (standalone or its project), filtered by OIC
+  (e.g. status ACTIVATED) → `oic_copy_integrations_to_project` with that list → confirm with
   `oic_list_integrations` in the target project.
 - NOT a move and NOT a clone: the copy keeps the same code/version, now under the project (a new version, or
   a copy under a new code/name, is `oic_clone_integration` — below). If a same-code integration already
