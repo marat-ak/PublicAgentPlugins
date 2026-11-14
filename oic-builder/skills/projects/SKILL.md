@@ -1,6 +1,6 @@
 ---
 name: projects
-description: Use when working with OIC projects or making a copy of an integration — listing projects and their integrations; CLONING an integration (oic_clone_integration — a new version of the same integration, or a new integration under a NEW code/name: "clone X as Y", "copy X to a new integration", "duplicate", "save as", "create Y from X"); CREATING a new, empty integration (oic_create_integration: "create a new integration", "new scheduled integration", "from scratch"); ACTIVATING an integration version (oic_activate_integration: "activate", "deploy this version", "make it live") and changing the tracing level of an ACTIVE one (oic_set_tracing_level); copying existing integrations into a project (oic_copy_integrations_to_project — by reference, same code/version); importing an uploaded archive; and pointing to the connection copy/import tools for a project's connections.
+description: Use when working with OIC projects or making a copy of an integration — listing projects and their integrations; CLONING an integration (oic_clone_integration — a new version of the same integration, or a new integration under a NEW code/name: "clone X as Y", "copy X to a new integration", "duplicate", "save as", "create Y from X"); CREATING a new, empty integration (oic_create_integration: "create a new integration", "new scheduled integration", "from scratch"); ACTIVATING an integration version (oic_activate_integration: "activate", "deploy this version", "make it live") and changing the tracing level of an ACTIVE one (oic_set_tracing_level); RUNNING or TESTING a REST-triggered integration (oic_run_panel — the user runs it in the side panel: "run it", "test it", "try this integration", "send a request to it"); copying existing integrations into a project (oic_copy_integrations_to_project — by reference, same code/version); importing an uploaded archive; and pointing to the connection copy/import tools for a project's connections.
 ---
 
 # Projects (grouping integrations under an OIC project)
@@ -138,6 +138,22 @@ The designer's Activate, on one version — a live MUTATION of the tenant (it st
 - **Result check.** Report it active only on the activated state. Pending / unverified = NOT done:
   re-check with `oic_get_integration` before saying it is live. Refused before any change (not complete
   or not CONFIGURED, a schedule state the tool does not know) = nothing happened — tell the user why.
+
+## Run or test an integration — `oic_run_panel`
+The user runs it, never you: `oic_run_panel` opens the integration's run form in the user's side panel, where
+the USER fills the request and presses Run.
+- **Never call the integration yourself** — not through `oic_raw_api`, not any other way, not "to check it".
+- **Never report a run result you were not shown.** The request and the answer stay in the panel. Tell the
+  user in one line that the run form was requested for that integration and version; never say it ran.
+- **Which version:** the ACTIVATED one. The user named only the code → find its activated version with
+  `oic_list_integrations` (status filter); more than one activated (different majors) → ASK. The scope follows
+  the pinned scope choice (instructions.md §Integration scope).
+- **On a refusal say why**, from its reason: not activated (activating is a separate agreement — §Activate),
+  not REST-triggered (scheduled, SOAP- or event-triggered integrations have no run form), no usable endpoint URL.
+- **Do not reopen it unasked:** opening it for another integration replaces the panel, and a run the user is
+  waiting for is lost.
+- The tool exists only where the chat can show the panel. When it is not among your tools, say the run form is
+  not available here — never substitute another way of running it.
 
 ## Related (Oracle REST, not yet wrapped as tools)
 - Clone a whole project: `POST /projects/{id}/clone`.
