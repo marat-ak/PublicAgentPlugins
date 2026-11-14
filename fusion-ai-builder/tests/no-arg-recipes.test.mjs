@@ -36,7 +36,7 @@ const ARGS = ['select', 'grep', 'context', 'ignoreCase', 'offset', 'limit', 'cha
   'file', 'message', 'version', 'dataSource', 'testFile', 'judgeProvider', 'evaluationMode', 'toolType', 'remote', 'verbose',
   'allowConflictUpdate', 'enabled', 'update', 'files', 'args', 'command', 'fileId', 'instance', 'spec', 'variables', 'patch',
   'inputs', 'node', 'target', 'input', 'layout', 'hint', 'boCode', 'family', 'product', 'resourcePath', 'q', 'nodeCode',
-  'metadataPatch', 'inputsPatch', 'aiAppOutputSpecification'];
+  'metadataPatch', 'inputsPatch', 'aiAppOutputSpecification', 'workflow', 'gnimsysUi'];
 
 const ARG_SETTING = `(?:${ARGS.join('|')})\\s*:(?=\\s*(?:["'\\[{0-9]|true\\b|false\\b))`;
 // a line that names a fai tool or a CLI command (kebab-case, in backticks)
@@ -92,6 +92,8 @@ test('the guard catches each recipe shape and passes plain pointers (self-test)'
     'pass `stopBefore:[\'X\']`',
     'with `select:\'description\'`',
     'a run with `chat:true`',
+    'open it with `fai_debug_panel {workflow, version, gnimsysUi}`',
+    'the debugger with `gnimsysUi:"1"`',
   ]) assert.ok(caught(s), `not caught: ${s}`);
   for (const s of [
     'validate with `fai_validate`, then export with `fai_export`',
