@@ -1,6 +1,6 @@
 ---
 name: projects
-description: Use when working with OIC projects or making a copy of an integration — listing projects and their integrations; CLONING an integration (oic_clone_integration — a new version of the same integration, or a new integration under a NEW code/name: "clone X as Y", "copy X to a new integration", "duplicate", "save as", "create Y from X"); CREATING a new, empty integration (oic_create_integration: "create a new integration", "new scheduled integration", "from scratch"); ACTIVATING an integration version (oic_activate_integration: "activate", "deploy this version", "make it live") and changing the tracing level of an ACTIVE one (oic_set_tracing_level); RUNNING or TESTING a REST-triggered integration (oic_run_panel — the user runs it in the side panel: "run it", "test it", "try this integration", "send a request to it"); copying existing integrations into a project (oic_copy_integrations_to_project — by reference, same code/version); importing an uploaded archive; and pointing to the connection copy/import tools for a project's connections.
+description: Use when working with OIC projects or making a copy of an integration — listing projects and their integrations; CLONING an integration (oic_clone_integration — a new version of the same integration, or a new integration under a NEW code/name: "clone X as Y", "copy X to a new integration", "duplicate", "save as", "create Y from X"); CREATING a new, empty integration (oic_create_integration: "create a new integration", "new scheduled integration", "from scratch"); ACTIVATING an integration version (oic_activate_integration: "activate", "deploy this version", "make it live") and changing the tracing level of an ACTIVE one (oic_set_tracing_level); RUNNING or TESTING a REST-triggered or scheduled integration (oic_run_panel — the user runs it in the side panel: "run it", "test it", "try this integration", "send a request to it", "submit now", "run the schedule once"); copying existing integrations into a project (oic_copy_integrations_to_project — by reference, same code/version); importing an uploaded archive; and pointing to the connection copy/import tools for a project's connections.
 ---
 
 # Projects (grouping integrations under an OIC project)
@@ -141,15 +141,18 @@ The designer's Activate, on one version — a live MUTATION of the tenant (it st
 
 ## Run or test an integration — `oic_run_panel`
 The user runs it, never you: `oic_run_panel` opens the integration's run form in the user's side panel, where
-the USER fills the request and presses Run.
+the USER fills the request and presses Run. A scheduled integration gets its Submit now form instead (its
+schedule parameters); it is submitted as the signed-in user — no other user can be chosen.
 - **Never call the integration yourself** — not through `oic_raw_api`, not any other way, not "to check it".
-- **Never report a run result you were not shown.** The request and the answer stay in the panel. Tell the
-  user in one line that the run form was requested for that integration and version; never say it ran.
+- **Never report a run result you were not shown.** The request, the answer and the run's status stay in the
+  panel. Tell the user in one line that the run form was requested for that integration and version; never say
+  it ran, finished or failed.
 - **Which version:** the ACTIVATED one. The user named only the code → find its activated version with
   `oic_list_integrations` (status filter); more than one activated (different majors) → ASK. The scope follows
   the pinned scope choice (instructions.md §Integration scope).
 - **On a refusal say why**, from its reason: not activated (activating is a separate agreement — §Activate),
-  not REST-triggered (scheduled, SOAP- or event-triggered integrations have no run form), no usable endpoint URL.
+  not REST-triggered (SOAP- or event-triggered integrations have no run form), no usable endpoint URL, no usable
+  Submit now address or schedule parameters (scheduled), no usable design host.
 - **Do not reopen it unasked:** opening it for another integration replaces the panel, and a run the user is
   waiting for is lost.
 - The tool exists only where the chat can show the panel. When it is not among your tools, say the run form is
