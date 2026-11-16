@@ -178,6 +178,9 @@ schedule parameters); it is submitted as the signed-in user — no other user ca
   Submit now address or schedule parameters (scheduled), no usable design host.
 - **Do not reopen it unasked:** opening it for another integration replaces the panel, and a run the user is
   waiting for is lost.
+- **The user asks about the run they made there** ("this run", "the instance", "why did it fail") → the panel's
+  page tool `get_instance_id` first (app `api-run`, through `ui_app_tool`), then the run-analysis skill with that
+  id. Never search runs to guess it; no run in the panel / panel not open / refusal → say so and ask for the run.
 - The tool exists only where the chat can show the panel. When it is not among your tools, say the run form is
   not available here — never substitute another way of running it.
 

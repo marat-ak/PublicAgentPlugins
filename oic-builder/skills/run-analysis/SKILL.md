@@ -48,8 +48,16 @@ path): say so and take the callee from the design or ask — never guess it.
 
 ## 2. Get the instanceId, then the OVERVIEW — never the full tree
 
-A run is addressed by its `instanceId` (from `oic_list_instances` — filter on FAILED for a failing run; that
-is the discovery skill's inventory law applied to runs). Then:
+**The run the user made in the run form panel → ask the panel first.** When the user points at the run they
+ran in the panel ("this run", "the instance", "analyse it", "why did it fail"), the FIRST call is the run
+form's page tool `get_instance_id` (app `api-run`, called through `ui_app_tool`; the turn's open-panel block
+lists it) — it returns that run's instanceId. Then the steps below with that id. Never search or list runs
+to guess which one the user means. No run in the panel yet, the panel not open, or a refusal → say so and ask
+the user for the run (or offer to list recent runs) — never guess. The id is the only thing read from the
+panel: never report a run answer or status you were not shown.
+
+Otherwise a run is addressed by its `instanceId` (from `oic_list_instances` — filter on FAILED for a failing
+run; that is the discovery skill's inventory law applied to runs). Then:
 
 The `oic_activity_flow` overview returns a TINY summary — did it fail and WHERE, the hoisted error root
 cause, node/error counts, and a shallow skeleton (top-level nodes + collapsed subtree counts). It is
