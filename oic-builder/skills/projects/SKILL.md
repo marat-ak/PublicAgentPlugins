@@ -1,6 +1,6 @@
 ---
 name: projects
-description: Use when working with OIC projects or making a copy of an integration — listing projects and their integrations; CLONING an integration (oic_clone_integration — a new version of the same integration, or a new integration under a NEW code/name: "clone X as Y", "copy X to a new integration", "duplicate", "save as", "create Y from X"); CREATING a new, empty integration (oic_create_integration: "create a new integration", "new scheduled integration", "from scratch"); ACTIVATING an integration version (oic_activate_integration: "activate", "deploy this version", "make it live") and changing the tracing level of an ACTIVE one (oic_set_tracing_level); RUNNING or TESTING a REST-triggered or scheduled integration (oic_run_panel — the user runs it in the side panel: "run it", "test it", "try this integration", "send a request to it", "submit now", "run the schedule once"); copying existing integrations into a project (oic_copy_integrations_to_project — by reference, same code/version); importing an uploaded archive; and pointing to the connection copy/import tools for a project's connections.
+description: Use when working with OIC projects or making a copy of an integration — listing projects and their integrations; CLONING an integration (oic_clone_integration — a new version of the same integration, or a new integration under a NEW code/name: "clone X as Y", "copy X to a new integration", "duplicate", "save as", "create Y from X"); CREATING a new, empty integration (oic_create_integration: "create a new integration", "new scheduled integration", "from scratch"); ACTIVATING an integration version (oic_activate_integration: "activate", "deploy this version", "make it live") and changing the tracing level of an ACTIVE one (oic_set_tracing_level); PAUSING or STOPPING the schedule of an activated scheduled integration (oic_pause_schedule / oic_stop_schedule: "pause the schedule", "stop the scheduler", "cancel the scheduled runs"); RUNNING or TESTING a REST-triggered or scheduled integration (oic_run_panel — the user runs it in the side panel: "run it", "test it", "try this integration", "send a request to it", "submit now", "run the schedule once"); copying existing integrations into a project (oic_copy_integrations_to_project — by reference, same code/version); importing an uploaded archive; and pointing to the connection copy/import tools for a project's connections.
 ---
 
 # Projects (grouping integrations under an OIC project)
@@ -138,6 +138,29 @@ The designer's Activate, on one version — a live MUTATION of the tenant (it st
 - **Result check.** Report it active only on the activated state. Pending / unverified = NOT done:
   re-check with `oic_get_integration` before saying it is live. Refused before any change (not complete
   or not CONFIGURED, a schedule state the tool does not know) = nothing happened — tell the user why.
+
+## Pause or stop a schedule — `oic_pause_schedule` / `oic_stop_schedule`
+The schedule of ONE activated scheduled integration version — a live MUTATION of the tenant.
+- **Only on the user's explicit request** to pause or stop that schedule. Never as a side effect of another
+  task, never "to be safe", never to work around something. The scope follows the pinned scope choice
+  (instructions.md §Integration scope); the version is the ACTIVATED one — the user named only the code →
+  find it with `oic_list_integrations` (status filter); more than one activated (different majors) → ASK.
+- **Pause ≠ stop — use the one the user asked for.** Pause: runs already in progress finish, no new run
+  starts; when the schedule is resumed, the run that fell due while paused runs. Stop: every run of the
+  schedule is CANCELLED and none starts until the schedule is started again. The user's words are ambiguous
+  ("turn the scheduler off", "halt it") → ASK which one, saying that difference.
+- **The confirmation is the TOOL's.** The tool itself asks the user to confirm, naming the version and the
+  effect, before anything is written. Do not pre-ask that question or repeat it. A decline = nothing
+  changed: say so and stop there. If the tool answers that this client cannot show the confirmation,
+  nothing was changed either — report it as is.
+- **Only a RUNNING schedule** is paused or stopped. Refused before any change = nothing happened — tell the
+  user why: not found in that scope, not a scheduled integration, not activated, no schedule defined,
+  already stopped, or a schedule state the tool does not know (a paused one included — stopping a paused
+  schedule is not possible here yet).
+- **Result check.** Report it paused / stopped only on the paused / stopped state. Pending (Oracle accepted,
+  the schedule still reports running) or unverified = NOT done — say exactly that.
+- **No resume and no start tool.** Resuming a paused schedule or starting a stopped one is the user's
+  decision and is done in the designer — say so; never work around it.
 
 ## Run or test an integration — `oic_run_panel`
 The user runs it, never you: `oic_run_panel` opens the integration's run form in the user's side panel, where
