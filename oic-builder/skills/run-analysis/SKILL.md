@@ -56,14 +56,24 @@ to guess which one the user means. No run in the panel yet, the panel not open, 
 the user for the run (or offer to list recent runs) — never guess. The id is the only thing read from the
 panel: never report a run answer or status you were not shown.
 
-Otherwise a run is addressed by its `instanceId` (from `oic_list_instances` — filter on FAILED for a failing
-run; that is the discovery skill's inventory law applied to runs). Then:
+Otherwise a run is addressed by its `instanceId` (from `oic_list_instances`). Then:
 
 The `oic_activity_flow` overview returns a TINY summary — did it fail and WHERE, the hoisted error root
 cause, node/error counts, and a shallow skeleton (top-level nodes + collapsed subtree counts). It is
 deliberately not the full tree. The stream is fetched + parsed ONCE per instanceId and cached in this
 conversation; later queries reuse it (`oic_reload_flowactivity` re-fetches a run that progressed). A
 `410 Gone` means the run's stream was purged — pick a more recent run.
+
+**A run's status is not its error state.** Status says how the run ENDED: a fault caught by a scope or
+global fault handler leaves the run COMPLETED (no recoverable faults) while a node inside it errored.
+- "Was there an error / why did it fail / is it still failing / are the runs clean" is answered ONLY from
+  the loaded flow: load the run (`oic_load_flowactivity`; several runs: `oic_runs_load`) and search it for
+  failing nodes — the overview's outcome and error nodes, the `oic_activity_flow` search over failing
+  nodes, the batch rows' outcome and error count. Never conclude "no errors" from a status, a run-list row
+  or the recoverable-faults flag.
+- Finding the failing runs of an integration = load its runs over the window with NO status filter and
+  take the ones whose outcome is errors. A FAILED filter lists only the runs whose fault reached the end.
+- Report such a run as COMPLETED with its errors (the failing node and message), never as "completed".
 
 Read the overview to decide the ONE question worth drilling. **A failed run's implicit goal is "why did it
 fail" → go straight to the hoisted root cause / the error nodes.** For a broad or unpinned request ("check
