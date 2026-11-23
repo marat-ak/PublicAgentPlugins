@@ -96,13 +96,22 @@ skill (§Exporting, importing and copying connections). An id may exist in a pro
 When the user attaches an `.iar`/`.car`, `oic_import_integration` puts it into that tenant (or inside a
 project of it). The code|version come from the archive itself. It is a MUTATION and the only one in this
 flow:
-- If that code|version already exists you get a clash and nothing was changed. ASK the user
-  (AskUserQuestion) before overwriting — showing the `oic_compare_integrations` diff of live-vs-upload
-  first is usually what they want — then re-call with the replace confirmation, which is irreversible. An
-  ACTIVATED target is refused even then.
-- On success the integration is CONFIGURED, not activated, and its connections may be unconfigured in
-  this tenant: `oic_verify` it, and continue with its code and version like any other live integration.
-  Activation stays a separate agreement (§Activate).
+- **Only on the user's request** to import that archive into that tenant (and project, if any). One call:
+  the tool checks the target itself.
+- **Nothing on that code|version** → it is imported, no question.
+- **The overwrite confirmation is the TOOL's.** When that code|version already exists, the tool itself
+  asks the user to confirm the overwrite — naming the instance, project, code, version, its current status
+  and the archive file — before anything is written. Do not pre-ask that question or repeat it. A decline
+  (state declined) = nothing changed: say so and stop there. If the tool answers that this client cannot
+  show the confirmation, nothing was changed either — report it as is.
+- **An ACTIVATED target, or one whose status the tenant does not report, is refused** — nothing changed,
+  no question. Deactivating is the user's separate decision; say why it was refused.
+- **What an overwrite would change** = the `oic_compare_integrations` diff of live-vs-upload — show it
+  before the import when the user asks to see it.
+- **Result check.** Imported or replaced = the re-read found it: CONFIGURED, not activated, and its
+  connections may be unconfigured in this tenant — `oic_verify` it, and continue with its code and version
+  like any other live integration. Unverified = NOT done: confirm with `oic_list_integrations` (its scope,
+  searching the code) before any next step. Activation stays a separate agreement (§Activate).
 
 ## Activate an integration — `oic_activate_integration`
 The designer's Activate, on one version — a live MUTATION of the tenant (it starts serving traffic or runs).
