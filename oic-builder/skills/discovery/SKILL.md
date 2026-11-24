@@ -31,7 +31,8 @@ PROJECT integrations reads them through a temporary deployment per project, so t
 allow creating project deployments; a standalone-only crawl needs no such role. It runs in the background
 (minutes on a first run; tell the user) — follow it with `oic_catalog_job` (`oic_catalog_jobs` lists what
 is running and the recent ones) and read the job's error list: every archive that failed is named with
-its integration/project. An auth-required answer = sign the user in to THAT instance first (identity loop).
+its integration/project. An auth-required answer = sign the user in to THAT instance first (identity loop) — unless its reason is
+`rejected`: no sign-in fixes that (instructions.md §Identity protocol).
 
 ### Counts, lists and reports — `oic_catalog_sql`
 

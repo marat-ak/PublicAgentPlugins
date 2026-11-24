@@ -23,6 +23,7 @@ page is the SAME loop.
 | **EDIT in place** | `oic_wizard_create` on the EXISTING node (its id and blueprint segment) | **pre-filled** with the existing config — incl. file bindings absent from get_node/blueprint/.jca (`Filename`/`FileReferenceName` expressions; otherwise only in `.iar` `*expr.properties`, see the stage-files and source-material skills) | change ONLY your deltas; everything else echoes |
 | **NEW endpoint** | `oic_wizard_create` with the endpoint name, the connection and the anchor | **server defaults** | fill the required fields (read labels/options from the live page, like a designer user) |
 | **NEW: first trigger of an empty flow** | `oic_wizard_create` as a TRIGGER with no anchor — the endpoint name is the wizard's own field | **server defaults** | same as a new endpoint; the connection is the user's choice |
+| **Event trigger of an Event integration** | `oic_wizard_create` on the trigger node the tenant built (its id, its blueprint segment, its own connection) | **ONE page**: every field a subscription can carry | the plain subscription is `oic_subscribe_event` (projects skill §Events); come here only for a variant it does not cover — the values go with `oic_wizard_generate` |
 
 One wizard per integration per conversation — every `oic_wizard_*` call names the same integration and
 wsid; `oic_wizard_cancel` before creating another for the same integration.

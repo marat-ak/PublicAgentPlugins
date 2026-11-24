@@ -1,6 +1,6 @@
 ---
 name: projects
-description: Use when working with OIC projects or making a copy of an integration — listing projects and their integrations; CLONING an integration (oic_clone_integration — a new version of the same integration, or a new integration under a NEW code/name: "clone X as Y", "copy X to a new integration", "duplicate", "save as", "create Y from X"); CREATING a new, empty integration (oic_create_integration: "create a new integration", "new scheduled integration", "from scratch"); ACTIVATING an integration version (oic_activate_integration: "activate", "deploy this version", "make it live") and changing the tracing level of an ACTIVE one (oic_set_tracing_level); PAUSING or STOPPING the schedule of an activated scheduled integration (oic_pause_schedule / oic_stop_schedule: "pause the schedule", "stop the scheduler", "cancel the scheduled runs"); RUNNING or TESTING a REST-triggered or scheduled integration (oic_run_panel — the user runs it in the side panel: "run it", "test it", "try this integration", "send a request to it", "submit now", "run the schedule once"); copying existing integrations into a project (oic_copy_integrations_to_project — by reference, same code/version); importing an uploaded archive; and pointing to the connection copy/import tools for a project's connections.
+description: Use when working with OIC projects or making a copy of an integration — listing projects and their integrations; CLONING an integration (oic_clone_integration — a new version of the same integration, or a new integration under a NEW code/name: "clone X as Y", "copy X to a new integration", "duplicate", "save as", "create Y from X"); CREATING a new, empty integration (oic_create_integration: "create a new integration", "new scheduled integration", "event-triggered integration", "from scratch"); EVENTS — creating an event type in a project (oic_create_event_type: "create an event", "define an event") and subscribing an event integration to one (oic_subscribe_event: "subscribe to the event", "start it when the event is published"); ACTIVATING an integration version (oic_activate_integration: "activate", "deploy this version", "make it live") and changing the tracing level of an ACTIVE one (oic_set_tracing_level); DEACTIVATING an activated version (oic_deactivate_integration: "deactivate", "take it offline", "turn it off"); PAUSING or STOPPING the schedule of an activated scheduled integration (oic_pause_schedule / oic_stop_schedule: "pause the schedule", "stop the scheduler", "cancel the scheduled runs"); RUNNING or TESTING a REST-triggered or scheduled integration (oic_run_panel — the user runs it in the side panel: "run it", "test it", "try this integration", "send a request to it", "submit now", "run the schedule once"); copying existing integrations into a project (oic_copy_integrations_to_project — by reference, same code/version); importing an uploaded archive; and pointing to the connection copy/import tools for a project's connections.
 ---
 
 # Projects (grouping integrations under an OIC project)
@@ -45,6 +45,12 @@ The designer's "Add to project" = `POST /projects/{projectId}/integrations/copy`
 - NOT a move and NOT a clone: the copy keeps the same code/version, now under the project (a new version, or
   a copy under a new code/name, is `oic_clone_integration` — below). If a same-code integration already
   exists in the project you get 409 (no overwrite).
+- **Connections follow the project.** A project integration uses only its own project's connections, or
+  connections shared from another project — never the global (standalone) ones. The copy behaves like an
+  import: each connection the integration needs that the project lacks is created in the project with EMPTY
+  credentials (its properties may be empty too).
+- **After a copy:** list the project's connections (`oic_find_connections` in that project's scope), tell
+  the user which ones need configuring, and do not activate before they are configured and tested.
 
 ## Clone an integration — `oic_clone_integration`
 The designer's Clone: a new integration (or version) built from an existing one; the source is untouched.
@@ -68,8 +74,9 @@ The source is named by its code, version and project; the TARGET code picks the 
 
 ## Create a new, empty integration — `oic_create_integration`
 The designer's Create: a new integration with no source (from an existing one = `oic_clone_integration`, from an
-uploaded archive = `oic_import_integration`). The kind is App Driven (no trigger, no activities) or
-Scheduled (the tenant adds the schedule trigger and a stop).
+uploaded archive = `oic_import_integration`). The kind is App Driven (no trigger, no activities),
+Scheduled (the tenant adds the schedule trigger and a stop) or Event (started by an event: the tenant adds
+an event trigger that subscribes to nothing yet, and a stop — §Events).
 - **Nothing is defaulted.** Take code, name, version and kind from the user's request; whatever it leaves
   open → ASK (AskUserQuestion) — never invent a name, never assume a version or kind, never derive the code
   yourself (offering the designer-style identifier of the name — upper case, underscores — as an option is fine).
@@ -86,6 +93,30 @@ Scheduled (the tenant adds the schedule trigger and a stop).
   once the flow is complete); no workspace opened, nothing locked. An App Driven integration with no trigger is a valid state to keep.
 - **First trigger of an App Driven flow** → the adapter-wizard skill, after opening it with the lock (the
   result's note names the call).
+- **The trigger of an Event integration** exists already and subscribes to nothing → §Events.
+
+## Events — `oic_create_event_type`, `oic_subscribe_event`
+One integration PUBLISHES an event (`oic_add_publisher` — structural-nodes skill); another is STARTED by
+it: an Event integration, whose trigger subscribes to one event type. The order: the event type exists →
+the Event integration is created (§Create) → opened with the lock → its trigger subscribed → committed.
+- **An event type** lives in a project; its identity is its code and revision. Code, name, revision and the
+  JSON sample of its payload are the user's — ASK for whatever their request leaves open; never invent a
+  payload field. Creating one is a MUTATION: only on the user's request. A taken code and revision = error,
+  nothing changed. Result check as for §Create: unverified = NOT done.
+- **Subscribing** names the trigger's endpoint and ONE event type by code and revision — the user's choice,
+  never "the only one in the project". It is an edit in the open workspace, not committed. The result lists
+  what the flow still lacks before it can be activated — report it, do not hide it.
+- **What the two tools cover:** a JSON event type private to its project, without custom headers; a
+  subscription to an event type of the integration's own project, without a filter, on a trigger that
+  subscribes to nothing yet.
+- **A variant they do not cover** — an XML event, a custom header, an event of another project, a system
+  event, a subscription filter, changing an existing subscription. The designer is driven by the SERVER:
+  what a call returns lists what can be done next. The trigger's wizard is the server's own — opened on the
+  trigger node with the wizard tools (adapter-wizard skill), its page lists every field a subscription can
+  carry; the event type's record lists the fields an event type has. Tell the user the variant was never
+  captured, get their go, then continue from those returns with the `oic_wizard_*` tools or `oic_raw_api`,
+  changing only what the server showed. Never invent an endpoint or a field: when nothing returned points
+  to it, say it cannot be done here.
 
 ## Connections in a project
 To give a project its own copies of connections, copy them from standalone (or another project) with
@@ -105,7 +136,7 @@ flow:
   (state declined) = nothing changed: say so and stop there. If the tool answers that this client cannot
   show the confirmation, nothing was changed either — report it as is.
 - **An ACTIVATED target, or one whose status the tenant does not report, is refused** — nothing changed,
-  no question. Deactivating is the user's separate decision; say why it was refused.
+  no question. Deactivating is the user's separate decision (§Deactivate); say why it was refused.
 - **What an overwrite would change** = the `oic_compare_integrations` diff of live-vs-upload — show it
   before the import when the user asks to see it.
 - **Result check.** Imported or replaced = the re-read found it: CONFIGURED, not activated, and its
@@ -147,6 +178,26 @@ The designer's Activate, on one version — a live MUTATION of the tenant (it st
 - **Result check.** Report it active only on the activated state. Pending / unverified = NOT done:
   re-check with `oic_get_integration` before saying it is live. Refused before any change (not complete
   or not CONFIGURED, a schedule state the tool does not know) = nothing happened — tell the user why.
+
+## Deactivate an integration — `oic_deactivate_integration`
+One ACTIVATED version stops processing — a live MUTATION of the tenant: it takes no new messages, and
+requests still pending are lost.
+- **Only on the user's explicit request** to deactivate that version. Never as a side effect of another task
+  (an import refused for an active target, an edit, a clone), never "to be safe". The scope follows the
+  pinned scope choice (instructions.md §Integration scope); the user named only the code → find its activated
+  version with `oic_list_integrations` (status filter); more than one activated (different majors) → ASK.
+- **The confirmation is the TOOL's.** The tool itself asks the user to confirm, naming the instance, project
+  and version and the effect, before anything is written. Do not pre-ask that question or repeat it. A
+  decline = nothing changed: say so and stop there. If the tool answers that this client cannot show the
+  confirmation, nothing was changed either — report it as is.
+- **A scheduled integration whose schedule runs is refused.** Its schedule is stopped first — the user's own
+  request and its own confirmation (§Pause or stop a schedule) — and only then is it deactivated. Tell the
+  user that order; never stop a schedule on your own to get the deactivation through.
+- **An integration that subscribes to an event:** the result marks it. What happens to events published
+  while it is inactive is not known — tell the user exactly that.
+- **Result check.** Report it deactivated only on the deactivated state. Pending / unverified = NOT done:
+  re-check with `oic_get_integration`. Already inactive or refused = nothing happened — say why.
+- **Activating it again** is a separate agreement (§Activate).
 
 ## Pause or stop a schedule — `oic_pause_schedule` / `oic_stop_schedule`
 The schedule of ONE activated scheduled integration version — a live MUTATION of the tenant.

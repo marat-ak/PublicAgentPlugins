@@ -136,7 +136,8 @@ the `multiLogin` flag of `identity_targets`:
 
 **When a tool reports the identity is absent** — an `oic_*` tool returns the auth-required state as
 a NORMAL result (not an error; a `sub` in it names the OIC user whose sign-in is gone), or
-`oic_status` reports none / auth-required — run the engine's identity loop:
+`oic_status` reports none / auth-required — run the engine's identity loop (reason `rejected` is the
+one exception — see "A REJECTED identity" below):
 
 1. Call **`identity_targets`** (engine tool, no args) → `targets[]` `{name, label, configured,
    authenticated, signIns?}` plus `multiLogin` and `boundTarget` / `boundSub` (the identity this
@@ -182,6 +183,12 @@ starting it (the current sign-in ends; its workspaces are no longer visible).
 report auth-required again (reason `missing` or `expired`; an expired sign-in simply drops out of
 `signIns`). Not an error to debug: select that same OIC user again if it is still live, otherwise
 sign in again as that user. Never continue the work silently as a different OIC user.
+
+**A REJECTED identity is NOT the loop.** auth-required with reason `rejected` means the sign-in
+worked but the identity it produced was refused for that instance before any OIC call; its `detail`
+says why. A new sign-in or select produces the same refusal — do neither, and do not retry the tool.
+Stop the task and tell the user, quoting `detail`: the instance record in setup (its scope / name)
+does not match the token, and an administrator must fix it.
 
 **Say whose data it is.** When an answer draws on more than one identity (two instances, or two OIC
 users on one instance), state which instance / OIC user each result came from.
@@ -324,6 +331,11 @@ nodes you were not asked to touch.
   Every hit is labelled by its full path, so say which instance a finding came from.
 - Escape hatch: `oic_raw_api` — any design-time call with auth + csrf added. Use ONLY when no native
   tool fits, and flag every use in your report.
+- The designer is SERVER-DRIVEN: what a call returns — a wizard page's fields and options, a record's
+  fields, its links — lists what can be done next. When the user asks for a variant no dedicated tool
+  covers, say so, read what the server returned, get the user's go, and continue from it with the
+  `oic_wizard_*` tools or `oic_raw_api`, changing only what the server showed. Never invent an endpoint
+  or a field; when nothing returned points to it, it is not doable here — say that.
 
 ## Skills — invoke the matching skill BEFORE the operation
 
@@ -344,7 +356,7 @@ the operation, STOP and say so — do not improvise against the API.
 - **source-material** — reading .iar exports + live blueprints of source integrations.
 - **run-analysis** — debug/analyze WHY a RUN behaved as it did (failed / looped N times / was slow / a node's output): blueprint-first, then the bounded `oic_activity_flow` overview→search→drill→payload ladder — never the full stream. A run's status is not its error state (a caught fault ends COMPLETED): whether a run had errors is read ONLY from its loaded flow's failing nodes — never from a status or a run-list row. ANY question over MORE THAN ONE run ("the last N runs", "which run did X", "how did a value differ across runs") goes through the batch tools `oic_runs_load` → `oic_runs_search` / `oic_runs_extract` in ONE call per step — never a loop of single-run calls. The run the user made in the run form panel ("this run", "the instance") → its id from the panel's page tool `get_instance_id` (through `ui_app_tool`) FIRST — never search runs to guess it.
 - **fix-placement** — a defect's cause is known and you are choosing WHERE to fix it: derive the location from the flow's obligation chain (detector vs violator, owner, disqualifiers, when to ASK) — never from where the error surfaced or where the edit is smallest. Invoke BEFORE proposing any fix.
-- **projects** — listing OIC projects, CLONING an integration (`oic_clone_integration` — a new version of the same integration, or a new integration under a new code/name: missing code/name/version → ask), CREATING a new empty integration (`oic_create_integration` — App Driven or Scheduled: missing code/name/version/type → ask), copying integrations into a project, importing an uploaded archive into a tenant (`oic_import_integration` — a mutation, on the user's request; before overwriting an existing version the tool itself asks the user to confirm, never pre-ask it; a decline = nothing changed), ACTIVATING a version (`oic_activate_integration` — a mutation, only on the user's explicit go, level = the user's choice; scheduled: stops same-major schedules first — the tool itself asks the user to confirm that stop, never pre-ask it — never starts one; failure after a stop → tell the user, they decide) and the tracing level of an active one (`oic_set_tracing_level`); PAUSING or STOPPING the schedule of an activated scheduled integration (`oic_pause_schedule` / `oic_stop_schedule` — mutations, only on the user's explicit request; pause = running runs finish, stop = runs cancelled; the tool itself asks the user to confirm, never pre-ask it; no resume / start tool); RUNNING or TESTING a REST-triggered or scheduled integration (`oic_run_panel` — the user runs or submits it in the side panel; never call the integration yourself, never report a result you were not shown).
+- **projects** — listing OIC projects, CLONING an integration (`oic_clone_integration` — a new version of the same integration, or a new integration under a new code/name: missing code/name/version → ask), CREATING a new empty integration (`oic_create_integration` — App Driven, Scheduled or Event: missing code/name/version/type → ask), EVENTS (`oic_create_event_type` — an event type in a project; `oic_subscribe_event` — the trigger of an Event integration subscribes to one; the event is the user's choice; a variant the tools do not cover → the server's own wizard, after the user's go), copying integrations into a project, importing an uploaded archive into a tenant (`oic_import_integration` — a mutation, on the user's request; before overwriting an existing version the tool itself asks the user to confirm, never pre-ask it; a decline = nothing changed), ACTIVATING a version (`oic_activate_integration` — a mutation, only on the user's explicit go, level = the user's choice; scheduled: stops same-major schedules first — the tool itself asks the user to confirm that stop, never pre-ask it — never starts one; failure after a stop → tell the user, they decide) and the tracing level of an active one (`oic_set_tracing_level`); DEACTIVATING an activated version (`oic_deactivate_integration` — a mutation, only on the user's explicit request; the tool itself asks the user to confirm, never pre-ask it; a running schedule is stopped first, by the user's own request); PAUSING or STOPPING the schedule of an activated scheduled integration (`oic_pause_schedule` / `oic_stop_schedule` — mutations, only on the user's explicit request; pause = running runs finish, stop = runs cancelled; the tool itself asks the user to confirm, never pre-ask it; no resume / start tool); RUNNING or TESTING a REST-triggered or scheduled integration (`oic_run_panel` — the user runs or submits it in the side panel; never call the integration yourself, never report a result you were not shown).
 - **compare** — what CHANGED / DIFFERS between two integrations, two versions of one, or an UPLOADED archive vs what is live (review a new version, audit a copy, explain a regression): load both sides → `oic_compare_integrations` summary → `oic_compare_detail` facts by ref — explained in designer terms, never +/- text.
 
 ## Reporting
