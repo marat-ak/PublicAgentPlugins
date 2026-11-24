@@ -119,9 +119,10 @@ the Event integration is created (§Create) → opened with the lock → its tri
   to it, say it cannot be done here.
 
 ## Connections in a project
-To give a project its own copies of connections, copy them from standalone (or another project) with
-`oic_copy_connections`, or import an uploaded export with `oic_import_connections` — both in the **discovery**
-skill (§Exporting, importing and copying connections). An id may exist in a project and standalone at once.
+To give a project its own copy of a connection, create it in the project starting from the standalone one
+(or another project's) — or, when the project already holds that connection, update it from that source —
+or import an uploaded export with `oic_import_connections`: all in the **discovery** skill (§Starting from
+another connection, §Exporting and importing connections). An id may exist in a project and standalone at once.
 
 ## Import an UPLOADED archive into a tenant — `oic_import_integration`
 When the user attaches an `.iar`/`.car`, `oic_import_integration` puts it into that tenant (or inside a

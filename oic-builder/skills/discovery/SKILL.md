@@ -1,6 +1,6 @@
 ---
 name: discovery
-description: Use for capability questions about the tenant across three shapes (catalog first: oic_catalog_search, counts/lists/reports via oic_catalog_sql) — FIND ("which integrations read email / talk to service Y / use adapter X?"), IMPACT ("what breaks if this connection changes?"), DIRECTION ("do we read or write system Z?"), plus the exhaustive inventory ("every system we talk to"). Search connections with the ONE call (oic_find_connections), expand to the integrations using each hit, blueprint only to confirm a shortlist. Also: CREATING a connection (search first, describe the adapter, ask, create without secrets), and EXPORTING / IMPORTING / COPYING connections between scopes or instances (oic_export_connections / oic_import_connections / oic_copy_connections).
+description: Use for capability questions about the tenant across three shapes (catalog first: oic_catalog_search, counts/lists/reports via oic_catalog_sql) — FIND ("which integrations read email / talk to service Y / use adapter X?"), IMPACT ("what breaks if this connection changes?"), DIRECTION ("do we read or write system Z?"), plus the exhaustive inventory ("every system we talk to"). Search connections with the ONE call (oic_find_connections), expand to the integrations using each hit, blueprint only to confirm a shortlist. Also: CREATING or UPDATING a connection (search first, describe the adapter, ask; without secrets; either can start from a copy of another connection — standalone to project and back), and EXPORTING / IMPORTING connections by file between scopes or instances (oic_export_connections / oic_import_connections).
 ---
 
 # Finding integrations, systems, and impact by connection
@@ -153,15 +153,55 @@ only on the user's choice. Then:
    the non-secret values. Nothing is defaulted.
 3. **Create** — `oic_create_connection`. Secrets are never yours to carry: leave them out (a secret in the
    input is refused). A rejected result returns the definitions — show the errors, re-ask, retry. An
-   existing identifier means it is taken — reuse or rename, never overwrite.
-4. **Hand off** — tell the user exactly which secrets and missing values the result says must be completed
-   in the OIC console, that the connection test runs there afterwards, and repeat any warnings.
+   existing identifier means it is taken — reuse it, rename, or update the existing one (below); create
+   never overwrites.
+4. **Report what the tool did.** It finishes like the console: when no required value is missing it TESTS
+   the connection and saves it with the test's outcome — say that the test ran, whether it passed, and
+   OIC's own message when it failed (the connection is saved either way and stays unconfigured until a
+   test passes). When a required value is missing — typically a credential — no test is run: tell the
+   user exactly which secrets, uploads and values the result lists and where the result says they are
+   completed (the OIC console); the test waits until then. Repeat any warnings.
 
-## Exporting, importing and copying connections
+## Updating a connection
 
-Three tools over ONE read path and the SAME create path as `oic_create_connection`. The source and target
-scopes (standalone or a project) are the user's choice (ask; never inferred), and the connections are
-named — every connection of a scope only when the user means all of them.
+`oic_update_connection` changes an EXISTING connection, standalone or in a project: its non-secret
+values, its security policy, its agent group. Only on the user's request, and only what they asked to
+change — everything else, a stored secret included, stays as it is.
+
+- **The confirmation is the TOOL's.** It asks the user itself, naming the connection, its scope and the
+  properties that change; when active integrations use the connection it lists them and asks whether to
+  reactivate them. Do not ask the same thing first and do not repeat it. Declined = nothing changed.
+- **Tested before it is saved.** Passed: saved, configured again, and the integrations the user agreed to
+  are reactivated — Oracle does that asynchronously, so report it as requested and not as done until
+  their own status says so. Failed on a connection that was configured: nothing is saved, and the tool
+  asks the user whether to save anyway — that answer is theirs, never yours. Report OIC's message
+  either way.
+- **A required value still missing** — typically a credential: it is saved without a test and is not
+  usable until the user completes it in the OIC console. The tool says so in its question; afterwards
+  tell the user exactly what the result lists as still needed.
+- **Secrets are never yours to carry** — a secret in the input is refused; the user enters it in the OIC
+  console. A rejected result returns the definitions — show the errors, re-ask, retry.
+
+## Starting from another connection (a copy)
+
+To give a project its own copy of a standalone connection (or the reverse, or project to project), CREATE
+it — or UPDATE the one that is already there, e.g. the empty connections an integration copy leaves in a
+project — starting from the other connection. Both tools read the source themselves: its values never
+pass through you, so never read them out to pass them along.
+
+- Same adapter only, and never the connection itself. For a new copy the identifier, name and role are
+  still the user's choice.
+- Carried: the non-secret values, the security policy, the agent group. What you pass explicitly wins.
+- Never carried: secrets (OIC never returns one) and file uploads — the result lists them; the user
+  completes them in the OIC console.
+- One connection per call. Several = one call each, each on the user's go; name them to the user first.
+- Across instances there is no copy: export on one, import on the other (each needs its own sign-in).
+
+## Exporting and importing connections
+
+Two tools over ONE read path and the SAME create path as `oic_create_connection` — a transfer by FILE.
+The source and target scopes (standalone or a project) are the user's choice (ask; never inferred), and
+the connections are named — every connection of a scope only when the user means all of them.
 
 - **Export** — `oic_export_connections`: the user wants the connections as a FILE (backup, review, moving
   them to another instance) — one archive in the import format, or one `.json` per connection. Present the
@@ -169,16 +209,14 @@ named — every connection of a scope only when the user means all of them.
   elsewhere will need entered in the console (secrets, uploads).
 - **Import** — `oic_import_connections`: the user UPLOADED an export (the zip, or one connection `.json`)
   and wants those connections in the signed-in instance; an existing connection is skipped, never
-  overwritten. A file the user edited to hold real passwords sets them — say so before importing.
-- **Copy** — `oic_copy_connections`: between two scopes of the SAME signed-in instance (standalone ↔
-  project, project ↔ project). Across instances = export on one, import on the other (each needs its own
-  sign-in).
+  overwritten. A file the user edited to hold real passwords sets them — say so before importing. The
+  import runs no connection test.
 
-**One connection vs many.** Import and copy are mutations; how you confirm depends on the size:
-- **One connection** (one id to copy, or an upload holding one connection): once the user has asked for it
+**One connection vs many.** An import is a mutation; how you confirm depends on the size:
+- **One connection** (an upload holding one connection): once the user has asked for it
   and the target scope is settled, call the tool and report the status it returns — the state, the host
   it points to, and what must be completed in the console. There is no plan and no file.
-- **Several, or all of a scope, or a multi-connection upload**: the first call is a PLAN — it reads and
+- **A multi-connection upload**: the first call is a PLAN — it reads and
   counts but creates nothing. Show the user the plan (how many, how many are already in the target and
   will be skipped, the time estimate) and ASK two things together: go ahead? and do they want a
   per-connection results file? Never assume either answer. On a yes, execute the plan with their answer
@@ -201,7 +239,7 @@ the user's console decision), `rejected` (the adapter is missing on the target, 
 definitions refuse — give the reason), `failed` (an Oracle error — report it). An upload that is not a clean
 export (unexpected entries, oversize, bad JSON) is refused WHOLE — report the listed entries.
 
-**Hand off**: per created connection, the secrets to enter (OIC never returns a secret, so exported and copied
+**Hand off**: per imported connection, the secrets to enter (OIC never returns a secret, so exported
 connections arrive without theirs), the certificate / keystore uploads, and the missing required values —
 then the user tests each connection in the console. For one connection that list is in the status; for a bulk
 run it is in the results file (present it with `ui_present_file`; read it via its path or `oic_grep`), or,
