@@ -7,8 +7,9 @@ description: Use for creating or editing ANY adapter endpoint (stagefile, REST, 
 
 **Every adapter endpoint (stagefile, REST, FTP, DB, ERP, collocated, OCI-fn, any adapter) is created and
 edited through `oic_wizard_*`.** (Structural nodes — label/assignment/router/route/for/scope/catch/throw/
-stop/notification/publisher — stay plain blueprint POSTs per the structural-nodes skill; not wizard
-territory.)
+stop/notification — stay plain blueprint POSTs per the structural-nodes skill; not wizard territory. A
+publisher has its own tool there too; its event wizard is reached from here only for a variant that tool does
+not cover — the table below.)
 
 The CAF wizard (`ui/load|next|previous|event|generate`) is SELF-DESCRIBING: every response returns the
 page's fields (name/type/value/options/hasEvent). The driver is a thin echo-delta layer over it — never
@@ -24,6 +25,7 @@ page is the SAME loop.
 | **NEW endpoint** | `oic_wizard_create` with the endpoint name, the connection and the anchor | **server defaults** | fill the required fields (read labels/options from the live page, like a designer user) |
 | **NEW: first trigger of an empty flow** | `oic_wizard_create` as a TRIGGER with no anchor — the endpoint name is the wizard's own field | **server defaults** | same as a new endpoint; the connection is the user's choice |
 | **Event trigger of an Event integration** | `oic_wizard_create` on the trigger node the tenant built (its id, its blueprint segment, its own connection) | **ONE page**: every field a subscription can carry | the plain subscription is `oic_subscribe_event` (projects skill §Events); come here only for a variant it does not cover — the values go with `oic_wizard_generate` |
+| **Publisher (an EXISTING publisher node)** | `oic_wizard_create` on that node (its id, its blueprint segment, its own connection) | **ONE page**: the same event page, in the publishing role | the plain publisher is `oic_add_publisher` (structural-nodes skill) — it creates the node and binds it in one call; come here only for a variant it does not cover (projects skill §Events). The wizard never creates a publisher; the values go with `oic_wizard_generate`, the save binds the node to its event |
 
 One wizard per integration per conversation — every `oic_wizard_*` call names the same integration and
 wsid; `oic_wizard_cancel` before creating another for the same integration.

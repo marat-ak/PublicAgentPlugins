@@ -38,7 +38,7 @@ authoring the expression, copy the path, drill into one subtree rather than dump
 | `oic_add_stop` | valid at branch/route end only, not mid-sequence |
 | `oic_add_throw` / `oic_add_note` | the throw's condition is a SKIP condition: true skips the throw, false raises the fault; to throw when X, write `not(X)`. |
 | `oic_add_notification` | referenced variables must exist in scope; the body is HTML, not an expression. An address or subject kept in a lookup = the call `oic_lookup_expression` returns. |
-| `oic_add_publisher` | resolves the event type's revision live (never hardcode a revision); creates its request map — configure per the maps skill |
+| `oic_add_publisher` | resolves the event type's revision live (never hardcode a revision); creates its request map — configure per the maps skill. The event type is looked up in the integration's OWN scope — its project's, or the standalone ones for a standalone integration; not there = report where it looked and what is there, never search another scope yourself (projects skill §Events) |
 | `oic_patch_assignment` | edit an assignment's expression in place (the tool builds the minimal body; echoing a GET body back → 400). Same expression engine as create (the maps skill §the `fn:` law). |
 | `oic_expression_tree` | **the expression picker at a flow location** — every variable in scope with its PREFIXED path, type, repeat, and the writable variables. The maps skill's PREFIX SOURCE LAW. |
 

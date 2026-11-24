@@ -106,14 +106,19 @@ the Event integration is created (§Create) → opened with the lock → its tri
 - **Subscribing** names the trigger's endpoint and ONE event type by code and revision — the user's choice,
   never "the only one in the project". It is an edit in the open workspace, not committed. The result lists
   what the flow still lacks before it can be activated — report it, do not hide it.
+- **Publishing** takes an event type of the integration's OWN scope: a project integration publishes an
+  event type of its project, a standalone one a standalone event type. Whether an event of another scope can
+  be published is not known — when the publisher tool does not find the event, tell the user where it looked
+  and what is there; it is a variant (below), never a reason to look elsewhere on your own.
 - **What the two tools cover:** a JSON event type private to its project, without custom headers; a
   subscription to an event type of the integration's own project, without a filter, on a trigger that
   subscribes to nothing yet.
 - **A variant they do not cover** — an XML event, a custom header, an event of another project, a system
-  event, a subscription filter, changing an existing subscription. The designer is driven by the SERVER:
-  what a call returns lists what can be done next. The trigger's wizard is the server's own — opened on the
-  trigger node with the wizard tools (adapter-wizard skill), its page lists every field a subscription can
-  carry; the event type's record lists the fields an event type has. Tell the user the variant was never
+  event, a subscription filter, changing an existing subscription, a publisher of an event outside its own
+  scope. The designer is driven by the SERVER: what a call returns lists what can be done next. The
+  trigger's wizard is the server's own — opened on the trigger node with the wizard tools (adapter-wizard
+  skill), its page lists every field a subscription can carry; an existing publisher node opens the same
+  page in the publishing role, and saving it binds the node to its event; the event type's record lists the fields an event type has. Tell the user the variant was never
   captured, get their go, then continue from those returns with the `oic_wizard_*` tools or `oic_raw_api`,
   changing only what the server showed. Never invent an endpoint or a field: when nothing returned points
   to it, say it cannot be done here.

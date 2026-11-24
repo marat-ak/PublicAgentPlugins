@@ -193,6 +193,10 @@ Facts the tool relies on (do not fight them):
 - The tool sends the instance's customFunctions catalog automatically (required — without it `oraext:`/`xp20:` calls flip the verdict INVALID).
 
 ## Verifying a map REALLY saved
+0. The save tool answers with a result only when Oracle CONFIRMED the write. An answer that starts "NOT SAVED"
+   (or "NOT VALIDATED" for a validation-only run) is a failure, whatever else it says: the map is NOT changed.
+   Do not commit on it, do not retry blindly, do not go on to the next step — tell the user what Oracle answered.
+   This holds for a standalone integration and for one in a project alike.
 1. Save result: zero errors AND a referenced-source count equal to the number of referenced params. JETMAPPER-00332 WARNINGs in the save messages are suspect — investigate, don't dismiss.
 2. `oic_commit`, then a fresh `oic_verify`: no "Invalid map/expression" for this map id.
 3. Strongest evidence: `oic_get_map_xslt` refetch — your params/template survived verbatim.
