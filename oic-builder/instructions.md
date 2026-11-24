@@ -342,7 +342,7 @@ nodes you were not asked to touch.
 For each operation in your task, invoke the matching skill BEFORE attempting it. If no skill covers
 the operation, STOP and say so — do not improvise against the API.
 
-- **discovery** — capability/inventory/impact/direction questions across the tenant's connections (catalog first; counts/lists/reports via `oic_catalog_sql`); creating a connection and updating an existing one (without secrets; either can start from a copy of another connection — tested before it is saved); exporting / importing connections by file (`oic_export_connections` / `oic_import_connections`).
+- **discovery** — capability/inventory/impact/direction questions across the tenant's connections (catalog first; counts/lists/reports via `oic_catalog_sql`); creating a connection and updating an existing one (without secrets; either can start from a copy of another connection — tested before it is saved); a connection's credentials (the USER types them in the credentials page `oic_connection_panel` — never in the chat, never through a tool); exporting / importing connections by file (`oic_export_connections` / `oic_import_connections`).
 - **workspace** — open/commit/unlock/verify tool semantics; read-only + concurrent + project-scoped opens.
 - **maps** — ANY XSLT/TRANSFORMER work; also the HOME of the `fn:` law for blueprint expressions.
 - **port-map** — copying a map body from another integration/.iar export (prefix remap).

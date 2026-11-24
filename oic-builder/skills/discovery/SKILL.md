@@ -1,6 +1,6 @@
 ---
 name: discovery
-description: Use for capability questions about the tenant across three shapes (catalog first: oic_catalog_search, counts/lists/reports via oic_catalog_sql) — FIND ("which integrations read email / talk to service Y / use adapter X?"), IMPACT ("what breaks if this connection changes?"), DIRECTION ("do we read or write system Z?"), plus the exhaustive inventory ("every system we talk to"). Search connections with the ONE call (oic_find_connections), expand to the integrations using each hit, blueprint only to confirm a shortlist. Also: CREATING or UPDATING a connection (search first, describe the adapter, ask; without secrets; either can start from a copy of another connection — standalone to project and back), and EXPORTING / IMPORTING connections by file between scopes or instances (oic_export_connections / oic_import_connections).
+description: Use for capability questions about the tenant across three shapes (catalog first: oic_catalog_search, counts/lists/reports via oic_catalog_sql) — FIND ("which integrations read email / talk to service Y / use adapter X?"), IMPACT ("what breaks if this connection changes?"), DIRECTION ("do we read or write system Z?"), plus the exhaustive inventory ("every system we talk to"). Search connections with the ONE call (oic_find_connections), expand to the integrations using each hit, blueprint only to confirm a shortlist. Also: CREATING or UPDATING a connection (search first, describe the adapter, ask; without secrets; either can start from a copy of another connection — standalone to project and back), its CREDENTIALS (password, client secret, API key: the user types them in the credentials page, oic_connection_panel — never in the chat), and EXPORTING / IMPORTING connections by file between scopes or instances (oic_export_connections / oic_import_connections).
 ---
 
 # Finding integrations, systems, and impact by connection
@@ -159,8 +159,8 @@ only on the user's choice. Then:
    the connection and saves it with the test's outcome — say that the test ran, whether it passed, and
    OIC's own message when it failed (the connection is saved either way and stays unconfigured until a
    test passes). When a required value is missing — typically a credential — no test is run: tell the
-   user exactly which secrets, uploads and values the result lists and where the result says they are
-   completed (the OIC console); the test waits until then. Repeat any warnings.
+   user exactly which secrets, uploads and values the result lists; the credentials are entered as
+   §Credentials says, the test waits until then. Repeat any warnings.
 
 ## Updating a connection
 
@@ -177,10 +177,10 @@ change — everything else, a stored secret included, stays as it is.
   asks the user whether to save anyway — that answer is theirs, never yours. Report OIC's message
   either way.
 - **A required value still missing** — typically a credential: it is saved without a test and is not
-  usable until the user completes it in the OIC console. The tool says so in its question; afterwards
-  tell the user exactly what the result lists as still needed.
-- **Secrets are never yours to carry** — a secret in the input is refused; the user enters it in the OIC
-  console. A rejected result returns the definitions — show the errors, re-ask, retry.
+  usable until it is completed. The tool says so in its question; afterwards tell the user exactly what
+  the result lists as still needed, and go on as §Credentials says.
+- **Secrets are never yours to carry** — a secret in the input is refused; the user enters it himself
+  (§Credentials). A rejected result returns the definitions — show the errors, re-ask, retry.
 
 ## Starting from another connection (a copy)
 
@@ -192,10 +192,40 @@ pass through you, so never read them out to pass them along.
 - Same adapter only, and never the connection itself. For a new copy the identifier, name and role are
   still the user's choice.
 - Carried: the non-secret values, the security policy, the agent group. What you pass explicitly wins.
-- Never carried: secrets (OIC never returns one) and file uploads — the result lists them; the user
-  completes them in the OIC console.
+- Never carried: secrets (OIC never returns one) and file uploads — the result lists them; the
+  secrets go in as §Credentials says, the uploads in the OIC console.
 - One connection per call. Several = one call each, each on the user's go; name them to the user first.
 - Across instances there is no copy: export on one, import on the other (each needs its own sign-in).
+
+## Credentials — the user types them, in the credentials page
+
+A password, client secret, API key or any other secret of a connection is entered by the USER, in the
+credentials page that `oic_connection_panel` opens beside the chat. The page sends what is typed to OIC
+itself, with the user's own sign-in; it never reaches you, a tool or the conversation.
+
+- **Never ask the user to type a credential into the chat, and never pass one to a tool** — not to save
+  time, not when the user offers it. A credential that appears in the chat anyway is not used and not
+  repeated: point the user to the page.
+- **When:** a create or update result says credentials are still needed, or the user wants to enter or
+  change the credentials of a connection. Open the page for that one connection, then tell the user in
+  one line what to do there: fill the fields, press Test, then Save. A stored secret left empty is kept.
+- **You only requested the page.** Never say it is open, and never state an outcome you were not given.
+- **The outcome:** on the user's next message, read the page's `get_result` (app `connection-credentials`,
+  through `ui_app_tool`). It answers only whether it was saved, how the test went and what happened to
+  the reactivation — never a value, never OIC's message. Report exactly that; no result, or not saved →
+  say so and ask the user what they saw on the page. A reactivation is requested, not done, until the
+  integrations' own status says so.
+- **The page tests before it saves** and asks the user itself before it saves a failed test over a
+  connection that worked, and whether to reactivate the active integrations — those answers are theirs.
+- **On a refusal say why and what comes first**, from its reason: the connection does not exist, another
+  user holds its lock, it has no security policy yet (that is an update, on the user's choice), or its
+  policy has nothing the user could type.
+- **Not on the page:** non-secret values, the policy and the agent group (§Updating a connection), and
+  file uploads — certificates, wallets, keys — which the user does in the OIC console.
+- **Do not reopen it unasked:** opening it again, or for another connection, replaces the page and what
+  the user has typed is lost.
+- The tool exists only where the chat can show the page. When it is not among your tools, the user
+  completes the credentials in the OIC console — say so; never substitute another way.
 
 ## Exporting and importing connections
 
@@ -240,7 +270,7 @@ definitions refuse — give the reason), `failed` (an Oracle error — report it
 export (unexpected entries, oversize, bad JSON) is refused WHOLE — report the listed entries.
 
 **Hand off**: per imported connection, the secrets to enter (OIC never returns a secret, so exported
-connections arrive without theirs), the certificate / keystore uploads, and the missing required values —
-then the user tests each connection in the console. For one connection that list is in the status; for a bulk
+connections arrive without theirs — §Credentials, one connection at a time), the certificate / keystore
+uploads (the OIC console), and the missing required values. An imported connection is not tested until then. For one connection that list is in the status; for a bulk
 run it is in the results file (present it with `ui_present_file`; read it via its path or `oic_grep`), or,
 without one, give the counts and offer the file.
