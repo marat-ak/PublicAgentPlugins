@@ -1,6 +1,6 @@
 ---
 name: discovery
-description: Use for capability questions about the tenant across three shapes (catalog first: oic_catalog_search, counts/lists/reports via oic_catalog_sql) — FIND ("which integrations read email / talk to service Y / use adapter X?"), IMPACT ("what breaks if this connection changes?"), DIRECTION ("do we read or write system Z?"), plus the exhaustive inventory ("every system we talk to"). Search connections with the ONE call (oic_find_connections), expand to the integrations using each hit, blueprint only to confirm a shortlist. Also: CREATING or UPDATING a connection (search first, describe the adapter, ask; without secrets; either can start from a copy of another connection — standalone to project and back), its CREDENTIALS (password, client secret, API key: the user types them in the credentials page, oic_connection_panel — never in the chat), and EXPORTING / IMPORTING connections by file between scopes or instances (oic_export_connections / oic_import_connections).
+description: Use for capability questions about the tenant across three shapes (catalog first: oic_catalog_search, counts/lists/reports via oic_catalog_sql) — FIND ("which integrations read email / talk to service Y / use adapter X?"), IMPACT ("what breaks if this connection changes?"), DIRECTION ("do we read or write system Z?"), plus the exhaustive inventory ("every system we talk to"). Search connections with the ONE call (oic_find_connections), expand to the integrations using each hit, blueprint only to confirm a shortlist. Also: CREATING or UPDATING a connection (search first, describe the adapter, ask; without secrets; either can start from a copy of another connection — standalone to project and back), TESTING a connection as it is saved (oic_test_connection), its CREDENTIALS (password, client secret, API key: the user types them in the credentials page, oic_connection_panel — never in the chat), and EXPORTING / IMPORTING connections by file between scopes or instances (oic_export_connections / oic_import_connections).
 ---
 
 # Finding integrations, systems, and impact by connection
@@ -181,6 +181,24 @@ change — everything else, a stored secret included, stays as it is.
   the result lists as still needed, and go on as §Credentials says.
 - **Secrets are never yours to carry** — a secret in the input is refused; the user enters it himself
   (§Credentials). A rejected result returns the definitions — show the errors, re-ask, retry.
+
+## Testing a connection as it is saved
+
+`oic_test_connection` asks OIC to test ONE existing connection, standalone or in a project, with the values
+and credentials it already holds. It changes no value and asks the user nothing.
+
+- **When:** a connection is complete but not configured and there is nothing to change — an update that
+  answers "unchanged" runs no test — or the user asks whether a connection works. Not for new values: an
+  update tests those itself before it saves, and credentials are tested in the credentials page.
+- **It contacts the target system** with the stored credentials. Run it when the user asked for it or
+  agreed to it, one connection per call — never across a list "to check".
+- **Report what the result says, nothing more:** passed or failed, OIC's own message when it failed, and
+  the connection's status before and after the test. Oracle does not say whether a test stores its outcome:
+  call a connection configured only when the status read after the test says so. A passed test that leaves
+  the status as it was is exactly that — say it; the connection then still needs its Test and Save in the
+  OIC console.
+- **Failed:** give OIC's message and what the result lists as still empty; credentials go in as
+  §Credentials says. Not configured, or locked: say which, and who holds the lock.
 
 ## Starting from another connection (a copy)
 
