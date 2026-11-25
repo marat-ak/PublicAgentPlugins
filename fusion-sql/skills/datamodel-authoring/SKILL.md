@@ -114,9 +114,10 @@ When the user asks to build one ("build me a data model for …"):
      invent a per-subject name, never a placeholder, never ask the user.
 4. Report what you built and present the `.xdmz` with `ui_present_file`.
 5. **Then pod-TEST it** (when the `fusion-pod` MCP is available): everything-at-once mode → run the
-   datamodel test flow directly (`prepareDataModelTest` → upload both → run the test report → verify its
-   data XML) as part of the same turn; step-by-step mode → offer it first. See the
-   **rendering-and-running** skill for the exact steps and parameter prompting. An XML-function model's
+   datamodel test flow as part of the same turn (`prepareDataModelTest` → the user's parameter choice
+   when the model has parameters → upload both → run the test report → verify its data XML);
+   step-by-step mode → offer it first. The exact steps and the parameter ask (asked in BOTH modes) are
+   **rendering-and-running** §4. An XML-function model's
    data STARTS with the function's own root (`<ROWSET>`); the XML arriving escaped inside a `RESULT`
    element means its LOB data properties are missing.
 Never hand-wave a data model as prose — the deliverable is a real `.xdmz`.
@@ -266,8 +267,8 @@ Oracle SQL. Apply these preemptively:
 - Mode unknown (it wasn't asked — e.g. the session started as a pure SQL question) → ask the mode
   question NOW, once.
 The **strongest** verification is running the model against the real pod (upload → run → inspect);
-in everything-at-once mode just do it as part of the flow, in step-by-step offer it (see the
-**rendering-and-running** skill).
+in everything-at-once mode do it as part of the flow, in step-by-step offer it; a model with
+parameters gets the parameter ask first in either mode (**rendering-and-running** §4).
 
 **2. "Group by X" meaning.** "group by" in a data model is NOT SQL `GROUP BY` by default — it almost
 always means a grouped **hierarchy**. Three shapes:

@@ -76,11 +76,28 @@ it yourself: **the prepare tools compute every path**. Any absolute catalog path
 
 ## 4. Test a DATA MODEL on the pod — `prepareDataModelTest` (ALWAYS before building the report)
 The pod has no run-datamodel op, so the tool builds a no-layout report bound to the model.
-1. `prepareDataModelTest` → the test report, the aligned per-user paths, the model's parameters.
-2. Parameters → ASK the user a value per parameter. Step-by-step mode: CONFIRM (mutation) first;
-   everything-at-once: proceed. Then upload BOTH by fileId to the returned paths.
-3. Run the test report for its data XML (`runReport`) → **Read the returned XML** — real rows prove
-   the SQL runs. Errors here mean FIX THE MODEL before any layout work.
+1. `prepareDataModelTest` → the test report, the aligned per-user paths, the model's parameters
+   (`params`).
+2. **Parameters — the USER chooses which ones filter the run** (BOTH working modes: a choice about the
+   data, not an approval stop). A model with parameters is NEVER run with all of them empty, and you
+   never choose the filter yourself; a model with no parameters runs directly.
+   - **ONE multi-select ask, about WHICH parameters to fill — not their values.** Group the parameters
+     into questions by what they filter (e.g. planned-order side / requisition side / PO side); a
+     From/To date pair is ONE option. The question text says what a filter cuts out of the result when
+     the SQL shows it (a requisition date range hides the planned orders that have no requisition).
+     More parameters than the ask holds → offer the most selective ones and say the rest can be named
+     in free text.
+   - **Values are yours to take, for the chosen parameters only:** a menu parameter → a value from
+     that parameter's own LOV (its LOV query, run as is); a date range → a recent window; a value the
+     user typed → as typed. State the values in ONE line before the run.
+3. Upload BOTH by fileId to the returned paths. The upload confirm follows the working mode (§2):
+   step-by-step CONFIRMS the mutation first, everything-at-once uploads without a confirm.
+4. Run the test report for its data XML (`runReport`) with those values → **Read the returned XML** —
+   real rows prove the SQL runs. Errors here mean FIX THE MODEL before any layout work.
+   - Timed out or too heavy → never rerun with empty parameters, never swap the filter silently: ask
+     again and say what was used.
+   - The result leaves a part of the report without data → say so BEFORE any layout work and offer a
+     second run.
 
 ## 5. Run a REAL report (with layouts) on the pod — `prepareReportForPod`
 Never bind a report to a pod path by hand and never upload a report+DM pair without this:
@@ -88,8 +105,10 @@ Never bind a report to a pod path by hand and never upload a report+DM pair with
    path, the aligned paths, the parameters.
 2. Upload BOTH by fileId to those exact paths (step-by-step mode: CONFIRM first; skip the DM upload
    if this very fileId was already uploaded to that exact path in this session).
-3. `runReport` the report (PDF; an xsl default template: its text / txml / html output) → **Read the
-   render (a few pages) and verify** per rule 0.
+3. `runReport` the report (PDF; an xsl default template: its text / txml / html output) with the
+   parameter set the user chose for the data model test (§4) — the same values, never a different or
+   empty set → **Read the render (a few pages) and verify** per rule 0. The final message names that
+   set.
 
 ## 6. Pod down ≠ dead end: RTF and XSL ALWAYS render locally
 An RTF or xsl layout renders locally regardless of the pod. If the pod is unavailable or failing (401, WAF
@@ -112,6 +131,7 @@ report object on Fusion. (`.xpt` can't render locally — those still modify on 
 
 ## The loop
 Author (grounded) → render locally → **Read + verify visually** → fix/iterate → live delivery →
-prepare* → upload (confirm first only in step-by-step mode) → runReport → **Read + verify again** →
+prepare* → the user's parameter choice (§4, both modes) → upload (confirm first only in step-by-step
+mode) → runReport → **Read + verify again** →
 report the business outcome + `ui_present_file` for the ONE final version. Pod dead + RTF/XSL → local render per rule 6, still
 delivered. Never claim "works"/"matches" without having LOOKED at the output this turn.

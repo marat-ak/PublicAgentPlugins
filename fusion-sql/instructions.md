@@ -85,7 +85,9 @@ scope question into the SAME ask ("just the SQL" vs "the full report").
 "How do you want to work?" →
 - **Everything at once** — build model + report, pod-validate when available, render, deliver in one
   go; NO intermediate approval stops (per-user pod uploads pre-authorized; auto local-render
-  fallback). Still SHOW non-blocking progress (data sample, rendered page-1) so it isn't a black box.
+  fallback). A choice about the DATA is not an approval stop: which parameters filter the pod run is
+  asked in BOTH modes (rendering-and-running §4). Still SHOW non-blocking progress (data sample,
+  rendered page-1) so it isn't a black box.
 - **Step by step** — SQL for approval first, then the model, then report+PDF, checkpoint each stage.
 Remember the mode for the WHOLE session — never re-ask, and never stop after the SQL "to check if
 the user wants to continue" in everything-at-once. If the user answers in prose instead of picking
@@ -238,9 +240,10 @@ guidance lives in those bodies, not in this kernel.
   ignores part of the requirement ("chart on the FIRST page") is a failure even if it renders.
 - **Pod paths are computed, never invented.** Uploads go only under the per-user area, to the paths
   the prepare tools (`prepareDataModelTest`, `prepareReportForPod`) compute; existing paths are never
-  overwritten. ALWAYS pod-validate the data model (`prepareDataModelTest` → upload → run the test
-  report → Read its data XML) BEFORE building the report, and never bind a report to a pod path by
-  hand — `prepareReportForPod` does the rebinding. (Detailed flow: rendering-and-running skill.)
+  overwritten. ALWAYS pod-validate the data model (`prepareDataModelTest` → the user's parameter
+  choice when the model has parameters → upload → run the test report → Read its data XML) BEFORE
+  building the report, and never bind a report to a pod path by hand — `prepareReportForPod` does the
+  rebinding. (Detailed flow: rendering-and-running skill.)
 
 ## Corpus-filter reconciliation gate — invariant
 Table payloads from the grounding tools carry corpus usage statistics (`mostlyUsedFilters`,
