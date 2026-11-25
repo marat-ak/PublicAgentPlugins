@@ -34,8 +34,20 @@ PATCH 500 (Cache null / ICS-18122) or subsequent creates 400. If you truly must 
   the AUTO-MAP, not the wizard (WriteFile: OutboundFTPHeaderType fileName+directory + ICSFile/FileReference;
   MoveFile: FileMoveRequest directory/filename/targetDirectory/targetFilename). ListFile takes
   directory+includeFiles in-wizard.
-- **Collocated (Local Integration)**: pick the target integration; the operation page is submitted with
-  the operation combo left UNSELECTED — selecting any value binds the WRONG operation.
+- **Local Integration (the Integration action, "collocated")**: its connection is an Oracle system
+  connection — the row whose action names include `collocatedics` in the system-connection list (the
+  adapter-wizard skill §Which connection a new endpoint names); never type its id from memory. Pages: the
+  endpoint name → Select Integration → Select Operation → summary.
+  - **Select Integration** starts with the CONTEXT combo — where the TARGET integration lives:
+    `PROJECT_CONTEXT` = inside a project, `GLOBAL_CONTEXT` = outside every project. Read the page first (a
+    caller that is itself in a project can arrive on its own project). To change the context, fire it as an
+    event even though the page does not mark it hasEvent — the designer does — and re-read.
+  - With the project context a project combo follows (hasEvent) = the TARGET's project, then the
+    integration combo (hasEvent): the ACTIVATED integrations of that context, each as code|version. Fire
+    them in that order, re-reading between. A target that is not among the options is not activated, or
+    lives in the other context / another project — say so; never send a value that is not an option.
+  - **Select Operation** is submitted with the operation combo left UNSELECTED — selecting any value binds
+    the WRONG operation.
 - **OCI Function**: region → compartment → application → function are CHAINED hasEvent parents — set
   each via `oic_wizard_event` and re-read before the next (options don't exist until the parent's event
   fires). Request = JSON sample; response = binary.

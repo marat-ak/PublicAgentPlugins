@@ -179,6 +179,11 @@ change — everything else, a stored secret included, stays as it is.
 - **A required value still missing** — typically a credential: it is saved without a test and is not
   usable until it is completed. The tool says so in its question; afterwards tell the user exactly what
   the result lists as still needed, and go on as §Credentials says.
+- **Complete but not configured, nothing to change** — e.g. a connection an integration copy left in a
+  project, which blocks the activation: the same tool gives it its test and save. Call it with a value the
+  connection already holds; its question tells the user that no value changes and that the connection is
+  tested and saved as it is. Report the test and the status the result shows — never send the user to the
+  OIC console for this. A connection that is already configured answers "unchanged": nothing to do.
 - **Secrets are never yours to carry** — a secret in the input is refused; the user enters it himself
   (§Credentials). A rejected result returns the definitions — show the errors, re-ask, retry.
 
@@ -187,16 +192,16 @@ change — everything else, a stored secret included, stays as it is.
 `oic_test_connection` asks OIC to test ONE existing connection, standalone or in a project, with the values
 and credentials it already holds. It changes no value and asks the user nothing.
 
-- **When:** a connection is complete but not configured and there is nothing to change — an update that
-  answers "unchanged" runs no test — or the user asks whether a connection works. Not for new values: an
+- **When:** the user asks whether a connection works. It saves nothing, so it is not the way to make a
+  complete connection configured — that is the update (§Updating a connection). Not for new values: an
   update tests those itself before it saves, and credentials are tested in the credentials page.
 - **It contacts the target system** with the stored credentials. Run it when the user asked for it or
   agreed to it, one connection per call — never across a list "to check".
 - **Report what the result says, nothing more:** passed or failed, OIC's own message when it failed, and
   the connection's status before and after the test. Oracle does not say whether a test stores its outcome:
   call a connection configured only when the status read after the test says so. A passed test that leaves
-  the status as it was is exactly that — say it; the connection then still needs its Test and Save in the
-  OIC console.
+  the status as it was is exactly that — say it; the connection then still needs its test and save, which
+  the update does (§Updating a connection).
 - **Failed:** give OIC's message and what the result lists as still empty; credentials go in as
   §Credentials says. Not configured, or locked: say which, and who holds the lock.
 

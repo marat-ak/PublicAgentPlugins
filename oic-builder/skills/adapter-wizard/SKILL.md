@@ -38,6 +38,22 @@ the result names its id, and the tenant adds nodes around it, which may differ b
 built with `oic_reload_blueprint`, never assume a shape. `oic_wizard_save` is the same call either way
 (edit = rebind in place; no delete, node id + request map survive, downstream never invalidates).
 
+## Which connection a new endpoint names
+- **An adapter the tenant connects through** (REST, FTP, DB, ERP…): one of the tenant's connections, found
+  with the connection search (the discovery skill); the user chooses when more than one fits.
+- **A designer ACTION that is an invoke underneath** — Integration (Local Integration, "collocated"), OCI
+  Function, B2B and healthcare translate, RPA, the AI actions, Decision, Process…: each uses ONE fixed
+  Oracle **system connection**. No connection search, no sweep and no adapter catalog returns these, so an
+  empty search NEVER means the action is unavailable and is never a reason to send the user to the designer.
+  `oic_find_connections` lists them when asked for the system connections: each row is a connection id and
+  Oracle's internal names of the action types that use it. Take the id from THAT list on this turn — never
+  from memory, a guess, an earlier conversation or an example — and name it as the wizard's connection;
+  from there it is the same loop as any endpoint.
+  - The list is the designer's own table (an administrator can override it in setup); it is not checked
+    against the tenant. An action the tenant does not have is answered by the wizard's own error: report
+    it, never try another id.
+  - A list that fails names a setup key: an administrator's fix — stop and tell the user what it said.
+
 ## The loop (identical for all)
 1. Read the returned page: every field with its type, value, options, hasEvent, required and readOnly.
 2. `oic_wizard_event` — REQUIRED for any change to a hasEvent field (parent): downstream fields/options
