@@ -179,11 +179,19 @@ change — everything else, a stored secret included, stays as it is.
 - **A required value still missing** — typically a credential: it is saved without a test and is not
   usable until it is completed. The tool says so in its question; afterwards tell the user exactly what
   the result lists as still needed, and go on as §Credentials says.
-- **Complete but not configured, nothing to change** — e.g. a connection an integration copy left in a
-  project, which blocks the activation: the same tool gives it its test and save. Call it with a value the
-  connection already holds; its question tells the user that no value changes and that the connection is
-  tested and saved as it is. Report the test and the status the result shows — never send the user to the
-  OIC console for this. A connection that is already configured answers "unchanged": nothing to do.
+- **Complete but not configured, nothing to change** — never tested, or its last test failed; e.g. a
+  connection an integration copy left in a project, which blocks the activation: the same tool tests it as
+  it is and saves it only when the test passes — that save is what makes it configured. Call it for that
+  connection with no value to change; its question tells the user that no value changes and that it is
+  saved only if the test passes. A failed test saves nothing: report OIC's message. Report the test and the
+  status the result shows — never send the user to the OIC console for this.
+- **Nothing to change never saves without a passed test.** A connection that is already configured is
+  only tested, never saved, and the user is not asked — it stays configured whatever the test says. When
+  a required value is missing the tool does nothing and returns what is missing: tell the user, and go on
+  as §Credentials says.
+- **Not the way to check a configured connection.** Whether a connection that is already configured works
+  is checked with `oic_test_connection` (§Testing a connection as it is saved): no lock, nothing written.
+  An update with no value takes the connection's lock for its test — it is not for that.
 - **Secrets are never yours to carry** — a secret in the input is refused; the user enters it himself
   (§Credentials). A rejected result returns the definitions — show the errors, re-ask, retry.
 
@@ -192,7 +200,8 @@ change — everything else, a stored secret included, stays as it is.
 `oic_test_connection` asks OIC to test ONE existing connection, standalone or in a project, with the values
 and credentials it already holds. It changes no value and asks the user nothing.
 
-- **When:** the user asks whether a connection works. It saves nothing, so it is not the way to make a
+- **When:** to check whether a connection that is already configured works — this tool, never an update
+  with no value. It takes no lock and saves nothing, so it is not the way to make a
   complete connection configured — that is the update (§Updating a connection). Not for new values: an
   update tests those itself before it saves, and credentials are tested in the credentials page.
 - **It contacts the target system** with the stored credentials. Run it when the user asked for it or

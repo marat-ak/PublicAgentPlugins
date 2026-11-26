@@ -55,10 +55,14 @@ built with `oic_reload_blueprint`, never assume a shape. `oic_wizard_save` is th
   - A list that fails names a setup key: an administrator's fix — stop and tell the user what it said.
 
 ## The loop (identical for all)
-1. Read the returned page: every field with its type, value, options, hasEvent, required and readOnly.
+1. Read the returned page: EVERY field the server put on it, in page order — the inputs (type, value,
+   options, hasEvent, required, readOnly) and everything around them: links and buttons, labels, layout
+   rows and separators. The labels say what the inputs next to them mean; the links and buttons are what
+   the page lets you run.
 2. `oic_wizard_event` — REQUIRED for any change to a hasEvent field (parent): downstream fields/options
    are computed server-side by this round-trip. Re-read the returned page BEFORE filling dependents;
-   combo options are valid only from the LATEST response.
+   combo options are valid only from the LATEST response. The same tool runs a link or a button of the
+   page (§Field semantics).
 3. `oic_wizard_file` — file/sample upload (file-browser fields: `SCHEMA_FILE_CHOOSER`, REST
    `inputContentRequest`): raw text in, the tool base64s + sends it via event, the SERVER parses and
    returns the detected root-element combo. NEVER send file content through next.
@@ -69,8 +73,8 @@ built with `oic_reload_blueprint`, never assume a shape. `oic_wizard_save` is th
    (incl. bindings like Filename/Append) — read it as the pre-generate confirmation that nothing was
    lost/missing.
 6. `oic_wizard_generate` → `oic_wizard_save`; then `oic_commit` + `oic_verify`.
-- `oic_wizard_page` — introspect without advancing; one field's RAW subtree for debugging unknown object
-  types.
+- `oic_wizard_page` — introspect without advancing; one field's RAW subtree when you need its nested
+  parts (a type the page model shows only by its plain attributes).
 
 ## Field semantics (from the parsed page model)
 - `checkboxObject`: `value` is the checkbox ID string — the STATE is `checked` (boolean). The driver
@@ -86,6 +90,20 @@ built with `oic_reload_blueprint`, never assume a shape. `oic_wizard_save` is th
   mistyped one is answered 400 GENERIC by the server). The wire form is the driver's (a list box travels as
   a list — never build one). A choice the server pre-selected and you leave alone stays the server's.
   `readOnly:true` fields still echo fine.
+- `linkObject` / `buttonObject`: a CONTROL, listed with its `text`. The page says nothing more about it —
+  no hasEvent, no event id: its own name is the whole handle. `oic_wizard_event` on that name runs it,
+  with the click word its tool description gives for a link and for a button. Read the answer before
+  anything else: the same page refreshed — go on from it; a child page (§Child pages) — the wizard tools
+  cannot submit one, so do not fill it: `oic_wizard_cancel`. The REST sample link opens such a child page;
+  a sample goes through `oic_wizard_file` instead.
+- **A refused next that asks for a step first** (the server says something on the page must be run or
+  validated before it continues): the control that does it is in the page's own list. Run it, read the
+  answer, then next. This is a wizard step like any other — never a reason to send the user to the
+  designer. (What this skill names a USER designer action below stays the user's.)
+- `labelObject`: text to read (its `label`) — what the inputs beside it mean. Nothing to set.
+- Layout (`multipleFieldRow`, `groupObject`, `separatorObject`, `spacerObject`, tabs, section headers):
+  structure only — the fields a row or group holds are listed right after it. Any other type arrives with
+  the plain attributes the server gave it.
 
 ## ⚖ SAMPLE FIDELITY LAW (hard rule)
 Uploading a sample into a wizard REPLACES that endpoint's ENTIRE schema — a sample rebuilt from memory
@@ -186,7 +204,7 @@ Mechanics below are reference only — for reading what a DB invoke already cont
 recipe (this is a user-designer action):
 - Welcome: `DatabaseOpApi='Perform an Operation On a Table'`, `UIDatabaseWelcomeOperationOnTableOptionsFields`
   = Insert/Update/Merge/Select (echo existing).
-- **OperationOnTablePage** holds link buttons (dropped by the parsed model — read the RAW page):
+- **OperationOnTablePage** holds link buttons (in the page's field list, like every field):
   `…ImportTablesBtn` (Add), `…RemoveTablesBtn`, `…RelationsBtn` (Edit relations), `…AttributesBtn` (Edit
   columns). Re-importing a table REFRESHES its column metadata from the live DB.
 - **Import child** (`…:CHL:WorkBenchImportTablesPage`): `UIDatabaseWorkBenchSchemaSelect` (hasEvent —
