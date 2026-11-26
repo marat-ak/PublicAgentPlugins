@@ -62,8 +62,8 @@ built with `oic_reload_blueprint`, never assume a shape. `oic_wizard_save` is th
 3. `oic_wizard_file` — file/sample upload (file-browser fields: `SCHEMA_FILE_CHOOSER`, REST
    `inputContentRequest`): raw text in, the tool base64s + sends it via event, the SERVER parses and
    returns the detected root-element combo. NEVER send file content through next.
-4. `oic_wizard_next` — commit the page and advance. Without deltas it is a **pure echo** (every stored
-   value sent back unmodified); pass only the non-event fields you change. It also goes back a page.
+4. `oic_wizard_next` — commit the page and advance. Without deltas the page goes **unchanged**, as the
+   designer sends a page nobody touched; pass only the non-event fields you change. It also goes back a page.
 5. Finish at the last enabled page: no response says when, so go to step 6 once no enabled page follows
    the current page. In every flow seen so far it is a summary showing the SERVER's view of the full config
    (incl. bindings like Filename/Append) — read it as the pre-generate confirmation that nothing was
@@ -81,9 +81,11 @@ built with `oic_reload_blueprint`, never assume a shape. `oic_wizard_save` is th
   skill's PREFIX SOURCE LAW). The driver sends the designer's shape: the label and the namespace pairs of
   every prefix the expression uses, resolved at that spot; an unknown prefix is refused before the call.
   Unchanged fields echo with what the server stored.
-- `comboBoxObject`: `options` are the ONLY values it takes, sent as the option itself — an option `"true"`
-  is the string `"true"`, never a boolean (the driver refuses a value that is not an option; a mistyped
-  one is answered 400 GENERIC by the server). `readOnly:true` fields still echo fine.
+- `comboBoxObject`: `options` are the ONLY values it takes; pass the option itself, plain — an option
+  `"true"` is the string `"true"`, never a boolean (the driver refuses a value that is not an option; a
+  mistyped one is answered 400 GENERIC by the server). The wire form is the driver's (a list box travels as
+  a list — never build one). A choice the server pre-selected and you leave alone stays the server's.
+  `readOnly:true` fields still echo fine.
 
 ## ⚖ SAMPLE FIDELITY LAW (hard rule)
 Uploading a sample into a wizard REPLACES that endpoint's ENTIRE schema — a sample rebuilt from memory
@@ -230,16 +232,16 @@ Consequences:
 ## Cautions
 - stagefile sessions auto-use the stagefile filter; a trigger gets its inbound filter by default — override
   the filter only when you must.
-- CAF conventions already inside the driver: firing field `processed:false`, pluginId echo, checkbox
-  booleans, and **ooe ACCUMULATION** (orderOfEvents re-lists every prior page submission `processed:true`
-  + current deltas `false`, reset on page change — a lone-delta ooe → 400 "field required": the server
-  registers a field ONLY through ooe; field values alone are ignored).
+- CAF conventions already inside the driver — it sends what the designer's own dialog sends: firing field
+  `processed:false`, pluginId echo, checkbox booleans, list forms, the project of an integration that lives
+  in one, and the page's whole event history (orderOfEvents: every change of that page in order, the
+  answered ones `processed:true` — a lone-delta ooe → 400 "field required": the server registers a field
+  ONLY through ooe; field values alone are ignored).
 - On the FIRST welcome event of a create, the endpoint name (`referenceName`) rides along with that
   event's delta (the event field itself read from the live page, never pinned) — the designer's own
   pattern (referenceName rides the first event).
 - Adapter-specific page knowledge lives in the adapter-invokes skill — consult it before driving a
-  known-tricky adapter (collocated: leave the operation combo UNSELECTED — selecting binds the wrong op;
-  OCI-fn: region→compartment→app→function = chained hasEvent parents).
+  known-tricky adapter (OCI-fn: region→compartment→app→function = chained hasEvent parents).
 - Always run the result checks per build (the stage-files skill §MANDATORY result check: node type +
   `operationName`, request map only for a Write, expressions in the archive; fresh `oic_verify`) — a
   completed wizard is not proof.

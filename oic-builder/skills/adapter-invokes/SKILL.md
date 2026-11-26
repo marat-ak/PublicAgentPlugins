@@ -40,14 +40,15 @@ PATCH 500 (Cache null / ICS-18122) or subsequent creates 400. If you truly must 
   endpoint name → Select Integration → Select Operation → summary.
   - **Select Integration** starts with the CONTEXT combo — where the TARGET integration lives:
     `PROJECT_CONTEXT` = inside a project, `GLOBAL_CONTEXT` = outside every project. Read the page first (a
-    caller that is itself in a project can arrive on its own project). To change the context, fire it as an
-    event even though the page does not mark it hasEvent — the designer does — and re-read.
+    caller that is itself in a project arrives on its own project; a standalone caller gets no context combo —
+    only the integrations outside every project). The context is an event field like the ones below.
   - With the project context a project combo follows (hasEvent) = the TARGET's project, then the
     integration combo (hasEvent): the ACTIVATED integrations of that context, each as code|version. Fire
     them in that order, re-reading between. A target that is not among the options is not activated, or
     lives in the other context / another project — say so; never send a value that is not an option.
-  - **Select Operation** is submitted with the operation combo left UNSELECTED — selecting any value binds
-    the WRONG operation.
+  - **Select Operation**: the operation the page arrives with stands when you leave it alone — every
+    designer recording does. Another one is chosen as an event, like any option; no recording shows that, so
+    read the summary page for the operation it names before generating.
 - **OCI Function**: region → compartment → application → function are CHAINED hasEvent parents — set
   each via `oic_wizard_event` and re-read before the next (options don't exist until the parent's event
   fires). Request = JSON sample; response = binary.
