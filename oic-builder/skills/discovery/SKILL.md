@@ -245,10 +245,16 @@ itself, with the user's own sign-in; it never reaches you, a tool or the convers
 - **The outcome:** on the user's next message, read the page's `get_result` (app `connection-credentials`,
   through `ui_app_tool`). It answers only whether it was saved, how the test went and what happened to
   the reactivation — never a value, never OIC's message. Report exactly that; no result, or not saved →
-  say so and ask the user what they saw on the page. A reactivation is requested, not done, until the
-  integrations' own status says so.
+  say so and ask the user what they saw on the page.
+- **The reactivation is asked on the page, after the save** — only when active integrations use the
+  connection and the save followed a passed test. The answer is the user's: never answer for them, and
+  never ask the same thing in the chat. Read it from the result: pending = the page is still waiting for
+  their answer — tell them so and read the result again on their next message; requested = OIC accepted
+  it, not done until the integrations' own status says so; failed = it was not accepted, say so;
+  not requested = the user declined it or it was not offered; none = no active integration uses the
+  connection.
 - **The page tests before it saves** and asks the user itself before it saves a failed test over a
-  connection that worked, and whether to reactivate the active integrations — those answers are theirs.
+  connection that worked — that answer is theirs.
 - **On a refusal say why and what comes first**, from its reason: the connection does not exist, another
   user holds its lock, it has no security policy yet (that is an update, on the user's choice), or its
   policy has nothing the user could type.
