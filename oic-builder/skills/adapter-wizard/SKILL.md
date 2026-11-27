@@ -93,13 +93,11 @@ built with `oic_reload_blueprint`, never assume a shape. `oic_wizard_save` is th
 - `linkObject` / `buttonObject`: a CONTROL, listed with its `text`. The page says nothing more about it —
   no hasEvent, no event id: its own name is the whole handle. `oic_wizard_event` on that name runs it,
   with the click word its tool description gives for a link and for a button. Read the answer before
-  anything else: the same page refreshed — go on from it; a child page (§Child pages) — the wizard tools
-  cannot submit one, so do not fill it: `oic_wizard_cancel`. The REST sample link opens such a child page;
-  a sample goes through `oic_wizard_file` instead.
+  anything else: the same page refreshed — go on from it; a child page — §Child pages.
 - **A refused next that asks for a step first** (the server says something on the page must be run or
   validated before it continues): the control that does it is in the page's own list. Run it, read the
-  answer, then next. This is a wizard step like any other — never a reason to send the user to the
-  designer. (What this skill names a USER designer action below stays the user's.)
+  answer, then next. This is a wizard step like any other; the refusal is never a reason to send the user
+  to the designer. (The USER designer action and its exact scope: the database section below.)
 - `labelObject`: text to read (its `label`) — what the inputs beside it mean. Nothing to set.
 - Layout (`multipleFieldRow`, `groupObject`, `separatorObject`, `spacerObject`, tabs, section headers):
   structure only — the fields a row or group holds are listed right after it. Any other type arrives with
@@ -168,23 +166,14 @@ the current sample per the SAMPLE FIDELITY LAW, splice, generate/save, then its 
 defaults, then configure the request map the server created (an invoke, a stage-file Write — the maps
 skill) before verify. Commit per node.
 
-## Child pages + `submitchild` (dialogs-within-a-page)
-Some wizard pages open a modal SUB-FORM (a "child page") when you click a `linkObject`/`buttonObject`.
-The child's fields arrive nested; you drive them, then COMMIT the child with `ui/submitchild` (the dialog's
-OK). Mechanics (raw ui/* shape — the driver may not yet wrap every adapter, so these may be `oic_raw_api`):
-- Opening a child = `ui/event` on the link/button field; the response's `currentPageId` gains a
-  `:CHL:<ChildPageName>` suffix and its `editFields` are the child's fields.
-- Child fields are carried inside `pages[0].children[0].invocations["0"]` (pageId = the child id,
-  `fieldValue` + `orderOfEvents` for the child's own fields). Children can NEST (`:CHL:A:CHL:B`) — each
-  level is another `children[]` wrapper.
-- **`ui/submitchild` roots `pages[0].pageId` at the child's PARENT page, not the top page** (a 2-level
-  relations dialog submits with `pages[0].pageId = …:CHL:WorkBenchRelationsPage`, not
-  `OperationOnTablePage`). A top-rooted submit throws GENERIC-cancel.
-- Cascading combos inside a child are `hasEvent` — fire each via `ui/event` (child-nested) and re-read
-  before filling dependents, exactly like top-level.
-- A 400 mid-dialog often WEDGES the session ("cancel this configuration session and restart") — you must
-  `ui/cancel` and re-`ui/load` (re-fetch the node's CURRENT `cloudAdapterFilterId` first; a save rebind
-  mints a new one, the old is stale → blank resume).
+## Child pages (dialogs-within-a-page)
+Some links and buttons open a modal SUB-FORM, a "child page": the answer to the click names a
+`currentPageId` ending `:CHL:<ChildPageName>` (children can nest, `:CHL:A:CHL:B`) and lists the child's
+fields. The designer closes a child with the dialog's own OK (`ui/submitchild`). The wizard tools have no
+such call, and the session they hold cannot be continued by any other tool — so **a child page cannot be
+completed here**. Do not fill it: `oic_wizard_cancel` (what a cancel leaves: §Session model), and tell the
+user which setting needs a sub-form the tools cannot complete. Where the same thing can be given without the child,
+give it that way: a REST sample goes through `oic_wizard_file`, never through the page's sample link.
 
 ## Microsoft SQLServer DB adapter (Operation-On-Table)
 Plugin `sqlserverdatabase`. Editing the schema (add table columns) is NOT a sample upload — it is a live
@@ -199,6 +188,11 @@ the connection in the designer** (Connections → open the DB connection → ref
 metadata; then re-open the invoke and re-import the table). Do NOT attempt to force the column refresh or
 recreate relations blindly through `ui/*` — treat the DB adapter object-model edit as a USER designer
 action, then resume with the maps once the user confirms the columns are present.
+
+**Scope of the USER designer action — exactly this, on any database adapter:** changing the endpoint's
+OBJECT MODEL — importing or re-importing a table, choosing its columns, creating or editing relations.
+Every other page a database adapter wizard shows is an ordinary wizard page: the loop and the control rule
+(§Field semantics) apply to it, a step the server wants run before next included.
 
 Mechanics below are reference only — for reading what a DB invoke already contains, NOT a drive-it-yourself
 recipe (this is a user-designer action):
