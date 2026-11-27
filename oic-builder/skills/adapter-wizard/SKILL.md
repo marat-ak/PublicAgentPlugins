@@ -168,12 +168,20 @@ skill) before verify. Commit per node.
 
 ## Child pages (dialogs-within-a-page)
 Some links and buttons open a modal SUB-FORM, a "child page": the answer to the click names a
-`currentPageId` ending `:CHL:<ChildPageName>` (children can nest, `:CHL:A:CHL:B`) and lists the child's
-fields. The designer closes a child with the dialog's own OK (`ui/submitchild`). The wizard tools have no
-such call, and the session they hold cannot be continued by any other tool — so **a child page cannot be
-completed here**. Do not fill it: `oic_wizard_cancel` (what a cancel leaves: §Session model), and tell the
-user which setting needs a sub-form the tools cannot complete. Where the same thing can be given without the child,
-give it that way: a REST sample goes through `oic_wizard_file`, never through the page's sample link.
+`currentPageId` ending `:CHL:<ChildPageName>` and lists the child's fields. Drive it like any page — read
+every field, change its event fields and run its controls the same way — with two differences:
+- **It is closed with the dialog's own two buttons**, `oic_wizard_child`: OK commits what the child holds,
+  Cancel closes it and takes back the click that opened it. The wizard's own next and generate are refused
+  until it is closed.
+- **After OK, re-read the page you are back on**: the server rebuilt it from what the child committed (new
+  fields, new options).
+- A child can open a child of its own (`:CHL:A:CHL:B`): OK closes the innermost one.
+- What is proven on a tenant: a child opened by a link and committed with OK. Cancel, a child opened by a
+  button and a child of a child follow the designer's own code only — when you use one, say so and report
+  the server's answer exactly as it came.
+- One way per job stays: a REST sample goes through `oic_wizard_file`, never through the page's sample link.
+- A child page you CAN drive is not a wider permission: a database endpoint's object model (table import,
+  columns, relations) is made of child pages and stays the USER's — the database section below.
 
 ## Microsoft SQLServer DB adapter (Operation-On-Table)
 Plugin `sqlserverdatabase`. Editing the schema (add table columns) is NOT a sample upload — it is a live
