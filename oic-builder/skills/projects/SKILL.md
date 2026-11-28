@@ -119,9 +119,11 @@ the Event integration is created (§Create) → opened with the lock → its tri
   trigger's wizard is the server's own — opened on the trigger node with the wizard tools (adapter-wizard
   skill), its page lists every field a subscription can carry; an existing publisher node opens the same
   page in the publishing role, and saving it binds the node to its event; the event type's record lists the fields an event type has. Tell the user the variant was never
-  captured, get their go, then continue from those returns with the `oic_wizard_*` tools or `oic_raw_api`,
-  changing only what the server showed. Never invent an endpoint or a field: when nothing returned points
-  to it, say it cannot be done here.
+  captured, get their go, then continue from those returns, changing only what the server showed: a
+  variant of the trigger's or the publisher's WIZARD with the `oic_wizard_*` tools only (`oic_raw_api`
+  refuses the wizard's dialog; a wizard step those tools cannot do is not doable here), a variant of the
+  EVENT TYPE record through `oic_raw_api`. Never invent an endpoint or a field: when nothing returned
+  points to it, say it cannot be done here.
 
 ## Connections in a project
 To give a project its own copy of a connection, create it in the project starting from the standalone one

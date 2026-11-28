@@ -250,6 +250,8 @@ Consequences:
   oic_delete_node if unwanted. Never just walk away from a session.
 
 ## Cautions
+- The wizard's dialog is driven by the `oic_wizard_*` tools ONLY — `oic_raw_api` refuses it. A wizard step
+  these tools cannot do is not doable here: say so, never look for another way to send it.
 - stagefile sessions auto-use the stagefile filter; a trigger gets its inbound filter by default — override
   the filter only when you must.
 - CAF conventions already inside the driver — it sends what the designer's own dialog sends: firing field

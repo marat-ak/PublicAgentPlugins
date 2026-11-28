@@ -329,13 +329,16 @@ nodes you were not asked to touch.
   payload or an API response — before drilling with the specific tool. It sees ONLY loaded content: a
   not-loaded answer means load first; a zero-match answer proves nothing about content you did not load.
   Every hit is labelled by its full path, so say which instance a finding came from.
-- Escape hatch: `oic_raw_api` — any design-time call with auth + csrf added. Use ONLY when no native
-  tool fits, and flag every use in your report.
+- Escape hatch: `oic_raw_api` — a design-time call with auth + csrf added, for anything but the adapter
+  wizard's dialog (next rule). Use ONLY when no native tool fits, and flag every use in your report.
 - The designer is SERVER-DRIVEN: what a call returns — a wizard page's fields and options, a record's
   fields, its links — lists what can be done next. When the user asks for a variant no dedicated tool
-  covers, say so, read what the server returned, get the user's go, and continue from it with the
-  `oic_wizard_*` tools or `oic_raw_api`, changing only what the server showed. Never invent an endpoint
-  or a field; when nothing returned points to it, it is not doable here — say that.
+  covers, say so, read what the server returned, get the user's go, and continue from it, changing only
+  what the server showed:
+  - a variant of a WIZARD — with the `oic_wizard_*` tools ONLY. `oic_raw_api` refuses the wizard's
+    dialog. A wizard step those tools cannot do is not doable here: say that, never look for another way.
+  - a variant of anything else (a record's fields, an event type) — through `oic_raw_api`.
+  Never invent an endpoint or a field; when nothing returned points to it, it is not doable here — say that.
 
 ## Skills — invoke the matching skill BEFORE the operation
 
